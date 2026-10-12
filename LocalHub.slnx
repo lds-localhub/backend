@@ -1,0 +1,8 @@
+<Solution>
+  <Project Path="src/LocalHub.Api/LocalHub.Api.csproj" />
+  <Project Path="src/LocalHub.Application/LocalHub.Application.csproj" />
+  <Project Path="src/LocalHub.Domain/LocalHub.Domain.csproj" />
+  <Project Path="src/LocalHub.Infrastructure/LocalHub.Infrastructure.csproj" />
+  <Project Path="tests/LocalHub.IntegrationTests/LocalHub.IntegrationTests.csproj" />
+  <Project Path="tests/LocalHub.UnitTests/LocalHub.UnitTests.csproj" />
+</Solution>
