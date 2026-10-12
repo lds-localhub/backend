@@ -1,112 +1,153 @@
 # LocalHub — Backend
 
-Backend of **LocalHub**, a marketplace of at-home local services (group G14, LDS 2026/2027).
-It is a single ASP.NET Core application that exposes a REST API shared by the web and
-mobile frontends.
+Backend do **LocalHub**, um marketplace de serviços locais ao domicílio (grupo G14, LDS 2026/2027).
+É uma única aplicação ASP.NET Core que expõe uma API REST partilhada pelos frontends web e mobile.
 
 | | |
 |---|---|
-| Language / framework | C# 14 / ASP.NET Core 10 |
-| Database | PostgreSQL 18, accessed with EF Core (Npgsql) |
-| Tests | xUnit and `Microsoft.AspNetCore.Mvc.Testing` |
-| Main branch | `master` (protected: changes only enter through a Pull Request) |
+| Linguagem / framework | C# 14 / ASP.NET Core 10 |
+| Base de dados | PostgreSQL 18, acedida com EF Core (Npgsql) |
+| Testes | xUnit e `Microsoft.AspNetCore.Mvc.Testing` |
+| Ramo principal | `master` (protegido: as alterações só entram através de um Pull Request) |
 
-## Prerequisites
+## Pré-requisitos
 
-| Tool | Version | Check |
+| Ferramenta | Versão | Verificação |
 |---|---|---|
-| .NET SDK | 10.0.401 or a later 10.0.x (pinned in `global.json`) | `dotnet --list-sdks` |
+| .NET SDK | 10.0.401 ou uma versão 10.0.x posterior (fixada em `global.json`) | `dotnet --list-sdks` |
 | PostgreSQL | 18 | `psql --version` |
-| Git | any recent version | `git --version` |
+| Git | qualquer versão recente | `git --version` |
 
-Recommended IDE: JetBrains Rider. Database client: pgAdmin 4.
+IDE recomendado: JetBrains Rider. Cliente de base de dados: pgAdmin 4.
 
-## Solution structure
+## Estrutura da solução
 
 ```
 LocalHub.slnx
 ├── src/
-│   ├── LocalHub.Api             REST endpoints, authentication, composition root (Program.cs)
-│   ├── LocalHub.Application     use cases (services)
-│   ├── LocalHub.Infrastructure  EF Core / PostgreSQL and external systems
-│   └── LocalHub.Domain          entities and business rules
+│   ├── LocalHub.Api             endpoints REST, autenticação, raiz de composição (Program.cs)
+│   ├── LocalHub.Application     casos de uso (serviços)
+│   ├── LocalHub.Infrastructure  EF Core / PostgreSQL e sistemas externos
+│   └── LocalHub.Domain          entidades e regras de negócio
 └── tests/
     ├── LocalHub.UnitTests
     └── LocalHub.IntegrationTests
 ```
 
-Dependencies between projects (they must never point the other way, and `Domain`
-references nothing):
+Dependências entre projetos (nunca podem apontar no sentido contrário, e o `Domain`
+não referencia nada):
 
 ```
 Api  →  Application  →  Infrastructure  →  Domain
 ```
 
-Each layer registers its own services in a `DependencyInjection.cs` file
-(`AddApplication` calls `AddInfrastructure`); `Program.cs` only calls `AddApplication`.
+Cada camada regista os seus serviços num ficheiro `DependencyInjection.cs`
+(`AddApplication` chama `AddInfrastructure`); o `Program.cs` só chama `AddApplication`.
 
-## Database setup
+## Configuração da base de dados
 
-Run once, as the PostgreSQL administrator (for example in pgAdmin's Query Tool, connected as `postgres`):
+Executar uma vez, como administrador do PostgreSQL (por exemplo na Query Tool do pgAdmin, ligado como `postgres`):
 
 ```sql
-CREATE ROLE localhub WITH LOGIN PASSWORD 'choose-a-password';
+CREATE ROLE localhub WITH LOGIN PASSWORD 'escolher-uma-palavra-passe';
 CREATE DATABASE localhub_dev OWNER localhub;
 ```
 
-Use only **fictitious data** in every environment.
+Usar apenas **dados fictícios** em todos os ambientes.
 
-## Configuration
+## Configuração
 
-Secrets are never committed. The real configuration file is ignored by Git.
+Os segredos nunca são submetidos no repositório. O ficheiro de configuração real é ignorado pelo Git.
 
-1. Copy `src/LocalHub.Api/appsettings.Development.example.json` to
+1. Copiar `src/LocalHub.Api/appsettings.Development.example.json` para
    `src/LocalHub.Api/appsettings.Development.json`.
-2. In the copy, replace `CHANGE_ME` with the password you chose above.
+2. Na cópia, substituir `CHANGE_ME` pela palavra-passe escolhida acima.
 
-Alternatively, set the connection string through an environment variable (PowerShell):
-
-```powershell
-$env:ConnectionStrings__LocalHub = "Host=localhost;Port=5432;Database=localhub_dev;Username=localhub;Password=<password>"
-```
-
-## Build, test and format
-
-Run from the repository root:
+Em alternativa, definir a cadeia de ligação através de uma variável de ambiente (PowerShell):
 
 ```powershell
-dotnet build                          # must finish with 0 warnings and 0 errors
-dotnet test                           # runs the unit and integration tests
-dotnet format --verify-no-changes     # must report no changes
+$env:ConnectionStrings__LocalHub = "Host=localhost;Port=5432;Database=localhub_dev;Username=localhub;Password=<palavra-passe>"
 ```
 
-The integration tests do not need a database.
+## Compilar, testar e formatar
 
-## Run
+Executar a partir da raiz do repositório:
+
+```powershell
+dotnet build                          # tem de terminar com 0 avisos e 0 erros
+dotnet test                           # executa os testes unitários e de integração
+dotnet format --verify-no-changes     # não pode reportar alterações
+```
+
+Os testes de integração atuais não precisam de base de dados.
+
+## Executar
 
 ```powershell
 dotnet run --project src/LocalHub.Api --launch-profile http
 ```
 
-The API listens on `http://localhost:5041` (HTTP only, by design).
+A API escuta em `http://localhost:5041` (apenas HTTP, por opção).
 
-To check that the application can reach the database, open
-`http://localhost:5041/api/health`: it answers `Healthy` when the connection works and
-`Unhealthy` (HTTP 503) when it does not.
+Para verificar se a aplicação consegue aceder à base de dados, abrir
+`http://localhost:5041/api/health`: responde `Healthy` quando a ligação funciona e
+`Unhealthy` (HTTP 503) quando não funciona.
 
-In the Development environment the OpenAPI document is served at
+No ambiente Development, o documento OpenAPI está disponível em
 `http://localhost:5041/openapi/v1.json`.
 
-## Working on the project
+## Integração contínua
 
-Rules from the group's internal regulation (RI v02, section 9):
+Cada push e cada Pull Request para `master` executa dois workflows do GitHub Actions
+(`.github/workflows/`). A `master` só aceita alterações cujos checks passem.
 
-- Never push to `master`. Create a branch per Issue: `<type>/i<number>-<short-description>`,
-  for example `feature/i036-estrutura-base`.
-- Commit messages: `<type>: <short-description> [I<number>]`, with type one of
-  `feat`, `fix`, `test`, `docs`, `refactor`, `chore`, `wip`.
-- Open a Pull Request with the Issue link, a summary, how to test, the acceptance criteria
-  and the tests run. The Executor cannot approve or merge their own Pull Request; the merge
-  is a squash merge done by the Reviewer after the Auditor's authorization.
-- Before opening a Pull Request, `dotnet build`, `dotnet test` and
-  `dotnet format --verify-no-changes` must all pass.
+### `ci.yml` — quality gates (RI v02, secção 10.6)
+
+| Gate | Verificação | Comando / ferramenta | Evidência |
+|---|---|---|---|
+| QG-05 | Formatação e analisadores | `dotnet format --verify-no-changes` | log do job |
+| QG-01 | Construção | `dotnet build -c Release` | log do job |
+| QG-02 | Testes unitários | `dotnet test tests/LocalHub.UnitTests` | relatório TRX |
+| QG-03 | Testes de integração (serviço PostgreSQL 18) | `dotnet test tests/LocalHub.IntegrationTests` | relatório TRX |
+| QG-04 | Cobertura de linhas | Coverlet + ReportGenerator + `.github/scripts/check-coverage.py` | relatório de cobertura |
+
+O incumprimento de qualquer gate faz a pipeline falhar e bloqueia a integração.
+
+**Cobertura (QG-04).** Os limiares são verificados separadamente para dois conjuntos de assemblies:
+
+- módulos críticos (`LocalHub.Domain`, `LocalHub.Application`): no mínimo 50 %;
+- restantes módulos (`LocalHub.Api`, `LocalHub.Infrastructure`): no mínimo 20 %.
+
+O código gerado (`obj/`, `*.generated.cs`) e as migrações ficam excluídos. Para alterar quais são
+os assemblies críticos, editar o argumento `--critical` do passo *QG-04* em `ci.yml`.
+
+**Artefactos.** Cada execução guarda o artefacto `evidencias-backend` (relatórios TRX e de cobertura).
+Descarregá-lo na página da execução, em *Artifacts*.
+
+### `codeql.yml` — análise de segurança
+
+O CodeQL (C#, conjunto de consultas `security-extended`, configurado em
+`.github/codeql/codeql-config.yml`) corre em cada push e Pull Request para `master` e todas as
+segundas-feiras. Os alertas de severidade alta ou crítica bloqueiam a integração. Os resultados
+estão em *Security → Code scanning*.
+
+### Configuração necessária no repositório
+
+- Secret de Actions `TEST_DB_PASSWORD`: uma palavra-passe aleatória (só letras e números).
+  Serve para criar o serviço PostgreSQL descartável de cada execução; não é uma credencial real.
+- Ruleset da `master` que exige um Pull Request, os checks `backend` e `Analyze (csharp)` e os
+  resultados do code scanning do CodeQL.
+
+## Trabalhar no projeto
+
+Regras do regulamento interno do grupo (RI v02, secção 9):
+
+- Nunca fazer push para `master`. Criar um ramo por Issue: `<tipo>/i<número>-<descrição-curta>`,
+  por exemplo `feature/i036-estrutura-base`.
+- Mensagens de commit: `<tipo>: <descrição-curta> [I<número>]`, com tipo `feat`, `fix`, `test`,
+  `docs`, `refactor`, `chore` ou `wip`.
+- Abrir um Pull Request com a ligação para a Issue, um resumo, como testar, os critérios de
+  aceitação e os testes executados. O Executor não pode aprovar nem integrar o seu próprio Pull
+  Request; o merge é um squash merge feito pelo Revisor depois da autorização do Auditor.
+- Antes de abrir um Pull Request, `dotnet build`, `dotnet test` e
+  `dotnet format --verify-no-changes` têm de passar.
