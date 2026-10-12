@@ -47,12 +47,21 @@ Each layer registers its own services in a `DependencyInjection.cs` file
 
 ## Database setup
 
-Run once, as the PostgreSQL administrator (for example in pgAdmin's Query Tool, connected as `postgres`):
+1. Run once, as the PostgreSQL administrator (for example in pgAdmin's Query Tool, connected as
+   `postgres`), to create the application user with a password of your choice:
 
-```sql
-CREATE ROLE localhub WITH LOGIN PASSWORD 'choose-a-password';
-CREATE DATABASE localhub_dev OWNER localhub;
-```
+   ```sql
+   CREATE ROLE localhub WITH LOGIN PASSWORD 'choose-a-password';
+   ```
+
+2. Create the `localhub_dev` database, owned by `localhub`, with the schema and the fictitious
+   reference data (scripts and reference accounts in [`database/README.md`](database/README.md)).
+   From the repository root (`psql` is in `C:\Program Files\PostgreSQL\18\bin` on Windows):
+
+   ```powershell
+   psql -U postgres -d postgres -f database/criar-base-dados.sql   # first time
+   psql -U postgres -d postgres -f database/repor-base-dados.sql   # reset to the reference data
+   ```
 
 Use only **fictitious data** in every environment.
 
