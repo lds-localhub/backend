@@ -387,3 +387,10 @@ dotnet_naming_style.s_camelcase.required_suffix =
 dotnet_naming_style.s_camelcase.word_separator = 
 dotnet_naming_style.s_camelcase.capitalization = camel_case
 
+#### Documented analyzer exclusions (RI v02, section 10.4) ####
+# CA1707 (remove underscores from member names), only for files under tests/.
+# Justification: the group names test methods Method_Scenario/Expected, the common
+# .NET convention for tests. Production code under src/ keeps the rule enabled.
+[tests/**.cs]
+dotnet_diagnostic.CA1707.severity = none
+
