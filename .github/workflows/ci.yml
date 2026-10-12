@@ -76,7 +76,7 @@ jobs:
             -targetdir:coverage \
             -reporttypes:"Cobertura;HtmlInline;TextSummary" \
             -assemblyfilters:"+LocalHub.*" \
-            -classfilters:"-*.Migrations.*"
+            -classfilters:"-*.Migrations.*" \n            -filefilters:"-*/obj/*;-*.generated.cs"
           cat coverage/Summary.txt
 
       - name: QG-04 Cobertura de linhas
