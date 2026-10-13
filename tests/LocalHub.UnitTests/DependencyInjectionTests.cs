@@ -5,6 +5,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
+using DependencyInjection = LocalHub.Infrastructure.DependencyInjection;
+
 namespace LocalHub.UnitTests;
 
 public class DependencyInjectionTests
@@ -17,7 +19,7 @@ public class DependencyInjectionTests
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
-                [$"ConnectionStrings:{Infrastructure.DependencyInjection.ConnectionStringName}"] = ConnectionString
+                [$"ConnectionStrings:{DependencyInjection.ConnectionStringName}"] = ConnectionString
             })
             .Build();
         var services = new ServiceCollection();
@@ -31,7 +33,4 @@ public class DependencyInjectionTests
         Assert.Equal("Npgsql.EntityFrameworkCore.PostgreSQL", db.Database.ProviderName);
         Assert.Equal(ConnectionString, db.Database.GetConnectionString());
     }
-
-    [Fact]
-    public void Fail() => Assert.True(false);
 }

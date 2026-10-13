@@ -15,4 +15,8 @@ public class ApiSmokeTests(WebApplicationFactory<Program> factory) : IClassFixtu
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
+    
+    
+    [Fact]
+    public void Fail() => Assert.True(false);
 }
