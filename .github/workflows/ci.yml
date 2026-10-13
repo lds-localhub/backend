@@ -1,0 +1,97 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: backend
+    runs-on: ubuntu-latest
+
+    # PostgreSQL 18 for the integration tests (I037, criterion 3).
+    # The password comes from GitHub Secrets (criterion 8).
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: localhub
+          POSTGRES_PASSWORD: ${{ secrets.TEST_DB_PASSWORD }}
+          POSTGRES_DB: localhub_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U localhub -d localhub_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: QG-05 Formatação e analisadores
+        run: dotnet format --verify-no-changes --no-restore
+
+      - name: QG-01 Construção
+        run: dotnet build --configuration Release --no-restore
+
+      - name: QG-02 Testes unitários
+        run: >-
+          dotnet test tests/LocalHub.UnitTests
+          --configuration Release --no-build
+          --logger "trx;LogFileName=unit.trx"
+          --collect:"XPlat Code Coverage"
+          --results-directory TestResults/unit
+
+      - name: QG-03 Testes de integração
+        env:
+          ConnectionStrings__LocalHub: Host=localhost;Port=5432;Database=localhub_test;Username=localhub;Password=${{ secrets.TEST_DB_PASSWORD }}
+        run: >-
+          dotnet test tests/LocalHub.IntegrationTests
+          --configuration Release --no-build
+          --logger "trx;LogFileName=integration.trx"
+          --collect:"XPlat Code Coverage"
+          --results-directory TestResults/integration
+
+      - name: Juntar os relatórios de cobertura
+        run: |
+          dotnet tool install --global dotnet-reportgenerator-globaltool
+          reportgenerator \
+            -reports:"TestResults/**/coverage.cobertura.xml" \
+            -targetdir:coverage \
+            -reporttypes:"Cobertura;HtmlInline;TextSummary" \
+            -assemblyfilters:"+LocalHub.*" \
+            -classfilters:"-*.Migrations.*" \
+            -filefilters:"-*/obj/*;-*.generated.cs"
+          cat coverage/Summary.txt
+
+      - name: QG-04 Cobertura de linhas
+        run: >-
+          python3 .github/scripts/check-coverage.py coverage/Cobertura.xml
+          --critical-file .github/critical-modules.txt
+          --critical-min 50 --other-min 20
+
+      - name: Guardar relatórios TRX e de cobertura
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: evidencias-backend
+          path: |
+            TestResults/**/*.trx
+            coverage/
+          if-no-files-found: warn

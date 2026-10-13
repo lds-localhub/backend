@@ -1,0 +1,12 @@
+# Critical modules for QG-04 (RI v02, section 10.5; Requirements Specification v02, section 11.4).
+# One prefix per line: a namespace (covers every class inside it) or the full name of a class.
+# Classes that match no prefix count as the remaining modules.
+
+# Authentication, authorization, sessions and account activation/deactivation (F001, F002)
+LocalHub.Domain.Accounts
+LocalHub.Application.Accounts
+LocalHub.Api.Middleware.SessionValidationMiddleware
+
+# Services, direct requests and proposals: creation rules and state transitions (F007 to F011)
+LocalHub.Domain.Services
+LocalHub.Application.Services
