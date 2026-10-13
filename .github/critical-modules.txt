@@ -1,0 +1,12 @@
+# Modulos criticos do QG-04 (RI v02, secao 10.5; Especificacao de Requisitos v02, secao 11.4).
+# Um prefixo por linha: namespace (abrange as classes dentro dele) ou nome completo de uma classe.
+# As classes que nao correspondem a nenhum prefixo contam como modulos restantes.
+
+# Autenticacao, autorizacao, sessoes e ativacao/desativacao de contas (F001, F002)
+LocalHub.Domain.Accounts
+LocalHub.Application.Accounts
+LocalHub.Api.Middleware.SessionValidationMiddleware
+
+# Servicos, solicitacoes diretas e propostas: regras de criacao e transicoes (F007 a F011)
+LocalHub.Domain.Services
+LocalHub.Application.Services
