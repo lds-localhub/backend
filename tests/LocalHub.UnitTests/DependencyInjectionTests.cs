@@ -31,4 +31,7 @@ public class DependencyInjectionTests
         Assert.Equal("Npgsql.EntityFrameworkCore.PostgreSQL", db.Database.ProviderName);
         Assert.Equal(ConnectionString, db.Database.GetConnectionString());
     }
+
+    [Fact]
+    public void Fail() => Assert.True(false);
 }
