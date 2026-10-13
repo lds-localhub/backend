@@ -1,0 +1,6 @@
+name: LocalHub CodeQL
+queries:
+  - uses: security-extended
+paths-ignore:
+  - "**/bin/**"
+  - "**/obj/**"
