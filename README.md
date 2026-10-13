@@ -113,13 +113,20 @@ Cada push e cada Pull Request para `master` executa dois workflows do GitHub Act
 
 O incumprimento de qualquer gate faz a pipeline falhar e bloqueia a integração.
 
-**Cobertura (QG-04).** Os limiares são verificados separadamente para dois conjuntos de assemblies:
+**Cobertura (QG-04).** Os limiares são verificados separadamente para dois conjuntos de classes:
 
-- módulos críticos (`LocalHub.Domain`, `LocalHub.Application`): no mínimo 50 %;
-- restantes módulos (`LocalHub.Api`, `LocalHub.Infrastructure`): no mínimo 20 %.
+- módulos críticos (os listados em `.github/critical-modules.txt`): no mínimo 50 %;
+- restantes módulos (todas as outras classes): no mínimo 20 %.
+
+Cada linha de `.github/critical-modules.txt` é um namespace ou o nome completo de uma classe; uma
+classe é crítica se o seu nome completo for igual ao prefixo ou começar por `<prefixo>.`. Um prefixo
+sem classes (módulo ainda por implementar, ou nome mal escrito) só produz um aviso no log do passo
+*QG-04*; o gate falha apenas quando a cobertura de um dos conjuntos fica abaixo do limiar. O Revisor
+deve confirmar que um aviso se deve a um módulo por implementar. Os módulos críticos correspondem à
+secção 11.4 da Especificação de Requisitos.
 
 O código gerado (`obj/`, `*.generated.cs`) e as migrações ficam excluídos. Para alterar quais são
-os assemblies críticos, editar o argumento `--critical` do passo *QG-04* em `ci.yml`.
+os módulos críticos, editar `.github/critical-modules.txt`.
 
 **Artefactos.** Cada execução guarda o artefacto `evidencias-backend` (relatórios TRX e de cobertura).
 Descarregá-lo na página da execução, em *Artifacts*.

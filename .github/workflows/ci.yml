@@ -17,8 +17,8 @@ jobs:
     name: backend
     runs-on: ubuntu-latest
 
-    # PostgreSQL 18 para os testes de integracao (I037, criterio 3).
-    # A palavra-passe vem de GitHub Secrets (criterio 8).
+    # PostgreSQL 18 for the integration tests (I037, criterion 3).
+    # The password comes from GitHub Secrets (criterion 8).
     services:
       postgres:
         image: postgres:18
@@ -83,7 +83,7 @@ jobs:
       - name: QG-04 Cobertura de linhas
         run: >-
           python3 .github/scripts/check-coverage.py coverage/Cobertura.xml
-          --critical LocalHub.Domain LocalHub.Application
+          --critical-file .github/critical-modules.txt
           --critical-min 50 --other-min 20
 
       - name: Guardar relatórios TRX e de cobertura
