@@ -46,12 +46,17 @@ Cada camada regista os seus serviços num ficheiro `DependencyInjection.cs`
 
 ## Configuração da base de dados
 
-Executar uma vez, como administrador do PostgreSQL (por exemplo na Query Tool do pgAdmin, ligado como `postgres`):
+1. Executar uma vez, como administrador do PostgreSQL (por exemplo na Query Tool do pgAdmin, ligado como `postgres`), para criar o utilizador da aplicação com uma palavra-passe à escolha:
 
-```sql
-CREATE ROLE localhub WITH LOGIN PASSWORD 'escolher-uma-palavra-passe';
-CREATE DATABASE localhub_dev OWNER localhub;
-```
+   ```sql
+   CREATE ROLE localhub WITH LOGIN PASSWORD 'escolher-uma-palavra-passe';
+   ```
+
+2. Criar a base de dados `localhub_dev`, com dono `localhub`, com o esquema e os dados fictícios de referência (scripts e contas de referência em [`database/README.md`](database/README.md)). A partir da raiz do repositório (no Windows, o `psql` está em `C:\Program Files\PostgreSQL\18\bin`):
+
+   ```powershell
+   psql -U postgres -d postgres -f database/criar-base-dados.sql   # primeira vez
+   psql -U postgres -d postgres -f database/repor-base-dados.sql   # repor os dados de referência
 
 Usar apenas **dados fictícios** em todos os ambientes.
 
