@@ -83,7 +83,7 @@ jobs:
       - name: QG-04 Cobertura de linhas
         run: >-
           python3 .github/scripts/check-coverage.py coverage/Cobertura.xml
-          --critical LocalHub.Domain LocalHub.Application
+          --critical-file .github/critical-modules.txt
           --critical-min 50 --other-min 20
 
       - name: Guardar relatórios TRX e de cobertura

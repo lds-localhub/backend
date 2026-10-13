@@ -1,4 +1,4 @@
-﻿namespace LocalHub.Application;
+﻿namespace LocalHub.Application.Services;
 
 public static class CoberturaTeste
 {
