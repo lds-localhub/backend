@@ -19,4 +19,5 @@ app.MapHealthChecks("/api/health");
 
 app.Run();
 
+int x = "texto";
 public partial class Program { }
