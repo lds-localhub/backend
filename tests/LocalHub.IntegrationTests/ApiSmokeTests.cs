@@ -1,17 +1,18 @@
 using System.Net;
 
-using Microsoft.AspNetCore.Mvc.Testing;
+using LocalHub.IntegrationTests.Fixtures;
 
 namespace LocalHub.IntegrationTests;
 
-public class ApiSmokeTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>
+[Collection(ApiTestGroup.Name)]
+public class ApiSmokeTests(LocalHubApiFactory factory)
 {
     [Fact]
-    public async Task Api_StartsAndServesOpenApiDocument()
+    public async Task Api_StartsAndServesHealthCheck()
     {
         using var client = factory.CreateClient();
 
-        using var response = await client.GetAsync("/openapi/v1.json");
+        using var response = await client.GetAsync("/api/health");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
