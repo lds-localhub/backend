@@ -5,6 +5,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
+using DependencyInjection = LocalHub.Infrastructure.DependencyInjection;
+
 namespace LocalHub.UnitTests;
 
 public class DependencyInjectionTests
@@ -14,21 +16,21 @@ public class DependencyInjectionTests
     [Fact]
     public void AddApplication_RegistersLocalHubDbContextWithPostgreSql()
     {
-        var configuration = new ConfigurationBuilder()
+        IConfigurationRoot configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
-                [$"ConnectionStrings:{Infrastructure.DependencyInjection.ConnectionStringName}"] = ConnectionString
+                [$"ConnectionStrings:{DependencyInjection.ConnectionStringName}"] = ConnectionString
             })
             .Build();
-        var services = new ServiceCollection();
+        ServiceCollection services = new();
 
         services.AddApplication(configuration);
 
-        using var provider = services.BuildServiceProvider();
-        using var scope = provider.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<LocalHubDbContext>();
+        using ServiceProvider provider = services.BuildServiceProvider();
+        using IServiceScope scope = provider.CreateScope();
+        LocalHubDbContext db = scope.ServiceProvider.GetRequiredService<LocalHubDbContext>();
 
         Assert.Equal("Npgsql.EntityFrameworkCore.PostgreSQL", db.Database.ProviderName);
-        Assert.Equal(ConnectionString, db.Database.GetConnectionString());
+        Assert.Equal("Host=localhost;Port=5432;Database=test;Username=test", db.Database.GetConnectionString());
     }
 }
