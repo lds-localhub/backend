@@ -101,6 +101,19 @@ Para verificar se a aplicação consegue aceder à base de dados, abrir
 No ambiente Development, o documento OpenAPI está disponível em
 `http://localhost:5041/openapi/v1.json`.
 
+## Collection Postman
+
+`postman/m3-collection-postman-v01.json` tem uma pasta por funcionalidade, com um pedido por endpoint e
+verificações do código HTTP e dos campos principais (Plano de Testes do backend v01, secção 12). Com a API em
+execução, importar o ficheiro no Postman e executar a collection por ordem, ou, com o Postman CLI:
+
+```powershell
+postman collection run postman/m3-collection-postman-v01.json
+```
+
+O pedido de início de sessão (E02) guarda o token na variável `token`, usada pelos pedidos protegidos. Cada
+execução regista uma conta nova com um e-mail fictício (`@localhub.test`), por isso pode ser repetida.
+
 ## Integração contínua
 
 Cada push e cada Pull Request para `master` executa dois workflows do GitHub Actions
