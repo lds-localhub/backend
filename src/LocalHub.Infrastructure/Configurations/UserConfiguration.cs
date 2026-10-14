@@ -13,6 +13,8 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(u => u.UserId).UseIdentityAlwaysColumn();
         builder.Property(u => u.Name).HasMaxLength(100);
         builder.Property(u => u.Email).HasMaxLength(254);
+        // E-mails are stored in lowercase (User.Register), so a plain unique index is enough (RF-F001-01).
+        builder.HasIndex(u => u.Email).IsUnique().HasDatabaseName("UQ_User_email");
         builder.Property(u => u.PasswordHash).HasMaxLength(255);
         builder.Property(u => u.Address).HasMaxLength(255);
         builder.Property(u => u.Latitude).HasPrecision(8, 6);

@@ -78,6 +78,10 @@ namespace LocalHub.Infrastructure.Migrations
                     b.HasKey("UserId")
                         .HasName("PK_User");
 
+                    b.HasIndex("Email")
+                        .IsUnique()
+                        .HasDatabaseName("UQ_User_email");
+
                     b.ToTable("User", null, t =>
                         {
                             t.HasCheckConstraint("CK_User_coordinates", "(\"latitude\" IS NULL) = (\"longitude\" IS NULL)");
