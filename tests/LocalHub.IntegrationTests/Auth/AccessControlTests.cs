@@ -30,6 +30,7 @@ public class AccessControlTests(LocalHubApiFactory factory)
         using var response = await SendWithTokenAsync(_client, new HttpMethod(method), url, token: null);
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        await AssertProblemAsync(response, "https://tools.ietf.org/html/rfc9110#section-15.5.2", url);
     }
 
     [Theory]
@@ -58,5 +59,6 @@ public class AccessControlTests(LocalHubApiFactory factory)
         using var response = await _client.SendAsync(request);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        await AssertProblemAsync(response, "https://tools.ietf.org/html/rfc9110#section-15.5.1", url);
     }
 }

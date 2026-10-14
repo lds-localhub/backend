@@ -46,14 +46,16 @@ builder.Services.AddControllers()
                 }
             }
 
-            var problem = new HttpValidationProblemDetails(errors)
-            {
-                Title = "Dados inválidos",
-                Status = StatusCodes.Status400BadRequest,
-                Detail = errors.Count > 0
+            var problem = new HttpValidationProblemDetails(errors);
+            ProblemResponses.Fill(
+                problem,
+                context.HttpContext,
+                StatusCodes.Status400BadRequest,
+                "Dados inválidos",
+                errors.Count > 0
                     ? "Corrija os campos assinalados."
                     : "O corpo do pedido está em falta ou não é um JSON válido.",
-            };
+                type: null);
             return new BadRequestObjectResult(problem) { ContentTypes = { "application/problem+json" } };
         };
     });

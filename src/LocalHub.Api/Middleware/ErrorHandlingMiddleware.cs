@@ -41,14 +41,16 @@ public class ErrorHandlingMiddleware(ILogger<ErrorHandlingMiddleware> logger) : 
                     context,
                     StatusCodes.Status401Unauthorized,
                     "Credenciais inválidas",
-                    credentials.Message);
+                    credentials.Message,
+                    type: ErrorTypes.InvalidCredentials);
 
             case ForbiddenException forbidden:
                 return ProblemResponses.WriteAsync(
                     context,
                     StatusCodes.Status403Forbidden,
                     "Operação não autorizada",
-                    forbidden.Message);
+                    forbidden.Message,
+                    type: forbidden.ErrorType);
 
             case NotFoundException notFound:
                 return ProblemResponses.WriteAsync(
@@ -91,7 +93,8 @@ public class ErrorHandlingMiddleware(ILogger<ErrorHandlingMiddleware> logger) : 
 
             case DomainErrorKind.InvalidTransition:
                 return ProblemResponses.WriteAsync(
-                    context, StatusCodes.Status409Conflict, "Transição inválida", exception.Message);
+                    context, StatusCodes.Status409Conflict, "Transição inválida", exception.Message,
+                    type: ErrorTypes.InvalidTransition);
 
             default:
                 return ProblemResponses.WriteAsync(

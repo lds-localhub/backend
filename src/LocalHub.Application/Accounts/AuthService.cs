@@ -90,7 +90,7 @@ public class AuthService(
 
         if (user.Status != ActivationStatus.Active)
         {
-            throw new ForbiddenException("A sua conta está desativada.");
+            throw new ForbiddenException("A sua conta está desativada.", ErrorTypes.AccountDeactivated);
         }
 
         var session = UserSession.Start(user, timeProvider.GetUtcNow());

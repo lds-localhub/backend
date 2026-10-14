@@ -47,7 +47,8 @@ public class AuthEndpointsTests(LocalHubApiFactory factory)
         using var response = await RegisterAsync(_client, "Ana Costa", email.ToUpperInvariant(), ValidPassword, "PROVIDER");
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
-        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var body = await AssertProblemAsync(
+            response, "https://tools.ietf.org/html/rfc9110#section-15.5.10", "/api/auth/register");
         Assert.True(body.GetProperty("errors").TryGetProperty("email", out _));
     }
 
@@ -83,7 +84,9 @@ public class AuthEndpointsTests(LocalHubApiFactory factory)
         using var response = await RegisterAsync(_client, "", "invalido", "curta", "ADMIN");
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        var errors = (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("errors");
+        var body = await AssertProblemAsync(
+            response, "https://tools.ietf.org/html/rfc9110#section-15.5.1", "/api/auth/register");
+        var errors = body.GetProperty("errors");
         Assert.True(errors.TryGetProperty("name", out _));
         Assert.True(errors.TryGetProperty("email", out _));
         Assert.True(errors.TryGetProperty("password", out _));
@@ -133,7 +136,9 @@ public class AuthEndpointsTests(LocalHubApiFactory factory)
         using var response = await RegisterAsync(_client, "Ana Costa", NewEmail(), ValidPassword, "XYZ");
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        var errors = (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("errors");
+        var body = await AssertProblemAsync(
+            response, "https://tools.ietf.org/html/rfc9110#section-15.5.1", "/api/auth/register");
+        var errors = body.GetProperty("errors");
         Assert.True(errors.TryGetProperty("role", out _));
     }
 
@@ -172,8 +177,10 @@ public class AuthEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal(HttpStatusCode.Unauthorized, wrongPassword.StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, unknownEmail.StatusCode);
 
-        var first = await wrongPassword.Content.ReadFromJsonAsync<JsonElement>();
-        var second = await unknownEmail.Content.ReadFromJsonAsync<JsonElement>();
+        var first = await AssertProblemAsync(
+            wrongPassword, "https://localhub.local/erros/credenciais-invalidas", "/api/auth/login");
+        var second = await AssertProblemAsync(
+            unknownEmail, "https://localhub.local/erros/credenciais-invalidas", "/api/auth/login");
         Assert.Equal(first.GetProperty("detail").GetString(), second.GetProperty("detail").GetString());
     }
 

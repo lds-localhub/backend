@@ -70,6 +70,7 @@ public class SessionTests(LocalHubApiFactory factory)
         using var response = await SendWithTokenAsync(_client, HttpMethod.Get, MeUrl, token);
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        await AssertProblemAsync(response, "https://tools.ietf.org/html/rfc9110#section-15.5.2", MeUrl);
     }
 
     [Fact]
@@ -84,6 +85,7 @@ public class SessionTests(LocalHubApiFactory factory)
         using var response = await LoginAsync(_client, email, ValidPassword);
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        await AssertProblemAsync(response, "https://localhub.local/erros/conta-desativada", "/api/auth/login");
     }
 
     private async Task DeactivateAsync(string email)

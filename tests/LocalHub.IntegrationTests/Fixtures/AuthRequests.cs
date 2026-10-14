@@ -32,6 +32,17 @@ public static class AuthRequests
         return await client.SendAsync(request);
     }
 
+    // Checks the "type" and "instance" fields of a Problem Details response (API documentation, section 4.6).
+    public static async Task<JsonElement> AssertProblemAsync(HttpResponseMessage response, string type, string instance)
+    {
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(type, body.GetProperty("type").GetString());
+        Assert.Equal(instance, body.GetProperty("instance").GetString());
+        Assert.Equal((int)response.StatusCode, body.GetProperty("status").GetInt32());
+        return body;
+    }
+
     public static async Task<string> RegisterAndLoginAsync(HttpClient client, string email, string role = "PROVIDER")
     {
         using var register = await RegisterAsync(client, "Teste", email, ValidPassword, role);
