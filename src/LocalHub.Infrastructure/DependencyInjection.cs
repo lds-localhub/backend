@@ -1,3 +1,5 @@
+using LocalHub.Infrastructure.Geocoding;
+
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -14,6 +16,7 @@ public static class DependencyInjection
 
         services.AddDbContext<LocalHubDbContext>(options => options.UseNpgsql(connectionString));
         services.AddHealthChecks().AddDbContextCheck<LocalHubDbContext>();
+        services.AddNominatimGeocoding(configuration);
 
         return services;
     }
