@@ -45,10 +45,11 @@ public class AuthService(
         catch (DbUpdateException ex) when (ex.InnerException is PostgresException
         {
             SqlState: PostgresErrorCodes.UniqueViolation,
-            ConstraintName: "UQ_User_email"
+            ConstraintName: "UX_User_email"
         })
         {
-            // Two registrations with the same e-mail at the same time: the unique index rejects the second one.
+            // Two registrations with the same e-mail at the same time: the unique index UX_User_email
+            // (migration AddAccounts) rejects the second one.
             throw new DomainException(DomainErrorKind.Conflict, "Já existe uma conta com este e-mail.", "email");
         }
 
