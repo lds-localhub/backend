@@ -1,6 +1,56 @@
 @LocalHub.Api_HostAddress = http://localhost:5041
 
-GET {{LocalHub.Api_HostAddress}}/weatherforecast/
-Accept: application/json
+### Health check (public)
+GET {{LocalHub.Api_HostAddress}}/api/health
 
-###
+### E01 - Register a client account (public)
+POST {{LocalHub.Api_HostAddress}}/api/auth/register
+Content-Type: application/json
+
+{
+  "name": "Teste Registo",
+  "email": "teste.registo@localhub.test",
+  "password": "casa2026",
+  "role": "CLIENT"
+}
+
+### E01 - Invalid fields and ADMIN role (expect 400 with errors per field)
+POST {{LocalHub.Api_HostAddress}}/api/auth/register
+Content-Type: application/json
+
+{
+  "name": "",
+  "email": "invalido",
+  "password": "curta",
+  "role": "ADMIN"
+}
+
+### E02 - Log in (public); the password is Seed:DefaultPassword from appsettings.Development.json
+# @name login
+POST {{LocalHub.Api_HostAddress}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "ana.almeida@localhub.test",
+  "password": "{{seedPassword}}"
+}
+
+### E02 - Wrong password (expect 401 credenciais-invalidas)
+POST {{LocalHub.Api_HostAddress}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "ana.almeida@localhub.test",
+  "password": "errada123"
+}
+
+### E04 - Authenticated user
+GET {{LocalHub.Api_HostAddress}}/api/users/me
+Authorization: Bearer {{login.response.body.token}}
+
+### E04 - Without token (expect 401)
+GET {{LocalHub.Api_HostAddress}}/api/users/me
+
+### E03 - Log out (expect 204); afterwards the same token gets 401 on E04
+POST {{LocalHub.Api_HostAddress}}/api/auth/logout
+Authorization: Bearer {{login.response.body.token}}

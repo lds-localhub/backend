@@ -1,6 +1,6 @@
 ﻿using System.Globalization;
 
-using LocalHub.Domain;
+using LocalHub.Domain.Common;
 using LocalHub.Domain.Locations;
 
 namespace LocalHub.UnitTests.Locations;

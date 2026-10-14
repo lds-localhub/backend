@@ -6,6 +6,8 @@
 LocalHub.Domain.Accounts
 LocalHub.Application.Accounts
 LocalHub.Api.Middleware.SessionValidationMiddleware
+LocalHub.Api.HttpCurrentUser
+LocalHub.Infrastructure.Security.JwtTokenIssuer
 
 # Services, direct requests and proposals: creation rules and state transitions (F007 to F011)
 LocalHub.Domain.Services

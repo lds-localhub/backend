@@ -1,6 +1,5 @@
 ﻿namespace LocalHub.Infrastructure.Geocoding;
 
-
 public sealed class GeocodingUnavailableException : Exception
 {
     public const string UserMessage =

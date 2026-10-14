@@ -10,7 +10,6 @@ using Microsoft.Extensions.Time.Testing;
 
 namespace LocalHub.UnitTests.Locations;
 
-
 [Trait("Category", "Unit")]
 public class NominatimGeocodingServiceTests
 {
@@ -131,13 +130,11 @@ public class NominatimGeocodingServiceTests
         HttpClient httpClient = new(handler, disposeHandler: false) { BaseAddress = options.Value.BaseUrl };
         httpClient.DefaultRequestHeaders.UserAgent.ParseAdd(UserAgent);
 
-    
         NominatimRateLimiter rateLimiter = new(options, new FakeTimeProvider());
 
         return new NominatimGeocodingService(httpClient, rateLimiter, options, NullLogger<NominatimGeocodingService>.Instance);
     }
 
-    
     private sealed class StubHandler : HttpMessageHandler
     {
         private readonly HttpStatusCode _status;

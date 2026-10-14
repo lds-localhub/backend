@@ -1,10 +1,15 @@
-﻿namespace LocalHub.Domain.Locations;
+using LocalHub.Domain.Common;
 
+namespace LocalHub.Domain.Locations;
 
+/// <summary>
+/// Represents a point on the Earth (WGS 84), with 6 decimal places like the columns latitude and longitude of "User".
+/// </summary>
 public readonly record struct GeoPoint
 {
     public const int DecimalPlaces = 6;
 
+    // Private: a point is always created with Create, so the ranges below are always checked.
     private GeoPoint(decimal latitude, decimal longitude)
     {
         Latitude = latitude;
@@ -15,7 +20,6 @@ public readonly record struct GeoPoint
 
     public decimal Longitude { get; }
 
-    
     public static GeoPoint Create(decimal latitude, decimal longitude)
     {
         if (latitude is < -90m or > 90m)
