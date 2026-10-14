@@ -2,7 +2,11 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 
+using LocalHub.Infrastructure;
 using LocalHub.IntegrationTests.Fixtures;
+
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 using static LocalHub.IntegrationTests.Fixtures.AuthRequests;
 
@@ -84,6 +88,42 @@ public class AuthEndpointsTests(LocalHubApiFactory factory)
         Assert.True(errors.TryGetProperty("email", out _));
         Assert.True(errors.TryGetProperty("password", out _));
         Assert.True(errors.TryGetProperty("role", out _));
+    }
+
+    [Theory]
+    [InlineData("abcdefgh")] // 8 characters, no digit
+    [InlineData("1234567")] // no letter and only 7 characters
+    [Trait("Requisito", "RF-F001-01")]
+    public async Task Register_PalavraPasseFraca_Devolve400ComErroNaPalavraPasseENaoCriaConta(string password)
+    {
+        string email = NewEmail();
+
+        using var response = await RegisterAsync(_client, "Ana Costa", email, password, "CLIENT");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var errors = (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("errors");
+        Assert.True(errors.TryGetProperty("password", out _));
+        Assert.Equal(0, await CountUsersAsync(email));
+    }
+
+    [Fact]
+    [Trait("Requisito", "RNF-01")]
+    public async Task Register_DuasContasComMesmaPalavraPasse_GuardaResumosDiferentesEAmbasIniciamSessao()
+    {
+        string firstEmail = NewEmail();
+        string secondEmail = NewEmail();
+        using var first = await RegisterAsync(_client, "Ana Costa", firstEmail, ValidPassword, "CLIENT");
+        using var second = await RegisterAsync(_client, "Rui Costa", secondEmail, ValidPassword, "PROVIDER");
+
+        string firstHash = await GetPasswordHashAsync(firstEmail);
+        string secondHash = await GetPasswordHashAsync(secondEmail);
+        using var firstLogin = await LoginAsync(_client, firstEmail, ValidPassword);
+        using var secondLogin = await LoginAsync(_client, secondEmail, ValidPassword);
+
+        Assert.NotEqual(firstHash, secondHash);
+        Assert.DoesNotContain(ValidPassword, firstHash, StringComparison.Ordinal);
+        Assert.Equal(HttpStatusCode.OK, firstLogin.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, secondLogin.StatusCode);
     }
 
     [Fact]
@@ -172,5 +212,19 @@ public class AuthEndpointsTests(LocalHubApiFactory factory)
         using var response = await SendWithTokenAsync(_client, HttpMethod.Post, "/api/auth/logout", token);
 
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+    }
+
+    private async Task<int> CountUsersAsync(string email)
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<LocalHubDbContext>();
+        return await db.Users.CountAsync(u => u.Email == email);
+    }
+
+    private async Task<string> GetPasswordHashAsync(string email)
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<LocalHubDbContext>();
+        return await db.Users.Where(u => u.Email == email).Select(u => u.PasswordHash).SingleAsync();
     }
 }
