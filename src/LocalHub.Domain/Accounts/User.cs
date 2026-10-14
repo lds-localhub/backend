@@ -66,4 +66,37 @@ public class User
 
         PasswordHash = passwordHash;
     }
+
+    // Used by the administrator (RF-F002-02): only an active Client or Provider account can be deactivated.
+    // The sessions must be loaded: from now on none of them is accepted (API documentation, E06).
+    // The services, direct requests, proposals and reviews of the account keep their states.
+    public void Deactivate(DateTimeOffset now)
+    {
+        if (Role == UserRole.Admin)
+        {
+            throw new DomainException(DomainErrorKind.Conflict, "Não é possível desativar uma conta de Administrador.");
+        }
+
+        if (Status == ActivationStatus.Inactive)
+        {
+            throw new DomainException(DomainErrorKind.Conflict, "A conta já está desativada.");
+        }
+
+        Status = ActivationStatus.Inactive;
+        foreach (var session in _sessions)
+        {
+            session.Revoke(now);
+        }
+    }
+
+    // Used by the administrator (RF-F002-03): after the activation the user can log in again.
+    public void Activate()
+    {
+        if (Status == ActivationStatus.Active)
+        {
+            throw new DomainException(DomainErrorKind.Conflict, "A conta já está ativa.");
+        }
+
+        Status = ActivationStatus.Active;
+    }
 }

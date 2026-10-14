@@ -3,7 +3,8 @@
 ### Health check (public)
 GET {{LocalHub.Api_HostAddress}}/api/health
 
-### E01 - Register a client account (public)
+### E01 - Register a client account (public); the second time the same e-mail gets 409
+# @name register
 POST {{LocalHub.Api_HostAddress}}/api/auth/register
 Content-Type: application/json
 
@@ -50,6 +51,35 @@ Authorization: Bearer {{login.response.body.token}}
 
 ### E04 - Without token (expect 401)
 GET {{LocalHub.Api_HostAddress}}/api/users/me
+
+### E05 - List the accounts of clients and providers (administrator)
+GET {{LocalHub.Api_HostAddress}}/api/accounts?page=1&pageSize=20
+Authorization: Bearer {{login.response.body.token}}
+
+### E05 - Only providers with a deactivated account
+GET {{LocalHub.Api_HostAddress}}/api/accounts?role=PROVIDER&status=INACTIVE
+Authorization: Bearer {{login.response.body.token}}
+
+### E05 - Filter by the ADMIN role (expect 400 with errors.role)
+GET {{LocalHub.Api_HostAddress}}/api/accounts?role=ADMIN
+Authorization: Bearer {{login.response.body.token}}
+
+### E06 - Deactivate the account registered above (expect 200; a second time gets 409)
+POST {{LocalHub.Api_HostAddress}}/api/accounts/{{register.response.body.userId}}/deactivate
+Authorization: Bearer {{login.response.body.token}}
+
+### E02 - Log in with the deactivated account (expect 403 conta-desativada)
+POST {{LocalHub.Api_HostAddress}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "teste.registo@localhub.test",
+  "password": "casa2026"
+}
+
+### E07 - Activate the account again (expect 200; a second time gets 409)
+POST {{LocalHub.Api_HostAddress}}/api/accounts/{{register.response.body.userId}}/activate
+Authorization: Bearer {{login.response.body.token}}
 
 ### E03 - Log out (expect 204); afterwards the same token gets 401 on E04
 POST {{LocalHub.Api_HostAddress}}/api/auth/logout

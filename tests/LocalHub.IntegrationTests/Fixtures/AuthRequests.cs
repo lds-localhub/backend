@@ -10,6 +10,9 @@ public static class AuthRequests
 {
     public const string ValidPassword = "casa2026";
 
+    // Administrator created by the DataSeeder, with the password LocalHubApiFactory.SeedPassword.
+    public const string AdminEmail = "ana.almeida@localhub.test";
+
     // Each test uses its own e-mail, so the tests do not depend on each other.
     public static string NewEmail() => $"teste.{Guid.NewGuid():N}@localhub.test";
 
@@ -43,14 +46,22 @@ public static class AuthRequests
         return body;
     }
 
+    public static Task<string> LoginAsAdminAsync(HttpClient client) =>
+        LoginAndGetTokenAsync(client, AdminEmail, LocalHubApiFactory.SeedPassword);
+
+    public static async Task<string> LoginAndGetTokenAsync(HttpClient client, string email, string password)
+    {
+        using var login = await LoginAsync(client, email, password);
+        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
+        var body = await login.Content.ReadFromJsonAsync<JsonElement>();
+        return body.GetProperty("token").GetString()!;
+    }
+
     public static async Task<string> RegisterAndLoginAsync(HttpClient client, string email, string role = "PROVIDER")
     {
         using var register = await RegisterAsync(client, "Teste", email, ValidPassword, role);
         Assert.Equal(HttpStatusCode.Created, register.StatusCode);
 
-        using var login = await LoginAsync(client, email, ValidPassword);
-        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
-        var body = await login.Content.ReadFromJsonAsync<JsonElement>();
-        return body.GetProperty("token").GetString()!;
+        return await LoginAndGetTokenAsync(client, email, ValidPassword);
     }
 }

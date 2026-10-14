@@ -122,11 +122,15 @@ verificações do código HTTP e dos campos principais (Plano de Testes do backe
 execução, importar o ficheiro no Postman e executar a collection por ordem, ou, com o Postman CLI:
 
 ```powershell
-postman collection run postman/m3-collection-postman-v01.json
+postman collection run postman/m3-collection-postman-v01.json --env-var "adminPassword=<palavra-passe>"
 ```
 
 O pedido de início de sessão (E02) guarda o token na variável `token`, usada pelos pedidos protegidos. Cada
-execução regista uma conta nova com um e-mail fictício (`@localhub.test`), por isso pode ser repetida.
+execução regista contas novas com e-mails fictícios (`@localhub.test`), por isso pode ser repetida.
+
+Os pedidos da gestão de contas (F002) iniciam sessão com o Administrador `ana.almeida@localhub.test`. A
+palavra-passe não está na collection: é a de `Seed:DefaultPassword` (ou a dos scripts de `database/`, se a base de
+dados foi criada com eles) e é indicada na execução, na variável `adminPassword`, como no comando acima.
 
 ## Integração contínua
 
