@@ -484,3 +484,6 @@ $RECYCLE.BIN/
 # LocalHub
 .idea/
 appsettings.Development.json
+
+# Rider HTTP client private variables (secrets)
+http-client.private.env.json
