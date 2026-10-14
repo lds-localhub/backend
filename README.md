@@ -66,7 +66,10 @@ Os segredos nunca são submetidos no repositório. O ficheiro de configuração 
 
 1. Copiar `src/LocalHub.Api/appsettings.Development.example.json` para
    `src/LocalHub.Api/appsettings.Development.json`.
-2. Na cópia, substituir `CHANGE_ME` pela palavra-passe escolhida acima.
+2. Na cópia, substituir os valores `CHANGE_ME`:
+   - `ConnectionStrings:LocalHub`: a palavra-passe escolhida acima;
+   - `Jwt:SigningKey`: uma chave aleatória com, no mínimo, 32 caracteres (a API não arranca com uma chave mais curta);
+   - `Seed:DefaultPassword`: a palavra-passe das contas fictícias criadas no arranque, em Development.
 
 Em alternativa, definir a cadeia de ligação através de uma variável de ambiente (PowerShell):
 
@@ -84,7 +87,18 @@ dotnet test                           # executa os testes unitários e de integr
 dotnet format --verify-no-changes     # não pode reportar alterações
 ```
 
-Os testes de integração atuais não precisam de base de dados.
+Os testes de integração usam a base de dados `localhub_test`, no mesmo servidor e com o mesmo utilizador
+da cadeia de ligação configurada acima (ou de `ConnectionStrings__LocalHub`). Em cada execução, o esquema
+é apagado, as migrations são aplicadas e os dados iniciais são recriados; a `localhub_dev` nunca é usada.
+O utilizador `localhub` tem de poder criar a base de dados na primeira execução (`ALTER ROLE localhub CREATEDB;`)
+ou a `localhub_test` tem de existir, com dono `localhub`.
+
+Cada teste tem `[Trait("Category", "Unit" | "Integration")]` e um `[Trait("Requisito", "<ID>")]` por requisito
+verificado (Plano de Testes do backend v01, secção 5.4). Por exemplo, para executar os testes de um requisito:
+
+```powershell
+dotnet test --filter "Requisito=RF-F001-02"
+```
 
 ## Executar
 
