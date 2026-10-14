@@ -1,6 +1,5 @@
 ﻿using System.Globalization;
 using System.Text;
-using System.Text.Json;
 
 using LocalHub.Domain.Accounts;
 
@@ -29,7 +28,7 @@ public class JwtTokenIssuer(IOptions<JwtOptions> options) : ITokenIssuer
             Claims = new Dictionary<string, object>
             {
                 [JwtRegisteredClaimNames.Sub] = user.UserId.ToString(CultureInfo.InvariantCulture),
-                ["role"] = JsonNamingPolicy.SnakeCaseUpper.ConvertName(user.Role.ToString()),
+                ["role"] = user.Role.ToString().ToUpperInvariant(),
                 ["sid"] = session.SessionId.ToString(CultureInfo.InvariantCulture)
             },
             SigningCredentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256)
