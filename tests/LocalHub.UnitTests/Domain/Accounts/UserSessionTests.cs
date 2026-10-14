@@ -2,6 +2,7 @@ using LocalHub.Domain.Accounts;
 
 namespace LocalHub.UnitTests.Domain.Accounts;
 
+[Trait("Category", "Unit")]
 public class UserSessionTests
 {
     private static readonly DateTimeOffset Now = new(2026, 10, 14, 9, 0, 0, TimeSpan.Zero);
@@ -10,7 +11,8 @@ public class UserSessionTests
         UserSession.Start(User.Register("Ana Costa", "ana.costa@exemplo.pt", UserRole.Client), Now);
 
     [Fact]
-    public void Start_ActiveAccount_CreatesSessionValidForEightHours()
+    [Trait("Requisito", "RNF-02")]
+    public void Start_ContaAtiva_CriaSessaoValidaDuranteOitoHoras()
     {
         var session = StartSession();
 
@@ -20,7 +22,8 @@ public class UserSessionTests
     }
 
     [Fact]
-    public void IsValid_BeforeExpiration_ReturnsTrue()
+    [Trait("Requisito", "RNF-02")]
+    public void IsValid_AntesDeExpirar_DevolveTrue()
     {
         var session = StartSession();
 
@@ -28,7 +31,8 @@ public class UserSessionTests
     }
 
     [Fact]
-    public void IsValid_AtOrAfterExpiration_ReturnsFalse()
+    [Trait("Requisito", "RNF-02")]
+    public void IsValid_NoMomentoOuDepoisDeExpirar_DevolveFalse()
     {
         var session = StartSession();
 
@@ -37,7 +41,8 @@ public class UserSessionTests
     }
 
     [Fact]
-    public void Revoke_ValidSession_MakesSessionInvalid()
+    [Trait("Requisito", "RF-F001-04")]
+    public void Revoke_SessaoValida_TornaSessaoInvalida()
     {
         var session = StartSession();
 
@@ -48,7 +53,8 @@ public class UserSessionTests
     }
 
     [Fact]
-    public void Revoke_AlreadyRevokedSession_KeepsFirstRevocationTime()
+    [Trait("Requisito", "RF-F001-04")]
+    public void Revoke_SessaoJaRevogada_MantemPrimeiraDataDeRevogacao()
     {
         var session = StartSession();
 

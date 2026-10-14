@@ -9,12 +9,13 @@ using DependencyInjection = LocalHub.Infrastructure.DependencyInjection;
 
 namespace LocalHub.UnitTests;
 
+[Trait("Category", "Unit")]
 public class DependencyInjectionTests
 {
     private const string ConnectionString = "Host=localhost;Port=5432;Database=test;Username=test;Password=test";
 
     [Fact]
-    public void AddApplication_RegistersLocalHubDbContextWithPostgreSql()
+    public void AddApplication_ConfiguracaoValida_RegistaLocalHubDbContextComPostgreSql()
     {
         IConfigurationRoot configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>

@@ -3,12 +3,14 @@ using LocalHub.Domain.Common;
 
 namespace LocalHub.UnitTests.Domain.Accounts;
 
+[Trait("Category", "Unit")]
 public class UserTests
 {
     [Theory]
     [InlineData(UserRole.Client)]
     [InlineData(UserRole.Provider)]
-    public void Register_ClientOrProvider_CreatesActiveAccountWithoutLocation(UserRole role)
+    [Trait("Requisito", "RF-F001-01")]
+    public void Register_ClienteOuPrestador_CriaContaAtivaSemLocalizacao(UserRole role)
     {
         var user = User.Register("  Ana Costa  ", "  ana.costa@exemplo.pt ", role);
 
@@ -23,7 +25,8 @@ public class UserTests
     }
 
     [Fact]
-    public void Register_AdminRole_ThrowsValidationErrorOnRole()
+    [Trait("Requisito", "RF-F001-01")]
+    public void Register_PapelAdministrador_LancaErroDeValidacaoNoPapel()
     {
         var exception = Assert.Throws<DomainException>(
             () => User.Register("Ana Costa", "ana.costa@exemplo.pt", UserRole.Admin));
@@ -33,7 +36,8 @@ public class UserTests
     }
 
     [Fact]
-    public void CreateAdministrator_CreatesActiveAdministrator()
+    [Trait("Requisito", "RF-F001-05")]
+    public void CreateAdministrator_CriaAdministradorAtivo()
     {
         var user = User.CreateAdministrator(" Rui Rocha ", "rui.rocha@localhub.test");
 
@@ -43,7 +47,8 @@ public class UserTests
     }
 
     [Fact]
-    public void SetPasswordHash_ValidHash_StoresHash()
+    [Trait("Requisito", "RF-F001-01")]
+    public void SetPasswordHash_ResumoValido_GuardaResumo()
     {
         var user = User.Register("Ana Costa", "ana.costa@exemplo.pt", UserRole.Client);
 
@@ -55,7 +60,8 @@ public class UserTests
     [Theory]
     [InlineData("")]
     [InlineData("   ")]
-    public void SetPasswordHash_EmptyHash_ThrowsValidationError(string hash)
+    [Trait("Requisito", "RF-F001-01")]
+    public void SetPasswordHash_ResumoVazio_LancaErroDeValidacao(string hash)
     {
         var user = User.Register("Ana Costa", "ana.costa@exemplo.pt", UserRole.Client);
 

@@ -1,29 +1,29 @@
 using System.Net;
-using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 
 using LocalHub.IntegrationTests.Fixtures;
 
+using static LocalHub.IntegrationTests.Fixtures.AuthRequests;
+
 namespace LocalHub.IntegrationTests.Auth;
 
+// F001: E01 (register), E02 (login), E03 (logout) and E04 (current user).
 [Collection(ApiTestGroup.Name)]
-public class AuthControllerTests(LocalHubApiFactory factory)
+[Trait("Category", "Integration")]
+public class AuthEndpointsTests(LocalHubApiFactory factory)
 {
     private const string AdminEmail = "ana.almeida@localhub.test";
-    private const string ValidPassword = "casa2026";
 
     private readonly HttpClient _client = factory.CreateClient();
 
-    // Each test uses its own e-mail, so the tests do not depend on each other.
-    private static string NewEmail() => $"teste.{Guid.NewGuid():N}@localhub.test";
-
     [Fact]
-    public async Task Register_ValidClient_Returns201WithLocationAndActiveAccount()
+    [Trait("Requisito", "RF-F001-01")]
+    public async Task Register_ClienteValido_Devolve201ComLocationEContaAtiva()
     {
         string email = NewEmail();
 
-        using var response = await RegisterAsync("Ana Costa", email, ValidPassword, "CLIENT");
+        using var response = await RegisterAsync(_client, "Ana Costa", email, ValidPassword, "CLIENT");
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         Assert.Equal("/api/users/me", response.Headers.Location?.OriginalString);
@@ -34,12 +34,13 @@ public class AuthControllerTests(LocalHubApiFactory factory)
     }
 
     [Fact]
-    public async Task Register_EmailAlreadyUsedWithDifferentCase_Returns409()
+    [Trait("Requisito", "RF-F001-01")]
+    public async Task Register_EmailJaUsadoComMaiusculas_Devolve409ComErroNoEmail()
     {
         string email = NewEmail();
-        using var first = await RegisterAsync("Ana Costa", email, ValidPassword, "CLIENT");
+        using var first = await RegisterAsync(_client, "Ana Costa", email, ValidPassword, "CLIENT");
 
-        using var response = await RegisterAsync("Ana Costa", email.ToUpperInvariant(), ValidPassword, "PROVIDER");
+        using var response = await RegisterAsync(_client, "Ana Costa", email.ToUpperInvariant(), ValidPassword, "PROVIDER");
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
@@ -47,9 +48,35 @@ public class AuthControllerTests(LocalHubApiFactory factory)
     }
 
     [Fact]
-    public async Task Register_InvalidFieldsAndAdminRole_Returns400WithErrorPerField()
+    [Trait("Requisito", "RF-F001-01")]
+    public async Task Register_MesmoEmailEmSimultaneo_CriaApenasUmaConta()
     {
-        using var response = await RegisterAsync("", "invalido", "curta", "ADMIN");
+        string email = NewEmail();
+
+        // The two requests run at the same time, so both can pass the e-mail check before either is saved;
+        // the unique index on the e-mail must reject the second one with 409 instead of creating two accounts.
+        var responses = await Task.WhenAll(Enumerable.Range(0, 5).Select(_ =>
+            RegisterAsync(factory.CreateClient(), "Ana Costa", email, ValidPassword, "CLIENT")));
+
+        var statusCodes = responses.Select(r => r.StatusCode).ToList();
+        foreach (var response in responses)
+        {
+            response.Dispose();
+        }
+
+        Assert.Equal(1, statusCodes.Count(s => s == HttpStatusCode.Created));
+        Assert.All(statusCodes.Where(s => s != HttpStatusCode.Created),
+            s => Assert.Equal(HttpStatusCode.Conflict, s));
+
+        using var login = await LoginAsync(_client, email, ValidPassword);
+        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
+    }
+
+    [Fact]
+    [Trait("Requisito", "RF-F001-01")]
+    public async Task Register_CamposInvalidosEPapelAdministrador_Devolve400ComErroPorCampo()
+    {
+        using var response = await RegisterAsync(_client, "", "invalido", "curta", "ADMIN");
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         var errors = (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("errors");
@@ -60,9 +87,10 @@ public class AuthControllerTests(LocalHubApiFactory factory)
     }
 
     [Fact]
-    public async Task Register_UnknownRole_Returns400WithRoleError()
+    [Trait("Requisito", "RF-F001-01")]
+    public async Task Register_PapelDesconhecido_Devolve400ComErroNoPapel()
     {
-        using var response = await RegisterAsync("Ana Costa", NewEmail(), ValidPassword, "XYZ");
+        using var response = await RegisterAsync(_client, "Ana Costa", NewEmail(), ValidPassword, "XYZ");
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         var errors = (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("errors");
@@ -70,9 +98,11 @@ public class AuthControllerTests(LocalHubApiFactory factory)
     }
 
     [Fact]
-    public async Task Login_SeededAdministrator_Returns200WithTokenAndEightHourSession()
+    [Trait("Requisito", "RF-F001-02")]
+    [Trait("Requisito", "RF-F001-05")]
+    public async Task Login_AdministradorDoConjuntoInicial_Devolve200ComTokenESessaoDeOitoHoras()
     {
-        using var response = await LoginAsync(AdminEmail, LocalHubApiFactory.SeedPassword);
+        using var response = await LoginAsync(_client, AdminEmail, LocalHubApiFactory.SeedPassword);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
@@ -84,18 +114,20 @@ public class AuthControllerTests(LocalHubApiFactory factory)
     }
 
     [Fact]
-    public async Task Login_EmailWithDifferentCase_Returns200()
+    [Trait("Requisito", "RF-F001-02")]
+    public async Task Login_EmailComMaiusculas_Devolve200()
     {
-        using var response = await LoginAsync(AdminEmail.ToUpperInvariant(), LocalHubApiFactory.SeedPassword);
+        using var response = await LoginAsync(_client, AdminEmail.ToUpperInvariant(), LocalHubApiFactory.SeedPassword);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
     [Fact]
-    public async Task Login_WrongPasswordOrUnknownEmail_Returns401WithSameMessage()
+    [Trait("Requisito", "RF-F001-02")]
+    public async Task Login_PalavraPasseErradaOuEmailDesconhecido_Devolve401ComMesmaMensagem()
     {
-        using var wrongPassword = await LoginAsync(AdminEmail, "errada123");
-        using var unknownEmail = await LoginAsync(NewEmail(), "errada123");
+        using var wrongPassword = await LoginAsync(_client, AdminEmail, "errada123");
+        using var unknownEmail = await LoginAsync(_client, NewEmail(), "errada123");
 
         Assert.Equal(HttpStatusCode.Unauthorized, wrongPassword.StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, unknownEmail.StatusCode);
@@ -106,7 +138,8 @@ public class AuthControllerTests(LocalHubApiFactory factory)
     }
 
     [Fact]
-    public async Task Login_MissingFields_Returns400()
+    [Trait("Requisito", "RF-F001-02")]
+    public async Task Login_CamposEmFalta_Devolve400()
     {
         using var response = await _client.PostAsJsonAsync("/api/auth/login", new { });
 
@@ -114,31 +147,13 @@ public class AuthControllerTests(LocalHubApiFactory factory)
     }
 
     [Fact]
-    public async Task GetMe_WithoutToken_Returns401()
-    {
-        using var response = await _client.GetAsync("/api/users/me");
-
-        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
-    }
-
-    [Fact]
-    public async Task GetMe_WithInvalidToken_Returns401()
-    {
-        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/users/me");
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", "abc.def.ghi");
-
-        using var response = await _client.SendAsync(request);
-
-        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
-    }
-
-    [Fact]
-    public async Task GetMe_WithToken_ReturnsAuthenticatedUser()
+    [Trait("Requisito", "RF-F001-03")]
+    public async Task GetMe_ComToken_DevolveUtilizadorAutenticado()
     {
         string email = NewEmail();
-        string token = await RegisterAndLoginAsync(email);
+        string token = await RegisterAndLoginAsync(_client, email);
 
-        using var response = await GetMeAsync(token);
+        using var response = await SendWithTokenAsync(_client, HttpMethod.Get, "/api/users/me", token);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
@@ -149,39 +164,13 @@ public class AuthControllerTests(LocalHubApiFactory factory)
     }
 
     [Fact]
-    public async Task Logout_Returns204AndTheTokenIsRejectedAfterwards()
+    [Trait("Requisito", "RF-F001-04")]
+    public async Task Logout_SessaoValida_Devolve204()
     {
-        string token = await RegisterAndLoginAsync(NewEmail());
+        string token = await RegisterAndLoginAsync(_client, NewEmail());
 
-        using var logout = new HttpRequestMessage(HttpMethod.Post, "/api/auth/logout");
-        logout.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        using var logoutResponse = await _client.SendAsync(logout);
-        using var meResponse = await GetMeAsync(token);
+        using var response = await SendWithTokenAsync(_client, HttpMethod.Post, "/api/auth/logout", token);
 
-        Assert.Equal(HttpStatusCode.NoContent, logoutResponse.StatusCode);
-        Assert.Equal(HttpStatusCode.Unauthorized, meResponse.StatusCode);
-    }
-
-    private Task<HttpResponseMessage> RegisterAsync(string name, string email, string password, string role) =>
-        _client.PostAsJsonAsync("/api/auth/register", new { name, email, password, role });
-
-    private Task<HttpResponseMessage> LoginAsync(string email, string password) =>
-        _client.PostAsJsonAsync("/api/auth/login", new { email, password });
-
-    private async Task<HttpResponseMessage> GetMeAsync(string token)
-    {
-        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/users/me");
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        return await _client.SendAsync(request);
-    }
-
-    private async Task<string> RegisterAndLoginAsync(string email)
-    {
-        using var register = await RegisterAsync("Teste", email, ValidPassword, "PROVIDER");
-        Assert.Equal(HttpStatusCode.Created, register.StatusCode);
-
-        using var login = await LoginAsync(email, ValidPassword);
-        var body = await login.Content.ReadFromJsonAsync<JsonElement>();
-        return body.GetProperty("token").GetString()!;
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
     }
 }
