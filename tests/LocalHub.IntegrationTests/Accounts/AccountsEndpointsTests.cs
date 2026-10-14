@@ -72,7 +72,7 @@ public class AccountsEndpointsTests(LocalHubApiFactory factory)
 
     [Fact]
     [Trait("Requisito", "RF-F002-01")]
-    public async Task List_TamanhoDePagina1_DevolveUmaContaComTotalEPagina()
+    public async Task List_Pagina2ComTamanho1_DevolveUmaContaComTotalEPagina()
     {
         await RegisterAccountAsync("CLIENT");
         await RegisterAccountAsync("CLIENT");
@@ -86,6 +86,21 @@ public class AccountsEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal(1, body.GetProperty("pageSize").GetInt32());
         Assert.True(body.GetProperty("total").GetInt32() >= 2);
         Assert.Equal(1, body.GetProperty("items").GetArrayLength());
+    }
+
+    [Fact]
+    [Trait("Requisito", "RF-F002-01")]
+    public async Task List_PaginaMuitoGrande_Devolve200SemContas()
+    {
+        string adminToken = await LoginAsAdminAsync(_client);
+
+        using var response = await SendWithTokenAsync(
+            _client, HttpMethod.Get, $"{AccountsUrl}?page={int.MaxValue}&pageSize=50", adminToken);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(int.MaxValue, body.GetProperty("page").GetInt32());
+        Assert.Equal(0, body.GetProperty("items").GetArrayLength());
     }
 
     [Theory]
@@ -211,7 +226,7 @@ public class AccountsEndpointsTests(LocalHubApiFactory factory)
 
     [Fact]
     [Trait("Requisito", "RF-F002-03")]
-    public async Task Activate_ContaDesativada_Devolve200EUtilizadorVoltaAIniciarSessao()
+    public async Task Activate_ContaDesativada_Devolve200SurgeAtivaNaListaEUtilizadorVoltaAIniciarSessao()
     {
         var account = await RegisterAccountAsync("CLIENT");
         string adminToken = await LoginAsAdminAsync(_client);
@@ -223,6 +238,9 @@ public class AccountsEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal("ACTIVE", body.GetProperty("status").GetString());
+        var listed = (await ListAllAsync(adminToken, "role=CLIENT"))
+            .Single(a => a.GetProperty("userId").GetInt32() == account.UserId);
+        Assert.Equal("ACTIVE", listed.GetProperty("status").GetString());
         string userToken = await LoginAndGetTokenAsync(_client, account.Email, ValidPassword);
         using var me = await SendWithTokenAsync(_client, HttpMethod.Get, MeUrl, userToken);
         Assert.Equal(HttpStatusCode.OK, me.StatusCode);

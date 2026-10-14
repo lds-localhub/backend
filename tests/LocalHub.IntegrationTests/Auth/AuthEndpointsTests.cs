@@ -17,8 +17,6 @@ namespace LocalHub.IntegrationTests.Auth;
 [Trait("Category", "Integration")]
 public class AuthEndpointsTests(LocalHubApiFactory factory)
 {
-    private const string AdminEmail = "ana.almeida@localhub.test";
-
     private readonly HttpClient _client = factory.CreateClient();
 
     [Fact]

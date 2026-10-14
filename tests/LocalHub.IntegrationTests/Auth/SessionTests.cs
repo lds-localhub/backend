@@ -65,7 +65,9 @@ public class SessionTests(LocalHubApiFactory factory)
         string email = NewEmail();
         string token = await RegisterAndLoginAsync(_client, email);
 
-        // There is no deactivation endpoint yet (F002, I041), so the account is deactivated in the database.
+        // Deactivated directly in the database, without revoking the session, so that the 401 comes from the check
+        // of the account status (API documentation, section 4.2). The deactivation through E06, which also revokes
+        // the sessions, is tested in AccountsEndpointsTests.
         await DeactivateAsync(email);
         using var response = await SendWithTokenAsync(_client, HttpMethod.Get, MeUrl, token);
 

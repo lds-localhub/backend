@@ -7,7 +7,9 @@ public record PageRequest(int Page = PageRequest.DefaultPage, int PageSize = Pag
     public const int DefaultPageSize = 20;
     public const int MaxPageSize = 50;
 
-    public int Skip => (Page - 1) * PageSize;
+    // Calculated in long so that a very large page (for example int.MaxValue) gives an empty page and not an
+    // overflow with a negative OFFSET.
+    public int Skip => (int)Math.Min((long)(Page - 1) * PageSize, int.MaxValue);
 
     // Adds the errors of "page" and "pageSize" to the errors of the other fields of the request.
     public void Validate(IDictionary<string, string[]> errors)
