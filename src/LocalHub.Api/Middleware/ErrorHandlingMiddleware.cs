@@ -1,5 +1,6 @@
 using LocalHub.Application.Common.Exceptions;
 using LocalHub.Domain.Common;
+using LocalHub.Infrastructure.Geocoding;
 
 namespace LocalHub.Api.Middleware;
 
@@ -68,6 +69,14 @@ public class ErrorHandlingMiddleware(ILogger<ErrorHandlingMiddleware> logger) : 
 
             case DomainException domain:
                 return HandleDomainAsync(context, domain);
+
+            // The message of the exception explains the technical cause, so it is not sent to the user.
+            case GeocodingUnavailableException:
+                return ProblemResponses.WriteAsync(
+                    context,
+                    StatusCodes.Status503ServiceUnavailable,
+                    "Serviço indisponível",
+                    GeocodingUnavailableException.UserMessage);
 
             default:
                 logger.LogError(exception, "Unexpected error while processing the request.");

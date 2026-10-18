@@ -25,6 +25,7 @@ public class AccessControlTests(LocalHubApiFactory factory)
         { "POST", "/api/categories" },
         { "PUT", "/api/categories/1" },
         { "POST", "/api/categories/1/deactivate" },
+        { "PUT", "/api/users/me/location" },
     };
 
     // Add each endpoint restricted to the administrator here, once for each role that is not authorized.

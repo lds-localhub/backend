@@ -1,11 +1,14 @@
 using LocalHub.Infrastructure;
+using LocalHub.Infrastructure.Geocoding;
 using LocalHub.Infrastructure.Seed;
 
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 using Npgsql;
 
@@ -48,6 +51,16 @@ public class LocalHubApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         builder.UseSetting($"ConnectionStrings:{DependencyInjection.ConnectionStringName}", _connectionString);
         builder.UseSetting("Jwt:SigningKey", SigningKey);
         builder.UseSetting("Seed:DefaultPassword", SeedPassword);
+
+        // No test calls the real Nominatim (I043): the adapter is replaced by FakeGeocodingService and the
+        // "Nominatim" HttpClient fails if anything still tries to send a request.
+        builder.ConfigureTestServices(services =>
+        {
+            services.RemoveAll<IGeocodingService>();
+            services.AddSingleton<IGeocodingService, FakeGeocodingService>();
+            services.AddHttpClient(GeocodingServiceCollectionExtensions.HttpClientName)
+                .ConfigurePrimaryHttpMessageHandler(() => new FailIfCalledHandler());
+        });
     }
 
     // CI: ConnectionStrings__LocalHub (ci.yml). Locally: the connection string of appsettings.Development.json.
