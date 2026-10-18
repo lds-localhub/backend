@@ -84,3 +84,43 @@ Authorization: Bearer {{login.response.body.token}}
 ### E03 - Log out (expect 204); afterwards the same token gets 401 on E04
 POST {{LocalHub.Api_HostAddress}}/api/auth/logout
 Authorization: Bearer {{login.response.body.token}}
+
+### E02 - Log in as a client (the token above was revoked by E03, and administrators get 403 on E16)
+# @name login2
+POST {{LocalHub.Api_HostAddress}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "carla.costa@localhub.test",
+  "password": "{{seedPassword}}"
+}
+
+### E16 - Set the location by address (geocoded by Nominatim, needs Internet access)
+PUT {{LocalHub.Api_HostAddress}}/api/users/me/location
+Authorization: Bearer {{login2.response.body.token}}
+Content-Type: application/json
+
+{
+  "address": "Avenida dos Aliados, Porto"
+}
+
+### E16 - Set the location by coordinates (the address is obtained by reverse geocoding)
+PUT {{LocalHub.Api_HostAddress}}/api/users/me/location
+Authorization: Bearer {{login2.response.body.token}}
+Content-Type: application/json
+
+{
+  "latitude": 41.366,
+  "longitude": -8.194
+}
+
+### E16 - Address and coordinates together (expect 400 on "address")
+PUT {{LocalHub.Api_HostAddress}}/api/users/me/location
+Authorization: Bearer {{login2.response.body.token}}
+Content-Type: application/json
+
+{
+  "address": "Avenida dos Aliados, Porto",
+  "latitude": 41.366,
+  "longitude": -8.194
+}

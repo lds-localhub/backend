@@ -1,4 +1,5 @@
 ﻿using LocalHub.Domain.Common;
+using LocalHub.Domain.Locations;
 
 namespace LocalHub.Domain.Accounts;
 
@@ -7,6 +8,9 @@ namespace LocalHub.Domain.Accounts;
 /// </summary>
 public class User
 {
+    // Same size as the column address varchar(255).
+    public const int AddressMaxLength = 255;
+
     // "private set": the values can only be changed by the methods of this class (Register, SetPasswordHash, ...),
     // so the rules below are always applied. Entity Framework can still fill them when it reads from the database.
     public int UserId { get; private set; }
@@ -98,5 +102,26 @@ public class User
         }
 
         Status = ActivationStatus.Active;
+    }
+
+    // Receives a point created by GeoPoint.Create, so the ranges of the CHECK constraints are always respected.
+    // The address and the coordinates are always changed together.
+    public void SetLocation(string address, GeoPoint coordinates)
+    {
+        string trimmed = address?.Trim() ?? string.Empty;
+        if (trimmed.Length == 0)
+        {
+            throw new DomainException(DomainErrorKind.Validation, "A morada é obrigatória.", "address");
+        }
+
+        if (trimmed.Length > AddressMaxLength)
+        {
+            throw new DomainException(DomainErrorKind.Validation,
+                $"A morada tem no máximo {AddressMaxLength} caracteres.", "address");
+        }
+
+        Address = trimmed;
+        Latitude = coordinates.Latitude;
+        Longitude = coordinates.Longitude;
     }
 }
