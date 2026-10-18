@@ -31,16 +31,25 @@ builder.Services.AddControllers()
     })
     .ConfigureApiBehaviorOptions(o =>
     {
-        // Malformed bodies (invalid JSON, unknown enum value) use the same 400 format as the other errors.
+        // Malformed bodies (invalid JSON, unknown enum value) and query parameters (for example ?page=abc)
+        // use the same 400 format as the other errors.
         o.InvalidModelStateResponseFactory = context =>
         {
             // System.Text.Json reports the field as "$.role"; expose it as "role" with a Portuguese message.
+            // A query parameter is reported with its own name ("page").
             var errors = new Dictionary<string, string[]>();
             foreach (var entry in context.ModelState)
             {
-                if (entry.Key.StartsWith("$.", StringComparison.Ordinal) && entry.Value?.Errors.Count > 0)
+                if (entry.Value?.Errors.Count is null or 0)
                 {
-                    string field = entry.Key.Substring(2);
+                    continue;
+                }
+
+                string? field = entry.Key.StartsWith("$.", StringComparison.Ordinal)
+                    ? entry.Key.Substring(2)
+                    : context.HttpContext.Request.Query.ContainsKey(entry.Key) ? entry.Key : null;
+                if (field is not null)
+                {
                     // [...] instead of new[] { ... }: the recommended .NET rule CA1861 rejects new[] here.
                     errors[field] = ["Valor inválido."];
                 }

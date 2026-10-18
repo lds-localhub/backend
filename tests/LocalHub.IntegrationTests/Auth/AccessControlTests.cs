@@ -6,8 +6,8 @@ using static LocalHub.IntegrationTests.Fixtures.AuthRequests;
 
 namespace LocalHub.IntegrationTests.Auth;
 
-// Cross-cutting access tests (test plan, section 5.3): every protected endpoint rejects requests without a valid session.
-// No endpoint of F001 is restricted to a role, so there are no 403 cases yet.
+// Cross-cutting access tests (test plan, section 5.3): every protected endpoint rejects requests without a valid session
+// with 401, and requests of a role that is not authorized with 403.
 [Collection(ApiTestGroup.Name)]
 [Trait("Category", "Integration")]
 public class AccessControlTests(LocalHubApiFactory factory)
@@ -19,6 +19,20 @@ public class AccessControlTests(LocalHubApiFactory factory)
     {
         { "POST", "/api/auth/logout" },
         { "GET", "/api/users/me" },
+        { "GET", "/api/accounts" },
+        { "POST", "/api/accounts/1/deactivate" },
+        { "POST", "/api/accounts/1/activate" },
+    };
+
+    // Add each endpoint restricted to the administrator here, once for each role that is not authorized.
+    public static TheoryData<string, string, string> AdministratorEndpoints => new()
+    {
+        { "GET", "/api/accounts", "CLIENT" },
+        { "GET", "/api/accounts", "PROVIDER" },
+        { "POST", "/api/accounts/1/deactivate", "CLIENT" },
+        { "POST", "/api/accounts/1/deactivate", "PROVIDER" },
+        { "POST", "/api/accounts/1/activate", "CLIENT" },
+        { "POST", "/api/accounts/1/activate", "PROVIDER" },
     };
 
     [Theory]
@@ -42,6 +56,21 @@ public class AccessControlTests(LocalHubApiFactory factory)
         using var response = await SendWithTokenAsync(_client, new HttpMethod(method), url, "abc.def.ghi");
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Theory]
+    [MemberData(nameof(AdministratorEndpoints))]
+    [Trait("Requisito", "RF-F001-03")]
+    [Trait("Requisito", "RF-F002-01")]
+    [Trait("Requisito", "RNF-03")]
+    public async Task EndpointDeAdministrador_PapelNaoAutorizado_Devolve403(string method, string url, string role)
+    {
+        string token = await RegisterAndLoginAsync(_client, NewEmail(), role);
+
+        using var response = await SendWithTokenAsync(_client, new HttpMethod(method), url, token);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        await AssertProblemAsync(response, "https://tools.ietf.org/html/rfc9110#section-15.5.4", url);
     }
 
     [Theory]
