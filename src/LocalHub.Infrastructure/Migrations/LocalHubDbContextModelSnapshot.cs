@@ -129,6 +129,34 @@ namespace LocalHub.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("LocalHub.Domain.Categories.ServiceCategory", b =>
+                {
+                    b.Property<int>("ServiceCategoryId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("serviceCategoryId");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityAlwaysColumn(b.Property<int>("ServiceCategoryId"));
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("name");
+
+                    b.Property<ActivationStatus>("Status")
+                        .HasColumnType("activation_status")
+                        .HasColumnName("status");
+
+                    b.HasKey("ServiceCategoryId")
+                        .HasName("PK_ServiceCategory");
+
+                    b.ToTable("ServiceCategory", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_ServiceCategory_name", "btrim(\"name\") <> ''");
+                        });
+                });
+
             modelBuilder.Entity("LocalHub.Domain.Accounts.UserSession", b =>
                 {
                     b.HasOne("LocalHub.Domain.Accounts.User", null)
