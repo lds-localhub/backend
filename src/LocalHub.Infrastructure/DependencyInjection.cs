@@ -1,4 +1,5 @@
 using LocalHub.Domain.Accounts;
+using LocalHub.Infrastructure.Categories;
 using LocalHub.Infrastructure.Geocoding;
 using LocalHub.Infrastructure.Security;
 using LocalHub.Infrastructure.Seed;
@@ -37,6 +38,7 @@ public static class DependencyInjection
 
         services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
         services.AddScoped<ITokenIssuer, JwtTokenIssuer>();
+        services.AddScoped<ICategoryUsage, CategoryUsage>();
         services.AddScoped<DataSeeder>();
 
         return services;

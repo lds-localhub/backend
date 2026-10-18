@@ -53,6 +53,13 @@ public class ErrorHandlingMiddleware(ILogger<ErrorHandlingMiddleware> logger) : 
                     forbidden.Message,
                     type: forbidden.ErrorType);
 
+            case CategoryInUseException inUse:
+                return ProblemResponses.WriteAsync(
+                    context,
+                    StatusCodes.Status409Conflict,
+                    "Categoria em utilização",
+                    inUse.Message);
+
             case NotFoundException notFound:
                 return ProblemResponses.WriteAsync(
                     context,

@@ -22,6 +22,9 @@ public class AccessControlTests(LocalHubApiFactory factory)
         { "GET", "/api/accounts" },
         { "POST", "/api/accounts/1/deactivate" },
         { "POST", "/api/accounts/1/activate" },
+        { "POST", "/api/categories" },
+        { "PUT", "/api/categories/1" },
+        { "POST", "/api/categories/1/deactivate" },
         { "PUT", "/api/users/me/location" },
     };
 
@@ -34,6 +37,12 @@ public class AccessControlTests(LocalHubApiFactory factory)
         { "POST", "/api/accounts/1/deactivate", "PROVIDER" },
         { "POST", "/api/accounts/1/activate", "CLIENT" },
         { "POST", "/api/accounts/1/activate", "PROVIDER" },
+        { "POST", "/api/categories", "CLIENT" },
+        { "POST", "/api/categories", "PROVIDER" },
+        { "PUT", "/api/categories/1", "CLIENT" },
+        { "PUT", "/api/categories/1", "PROVIDER" },
+        { "POST", "/api/categories/1/deactivate", "CLIENT" },
+        { "POST", "/api/categories/1/deactivate", "PROVIDER" },
     };
 
     [Theory]
@@ -90,5 +99,16 @@ public class AccessControlTests(LocalHubApiFactory factory)
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         await AssertProblemAsync(response, "https://tools.ietf.org/html/rfc9110#section-15.5.1", url);
+    }
+
+    // E08 without includeInactive is public: the list of active categories (RF-F001-03, rule 3; RF-F003-04).
+    [Fact]
+    [Trait("Requisito", "RF-F001-03")]
+    [Trait("Requisito", "RF-F003-04")]
+    public async Task ListarCategoriasAtivas_SemToken_Devolve200()
+    {
+        using var response = await SendWithTokenAsync(_client, HttpMethod.Get, "/api/categories", token: null);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 }
