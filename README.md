@@ -77,6 +77,11 @@ Em alternativa, definir a cadeia de ligação através de uma variável de ambie
 $env:ConnectionStrings__LocalHub = "Host=localhost;Port=5432;Database=localhub_dev;Username=localhub;Password=<palavra-passe>"
 ```
 
+A localização (`PUT /api/users/me/location`) obtém as coordenadas a partir da morada, e a morada a partir das
+coordenadas, através do serviço público [Nominatim](https://nominatim.org/) (OpenStreetMap). A secção `Nominatim`
+do `appsettings.json` já tem os valores necessários e não tem segredos; a API precisa de acesso à Internet para
+este pedido. Os testes não dependem do Nominatim: usam um serviço de geocodificação falso.
+
 ## Compilar, testar e formatar
 
 Executar a partir da raiz do repositório:

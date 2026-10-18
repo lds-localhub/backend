@@ -1,4 +1,5 @@
 using LocalHub.Application.Accounts;
+using LocalHub.Application.Locations;
 using LocalHub.Infrastructure;
 
 using Microsoft.Extensions.Configuration;
@@ -16,6 +17,8 @@ public static class DependencyInjection
         services.TryAddSingleton(TimeProvider.System);
         services.AddScoped<AuthService>();
         services.AddScoped<AccountService>();
+        services.AddScoped<LocationResolver>();
+        services.AddScoped<LocationService>();
 
         return services;
     }

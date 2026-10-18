@@ -1,4 +1,5 @@
 using LocalHub.Domain.Accounts;
+using LocalHub.Infrastructure.Geocoding;
 using LocalHub.Infrastructure.Security;
 using LocalHub.Infrastructure.Seed;
 
@@ -26,6 +27,7 @@ public static class DependencyInjection
             })
             .UseCamelCaseNamingConvention());
         services.AddHealthChecks().AddDbContextCheck<LocalHubDbContext>();
+        services.AddNominatimGeocoding(configuration);
         services.AddOptions<JwtOptions>()
             .Bind(configuration.GetSection(JwtOptions.SectionName))
             .Validate(o => o.SigningKey.Length >= 32, "Jwt:SigningKey tem de ter, no mínimo, 32 caracteres.")
