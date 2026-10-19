@@ -2,6 +2,7 @@ using LocalHub.Application.Accounts.Dtos;
 using LocalHub.Application.Common;
 using LocalHub.Application.Common.Exceptions;
 using LocalHub.Application.Locations.Dtos;
+using LocalHub.Application.Profiles;
 using LocalHub.Infrastructure;
 
 using Microsoft.EntityFrameworkCore;
@@ -25,6 +26,6 @@ public class LocationService(LocalHubDbContext db, LocationResolver resolver, IC
         user.SetLocation(location.Address, location.Coordinates);
         await db.SaveChangesAsync(cancellationToken);
 
-        return UserResponse.From(user);
+        return UserResponse.From(user, await db.FindProfileIdAsync(user.UserId, cancellationToken));
     }
 }

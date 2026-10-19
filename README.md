@@ -77,10 +77,11 @@ Em alternativa, definir a cadeia de ligação através de uma variável de ambie
 $env:ConnectionStrings__LocalHub = "Host=localhost;Port=5432;Database=localhub_dev;Username=localhub;Password=<palavra-passe>"
 ```
 
-A localização (`PUT /api/users/me/location`) obtém as coordenadas a partir da morada, e a morada a partir das
-coordenadas, através do serviço público [Nominatim](https://nominatim.org/) (OpenStreetMap). A secção `Nominatim`
-do `appsettings.json` já tem os valores necessários e não tem segredos; a API precisa de acesso à Internet para
-este pedido. Os testes não dependem do Nominatim: usam um serviço de geocodificação falso.
+A localização (`PUT /api/users/me/location`) e a criação do perfil profissional (`POST /api/profiles`) obtêm as
+coordenadas a partir da morada, e a morada a partir das coordenadas, através do serviço público
+[Nominatim](https://nominatim.org/) (OpenStreetMap). A secção `Nominatim` do `appsettings.json` já tem os valores
+necessários e não tem segredos; a API precisa de acesso à Internet para estes pedidos. Os testes não dependem do
+Nominatim: usam um serviço de geocodificação falso.
 
 ## Compilar, testar e formatar
 
@@ -135,7 +136,8 @@ execução regista contas novas com e-mails fictícios (`@localhub.test`), por i
 
 Os pedidos da gestão de contas (F002) iniciam sessão com o Administrador `ana.almeida@localhub.test`. A
 palavra-passe não está na collection: é a de `Seed:DefaultPassword` (ou a dos scripts de `database/`, se a base de
-dados foi criada com eles) e é indicada na execução, na variável `adminPassword`, como no comando acima.
+dados foi criada com eles) e é indicada na execução, na variável `adminPassword`, como no comando acima. As
+pastas F003 e F004 também a usam, para criar as categorias.
 
 ## Integração contínua
 

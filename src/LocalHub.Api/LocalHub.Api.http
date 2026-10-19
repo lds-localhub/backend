@@ -124,3 +124,70 @@ Content-Type: application/json
   "latitude": 41.366,
   "longitude": -8.194
 }
+
+### E02 - Log in as Olga Oliveira, the provider without a profile of the reference data (database/README.md:
+### only in a database created by the scripts, with the fictitious password of that README)
+# @name loginProvider
+POST {{LocalHub.Api_HostAddress}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "olga.oliveira@localhub.test",
+  "password": "Demo2026"
+}
+
+### E14 - Provider without a profile (expect 403 perfil-em-falta)
+PUT {{LocalHub.Api_HostAddress}}/api/profiles/me
+Authorization: Bearer {{loginProvider.response.body.token}}
+Content-Type: application/json
+
+{
+  "introduction": "x",
+  "contactDetails": "x",
+  "experience": "x",
+  "serviceCategoryIds": [1]
+}
+
+### E12 - Create the professional profile (expect 201; a second time gets 409). Category 1 is "Canalização".
+# @name createProfile
+POST {{LocalHub.Api_HostAddress}}/api/profiles
+Authorization: Bearer {{loginProvider.response.body.token}}
+Content-Type: application/json
+
+{
+  "introduction": "Canalizadora com equipa própria na área do Grande Porto.",
+  "contactDetails": "Telefone 900 000 015 (fictício)",
+  "experience": "10 anos em reparação de fugas.",
+  "serviceCategoryIds": [1, 2],
+  "address": "Rua de Santa Catarina 200, Porto",
+  "serviceRadiusKm": 15
+}
+
+### E13 - Get the profile (the provider only sees its own profile)
+GET {{LocalHub.Api_HostAddress}}/api/profiles/{{createProfile.response.body.professionalProfileId}}
+Authorization: Bearer {{loginProvider.response.body.token}}
+
+### E14 - Update the profile (the list of categories replaces the previous one)
+PUT {{LocalHub.Api_HostAddress}}/api/profiles/me
+Authorization: Bearer {{loginProvider.response.body.token}}
+Content-Type: application/json
+
+{
+  "introduction": "Canalizadora com equipa própria no Porto e Matosinhos.",
+  "contactDetails": "Telefone 900 000 015 (fictício)",
+  "experience": "10 anos em reparação de fugas.",
+  "serviceCategoryIds": [1]
+}
+
+### E17 - Set the service radius (expect 200; 0, 150 or 25.5 get 400)
+PUT {{LocalHub.Api_HostAddress}}/api/profiles/me/service-radius
+Authorization: Bearer {{loginProvider.response.body.token}}
+Content-Type: application/json
+
+{
+  "serviceRadiusKm": 25
+}
+
+### E13 - A client gets the profile of the provider
+GET {{LocalHub.Api_HostAddress}}/api/profiles/{{createProfile.response.body.professionalProfileId}}
+Authorization: Bearer {{login2.response.body.token}}

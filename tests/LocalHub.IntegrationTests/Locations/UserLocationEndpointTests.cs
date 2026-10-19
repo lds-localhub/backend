@@ -29,7 +29,10 @@ public class UserLocationEndpointTests(LocalHubApiFactory factory)
     [Trait("Requisito", "RF-F015-03")]
     public async Task SetLocation_MoradaValida_Devolve200EGuardaMoradaECoordenadas(string role)
     {
-        string token = await RegisterAndLoginAsync(_client, NewEmail(), role);
+        // Only a provider with a profile can use E16 (a provider without a profile is tested in ProfilesEndpointsTests).
+        string token = role == "PROVIDER"
+            ? (await ProfileRequests.CreateProviderWithProfileAsync(_client)).Token
+            : await RegisterAndLoginAsync(_client, NewEmail(), role);
 
         using var response = await PutLocationAsync(token, new { address = FakeGeocodingService.KnownAddress });
 
@@ -50,7 +53,7 @@ public class UserLocationEndpointTests(LocalHubApiFactory factory)
     [Trait("Requisito", "RF-F015-03")]
     public async Task SetLocation_MoradaNaoEncontrada_Devolve400NaMoradaENaoAlteraALocalizacao()
     {
-        string token = await RegisterAndLoginAsync(_client, NewEmail());
+        string token = await RegisterAndLoginAsync(_client, NewEmail(), "CLIENT");
         using var first = await PutLocationAsync(token, new { address = FakeGeocodingService.KnownAddress });
         Assert.Equal(HttpStatusCode.OK, first.StatusCode);
 
@@ -67,7 +70,7 @@ public class UserLocationEndpointTests(LocalHubApiFactory factory)
     [Trait("Requisito", "RF-F015-03")]
     public async Task SetLocation_GeocodificacaoIndisponivel_Devolve503()
     {
-        string token = await RegisterAndLoginAsync(_client, NewEmail());
+        string token = await RegisterAndLoginAsync(_client, NewEmail(), "CLIENT");
 
         using var response = await PutLocationAsync(
             token, new { address = $"Rua do Almada {FakeGeocodingService.UnavailableMarker}" });
@@ -81,7 +84,7 @@ public class UserLocationEndpointTests(LocalHubApiFactory factory)
     [Trait("Requisito", "RF-F015-04")]
     public async Task SetLocation_CoordenadasValidas_Devolve200ComAMoradaObtida()
     {
-        string token = await RegisterAndLoginAsync(_client, NewEmail());
+        string token = await RegisterAndLoginAsync(_client, NewEmail(), "CLIENT");
 
         using var response = await PutLocationAsync(token, new
         {
@@ -104,7 +107,7 @@ public class UserLocationEndpointTests(LocalHubApiFactory factory)
     public async Task SetLocation_CoordenadasForaDoIntervalo_Devolve400NoCampo(
         double latitude, double longitude, string field)
     {
-        string token = await RegisterAndLoginAsync(_client, NewEmail());
+        string token = await RegisterAndLoginAsync(_client, NewEmail(), "CLIENT");
 
         using var response = await PutLocationAsync(token, new { latitude, longitude });
 
@@ -117,7 +120,7 @@ public class UserLocationEndpointTests(LocalHubApiFactory factory)
     [Trait("Requisito", "RF-F015-04")]
     public async Task SetLocation_CoordenadasSemMorada_Devolve400NaLatitude()
     {
-        string token = await RegisterAndLoginAsync(_client, NewEmail());
+        string token = await RegisterAndLoginAsync(_client, NewEmail(), "CLIENT");
 
         using var response = await PutLocationAsync(token, new { latitude = 0m, longitude = 0m });
 
@@ -130,7 +133,7 @@ public class UserLocationEndpointTests(LocalHubApiFactory factory)
     [Trait("Requisito", "RF-F015-04")]
     public async Task SetLocation_SoLatitude_Devolve400NaLongitude()
     {
-        string token = await RegisterAndLoginAsync(_client, NewEmail());
+        string token = await RegisterAndLoginAsync(_client, NewEmail(), "CLIENT");
 
         using var response = await PutLocationAsync(token, new { latitude = FakeGeocodingService.KnownLatitude });
 
@@ -144,7 +147,7 @@ public class UserLocationEndpointTests(LocalHubApiFactory factory)
     [Trait("Requisito", "RF-F015-04")]
     public async Task SetLocation_MoradaECoordenadas_Devolve400()
     {
-        string token = await RegisterAndLoginAsync(_client, NewEmail());
+        string token = await RegisterAndLoginAsync(_client, NewEmail(), "CLIENT");
 
         using var response = await PutLocationAsync(token, new
         {
@@ -163,7 +166,7 @@ public class UserLocationEndpointTests(LocalHubApiFactory factory)
     [Trait("Requisito", "RF-F015-04")]
     public async Task SetLocation_ObjetoVazio_Devolve400()
     {
-        string token = await RegisterAndLoginAsync(_client, NewEmail());
+        string token = await RegisterAndLoginAsync(_client, NewEmail(), "CLIENT");
 
         using var response = await PutLocationAsync(token, new { });
 
@@ -176,7 +179,7 @@ public class UserLocationEndpointTests(LocalHubApiFactory factory)
     [Trait("Requisito", "RF-F015-03")]
     public async Task SetLocation_SemCorpo_Devolve400()
     {
-        string token = await RegisterAndLoginAsync(_client, NewEmail());
+        string token = await RegisterAndLoginAsync(_client, NewEmail(), "CLIENT");
         using var request = new HttpRequestMessage(HttpMethod.Put, Url)
         {
             Content = new StringContent(string.Empty, Encoding.UTF8, "application/json"),

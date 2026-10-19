@@ -157,6 +157,86 @@ namespace LocalHub.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("LocalHub.Domain.Profiles.ProfessionalProfile", b =>
+                {
+                    b.Property<int>("ProfessionalProfileId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("professionalProfileId");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityAlwaysColumn(b.Property<int>("ProfessionalProfileId"));
+
+                    b.Property<decimal?>("AverageRating")
+                        .HasPrecision(2, 1)
+                        .HasColumnType("numeric(2,1)")
+                        .HasColumnName("averageRating");
+
+                    b.Property<string>("ContactDetails")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("contactDetails");
+
+                    b.Property<string>("Experience")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("experience");
+
+                    b.Property<string>("Introduction")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("introduction");
+
+                    b.Property<int>("ServiceProviderId")
+                        .HasColumnType("integer")
+                        .HasColumnName("serviceProviderId");
+
+                    b.Property<short>("ServiceRadiusKm")
+                        .HasColumnType("smallint")
+                        .HasColumnName("serviceRadiusKm");
+
+                    b.HasKey("ProfessionalProfileId")
+                        .HasName("PK_ProfessionalProfile");
+
+                    b.HasIndex("ServiceProviderId")
+                        .IsUnique()
+                        .HasDatabaseName("UQ_ProfessionalProfile_serviceProviderId");
+
+                    b.ToTable("ProfessionalProfile", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_ProfessionalProfile_averageRating", "\"averageRating\" BETWEEN 1.0 AND 5.0");
+
+                            t.HasCheckConstraint("CK_ProfessionalProfile_contactDetails", "btrim(\"contactDetails\") <> ''");
+
+                            t.HasCheckConstraint("CK_ProfessionalProfile_experience", "btrim(\"experience\") <> ''");
+
+                            t.HasCheckConstraint("CK_ProfessionalProfile_introduction", "btrim(\"introduction\") <> ''");
+
+                            t.HasCheckConstraint("CK_ProfessionalProfile_serviceRadiusKm", "\"serviceRadiusKm\" BETWEEN 1 AND 100");
+                        });
+                });
+
+            modelBuilder.Entity("LocalHub.Domain.Profiles.ServiceArea", b =>
+                {
+                    b.Property<int>("ServiceCategoryId")
+                        .HasColumnType("integer")
+                        .HasColumnName("serviceCategoryId");
+
+                    b.Property<int>("ProfessionalProfileId")
+                        .HasColumnType("integer")
+                        .HasColumnName("professionalProfileId");
+
+                    b.HasKey("ServiceCategoryId", "ProfessionalProfileId")
+                        .HasName("PK_ServiceArea");
+
+                    b.HasIndex("ProfessionalProfileId")
+                        .HasDatabaseName("IX_ServiceArea_professionalProfileId");
+
+                    b.ToTable("ServiceArea", (string)null);
+                });
+
             modelBuilder.Entity("LocalHub.Domain.Accounts.UserSession", b =>
                 {
                     b.HasOne("LocalHub.Domain.Accounts.User", null)
@@ -167,9 +247,45 @@ namespace LocalHub.Infrastructure.Migrations
                         .HasConstraintName("FK_UserSession_User");
                 });
 
+            modelBuilder.Entity("LocalHub.Domain.Profiles.ProfessionalProfile", b =>
+                {
+                    b.HasOne("LocalHub.Domain.Accounts.User", "ServiceProvider")
+                        .WithOne()
+                        .HasForeignKey("LocalHub.Domain.Profiles.ProfessionalProfile", "ServiceProviderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("FK_ProfessionalProfile_User");
+
+                    b.Navigation("ServiceProvider");
+                });
+
+            modelBuilder.Entity("LocalHub.Domain.Profiles.ServiceArea", b =>
+                {
+                    b.HasOne("LocalHub.Domain.Profiles.ProfessionalProfile", null)
+                        .WithMany("ServiceAreas")
+                        .HasForeignKey("ProfessionalProfileId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK_ServiceArea_ProfessionalProfile");
+
+                    b.HasOne("LocalHub.Domain.Categories.ServiceCategory", "ServiceCategory")
+                        .WithMany()
+                        .HasForeignKey("ServiceCategoryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("FK_ServiceArea_ServiceCategory");
+
+                    b.Navigation("ServiceCategory");
+                });
+
             modelBuilder.Entity("LocalHub.Domain.Accounts.User", b =>
                 {
                     b.Navigation("Sessions");
+                });
+
+            modelBuilder.Entity("LocalHub.Domain.Profiles.ProfessionalProfile", b =>
+                {
+                    b.Navigation("ServiceAreas");
                 });
 #pragma warning restore 612, 618
         }
