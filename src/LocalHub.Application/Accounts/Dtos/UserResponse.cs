@@ -13,8 +13,8 @@ public record UserResponse(
     decimal? Longitude,
     int? ProfessionalProfileId)
 {
-    // The professional profile (F004) does not exist yet, so this is always null for now.
-    public static UserResponse From(User user)
+    // professionalProfileId: null for clients, administrators and providers without a profile (API documentation, E04).
+    public static UserResponse From(User user, int? professionalProfileId)
     {
         return new UserResponse(
             user.UserId,
@@ -25,6 +25,6 @@ public record UserResponse(
             user.Address,
             user.Latitude,
             user.Longitude,
-            null);
+            professionalProfileId);
     }
 }

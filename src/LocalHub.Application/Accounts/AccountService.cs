@@ -1,6 +1,7 @@
 using LocalHub.Application.Accounts.Dtos;
 using LocalHub.Application.Common;
 using LocalHub.Application.Common.Exceptions;
+using LocalHub.Application.Profiles;
 using LocalHub.Domain.Accounts;
 using LocalHub.Infrastructure;
 
@@ -33,7 +34,7 @@ public class AccountService(LocalHubDbContext db, ICurrentUser currentUser, Time
             throw new NotFoundException("Utilizador não encontrado.");
         }
 
-        return UserResponse.From(user);
+        return UserResponse.From(user, await db.FindProfileIdAsync(user.UserId, cancellationToken));
     }
 
     // E05: accounts of clients and providers, optionally filtered by role and status, ordered by name.

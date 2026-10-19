@@ -1,15 +1,21 @@
+using LocalHub.Domain.Accounts;
+
+using Microsoft.EntityFrameworkCore;
+
 namespace LocalHub.Infrastructure.Categories;
 
-// PENDING: the professional profiles (ServiceArea, F004) and the services (F007 to F011) are not mapped by
-// Entity Framework yet, so there is nothing to count. When those entities are added, these two counts must be
-// replaced by queries to LocalHubDbContext:
-// - ActiveProviders: ServiceArea of the category whose profile belongs to a provider with an ACTIVE account;
-// - ServicesInProgress: Service of the category in the state OPEN or ASSIGNED.
-// The CategoryService and its tests already use the result, so nothing else has to change.
-public class CategoryUsage : ICategoryUsage
+// ActiveProviders counts the profiles of the category whose provider has an ACTIVE account (F004).
+// PENDING: the services (F007 to F011) are not mapped by Entity Framework yet, so ServicesInProgress is always 0.
+// When the entity Service is added, it must count the services of the category in the state OPEN or ASSIGNED.
+public class CategoryUsage(LocalHubDbContext db) : ICategoryUsage
 {
-    public Task<CategoryUsageCount> CountAsync(int serviceCategoryId, CancellationToken cancellationToken)
+    public async Task<CategoryUsageCount> CountAsync(int serviceCategoryId, CancellationToken cancellationToken)
     {
-        return Task.FromResult(new CategoryUsageCount(ActiveProviders: 0, ServicesInProgress: 0));
+        int activeProviders = await db.ProfessionalProfiles
+            .Where(p => p.ServiceProvider.Status == ActivationStatus.Active
+                        && p.ServiceAreas.Any(a => a.ServiceCategoryId == serviceCategoryId))
+            .CountAsync(cancellationToken);
+
+        return new CategoryUsageCount(activeProviders, ServicesInProgress: 0);
     }
 }

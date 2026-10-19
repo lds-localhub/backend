@@ -3,6 +3,7 @@ using System.Text.RegularExpressions;
 using LocalHub.Application.Accounts.Dtos;
 using LocalHub.Application.Common;
 using LocalHub.Application.Common.Exceptions;
+using LocalHub.Application.Profiles;
 using LocalHub.Domain.Accounts;
 using LocalHub.Domain.Common;
 using LocalHub.Infrastructure;
@@ -98,7 +99,8 @@ public class AuthService(
         await db.SaveChangesAsync(cancellationToken); // generates the SessionId used in the token
 
         string token = tokenIssuer.Issue(user, session);
-        return new LoginResponse(token, session.ExpiresAt, UserResponse.From(user));
+        int? professionalProfileId = await db.FindProfileIdAsync(user.UserId, cancellationToken);
+        return new LoginResponse(token, session.ExpiresAt, UserResponse.From(user, professionalProfileId));
     }
 
     public async Task LogoutAsync(CancellationToken cancellationToken)
