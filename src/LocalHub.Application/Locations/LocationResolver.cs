@@ -28,24 +28,31 @@ public class LocationResolver(IGeocodingService geocodingService)
         }
 
         return hasAddress
-            ? await FromAddressAsync(request.Address!, cancellationToken)
+            ? await FromAddressAsync(request.Address!, "address",
+                "Não foi possível encontrar esta morada. Confirme-a ou indique as coordenadas.", cancellationToken)
             : await FromCoordinatesAsync(request.Latitude, request.Longitude, cancellationToken);
     }
 
-    private async Task<ResolvedLocation> FromAddressAsync(string address, CancellationToken cancellationToken)
+    // Only an address, with the errors reported in the given field (E20 uses "location").
+    public Task<ResolvedLocation> ResolveAddressAsync(string address, string field, CancellationToken cancellationToken)
+    {
+        return FromAddressAsync(address, field, "Não foi possível encontrar esta morada. Confirme-a.", cancellationToken);
+    }
+
+    private async Task<ResolvedLocation> FromAddressAsync(
+        string address, string field, string notFoundMessage, CancellationToken cancellationToken)
     {
         string trimmed = address.Trim();
         if (trimmed.Length > User.AddressMaxLength)
         {
             throw new DomainException(DomainErrorKind.Validation,
-                $"A morada tem no máximo {User.AddressMaxLength} caracteres.", "address");
+                $"A morada tem no máximo {User.AddressMaxLength} caracteres.", field);
         }
 
         GeoPoint? coordinates = await geocodingService.GeocodeAsync(trimmed, cancellationToken);
         if (coordinates is null)
         {
-            throw new DomainException(DomainErrorKind.Validation,
-                "Não foi possível encontrar esta morada. Confirme-a ou indique as coordenadas.", "address");
+            throw new DomainException(DomainErrorKind.Validation, notFoundMessage, field);
         }
 
         return new ResolvedLocation(trimmed, coordinates.Value);

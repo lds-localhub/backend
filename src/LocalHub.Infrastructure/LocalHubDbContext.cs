@@ -1,6 +1,7 @@
 using LocalHub.Domain.Accounts;
 using LocalHub.Domain.Categories;
 using LocalHub.Domain.Profiles;
+using LocalHub.Domain.Services;
 
 using Microsoft.EntityFrameworkCore;
 
@@ -13,6 +14,8 @@ public class LocalHubDbContext(DbContextOptions<LocalHubDbContext> options) : Db
     public DbSet<ServiceCategory> ServiceCategories => Set<ServiceCategory>();
     public DbSet<ProfessionalProfile> ProfessionalProfiles => Set<ProfessionalProfile>();
     public DbSet<ServiceArea> ServiceAreas => Set<ServiceArea>();
+    public DbSet<Service> Services => Set<Service>();
+    public DbSet<DirectRequest> DirectRequests => Set<DirectRequest>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

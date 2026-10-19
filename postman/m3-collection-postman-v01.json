@@ -3148,6 +3148,411 @@
           ]
         }
       ]
+    },
+    {
+      "name": "F009 e F010 — Criar serviço",
+      "description": "Endpoint E20 (API v03, secção 8). Usa a sessão e a localização do Cliente da F001/F015 (token) e o perfil criado na F004 (profileId, profileCategoryId); executar depois dessas pastas.",
+      "item": [
+        {
+          "name": "E20 — Criar serviço com solicitações diretas (201, guarda serviceId)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/services",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "services"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"proposalModel\": \"DIRECT_REQUEST\",\n  \"serviceCategoryId\": {{profileCategoryId}},\n  \"description\": \"Torneira da casa de banho com fuga de água.\",\n  \"requestedStartDate\": \"{{serviceStartDate}}\",\n  \"requestedEndDate\": \"{{serviceEndDate}}\",\n  \"professionalProfileIds\": [\n    {{profileId}}\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F009-01. Sem location, é usada a localização registada do Cliente (E16, pasta F015). Cria o serviço OPEN e uma solicitação direta PENDING para o perfil da F004."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Dates relative to today, so the collection can be run on any day (start tomorrow, end three days later).",
+                  "const day = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };",
+                  "pm.collectionVariables.set(\"serviceStartDate\", day(1));",
+                  "pm.collectionVariables.set(\"serviceEndDate\", day(3));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 201\", () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Serviço aberto com uma solicitação pendente\", () => {",
+                  "    pm.expect(body.proposalModel).to.eql(\"DIRECT_REQUEST\");",
+                  "    pm.expect(body.status).to.eql(\"OPEN\");",
+                  "    pm.expect(body.requestedStartDate).to.eql(pm.collectionVariables.get(\"serviceStartDate\"));",
+                  "    pm.expect(body.directRequests.map(r => r.professionalProfileId)).to.eql([Number(pm.collectionVariables.get(\"profileId\"))]);",
+                  "    pm.expect(body.directRequests[0].status).to.eql(\"PENDING\");",
+                  "    pm.expect(body.directRequests[0].responseDate).to.eql(null);",
+                  "});",
+                  "pm.test(\"Cabeçalho Location\", () => pm.expect(pm.response.headers.get(\"Location\")).to.eql(`/api/services/${body.serviceId}`));",
+                  "pm.collectionVariables.set(\"serviceId\", body.serviceId);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E20 — Mesmo Prestador repetido (201, uma única solicitação)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/services",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "services"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"proposalModel\": \"DIRECT_REQUEST\",\n  \"serviceCategoryId\": {{profileCategoryId}},\n  \"description\": \"Torneira da casa de banho com fuga de água.\",\n  \"requestedStartDate\": \"{{serviceStartDate}}\",\n  \"requestedEndDate\": \"{{serviceEndDate}}\",\n  \"professionalProfileIds\": [\n    {{profileId}},\n    {{profileId}}\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F009-01, regra 9: o perfil repetido é considerado uma única vez."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"Uma única solicitação direta\", () => pm.expect(pm.response.json().directRequests.length).to.eql(1));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E20 — Publicar trabalho com outra morada (201, directRequests vazio)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/services",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "services"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"proposalModel\": \"PUBLIC\",\n  \"serviceCategoryId\": {{profileCategoryId}},\n  \"description\": \"Substituir a torneira da cozinha que pinga.\",\n  \"requestedStartDate\": \"{{serviceStartDate}}\",\n  \"location\": \"Rua de Costa Cabral 500, Porto\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F010-01. A morada é convertida em coordenadas pelo Nominatim (precisa de acesso à Internet) e não altera a localização registada do Cliente."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 201\", () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Trabalho publicado aberto, sem destinatários\", () => {",
+                  "    pm.expect(body.proposalModel).to.eql(\"PUBLIC\");",
+                  "    pm.expect(body.status).to.eql(\"OPEN\");",
+                  "    pm.expect(body.location).to.eql(\"Rua de Costa Cabral 500, Porto\");",
+                  "    pm.expect(body.requestedEndDate).to.eql(null);",
+                  "    pm.expect(body.directRequests).to.eql([]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E20 — Trabalho publicado com professionalProfileIds (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/services",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "services"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"proposalModel\": \"PUBLIC\",\n  \"serviceCategoryId\": {{profileCategoryId}},\n  \"description\": \"Pintar a sala.\",\n  \"requestedStartDate\": \"{{serviceStartDate}}\",\n  \"professionalProfileIds\": [\n    {{profileId}}\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "API v03, E20: a variante PUBLIC não admite professionalProfileIds."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"Erro em professionalProfileIds\", () => pm.expect(pm.response.json().errors).to.have.property(\"professionalProfileIds\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E20 — Campos em falta e data no passado (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/services",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "services"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"proposalModel\": \"PUBLIC\",\n  \"description\": \"\",\n  \"requestedStartDate\": \"2020-01-01\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F010-01, regras 2 a 5: os erros de todos os campos são devolvidos na mesma resposta."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 400\", () => pm.response.to.have.status(400));",
+                  "const errors = pm.response.json().errors;",
+                  "pm.test(\"Erros por campo\", () => pm.expect(errors).to.have.all.keys(\"serviceCategoryId\", \"description\", \"requestedStartDate\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E20 — Pedido de um Prestador (403)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/services",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "services"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"proposalModel\": \"PUBLIC\",\n  \"serviceCategoryId\": {{profileCategoryId}},\n  \"description\": \"Pintar a sala.\",\n  \"requestedStartDate\": \"{{serviceStartDate}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{profileToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F009-01, regra 1: só o Cliente cria serviços."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 403\", () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E20 — Sem token (401)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/services",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "services"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"proposalModel\": \"PUBLIC\",\n  \"serviceCategoryId\": {{profileCategoryId}},\n  \"description\": \"Pintar a sala.\",\n  \"requestedStartDate\": \"{{serviceStartDate}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "RF-F009-01, critério 12: o pedido sem sessão é rejeitado e nada é criado."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 401\", () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
     }
   ],
   "variable": [
@@ -3237,6 +3642,18 @@
     },
     {
       "key": "profileId",
+      "value": ""
+    },
+    {
+      "key": "serviceStartDate",
+      "value": ""
+    },
+    {
+      "key": "serviceEndDate",
+      "value": ""
+    },
+    {
+      "key": "serviceId",
       "value": ""
     }
   ]

@@ -191,3 +191,56 @@ Content-Type: application/json
 ### E13 - A client gets the profile of the provider
 GET {{LocalHub.Api_HostAddress}}/api/profiles/{{createProfile.response.body.professionalProfileId}}
 Authorization: Bearer {{login2.response.body.token}}
+
+### E20 - Create a service with a direct request to the provider above (expect 201, OPEN, one PENDING request).
+### Without "location", the client's location set in E16 is used. The dates must be today or later.
+POST {{LocalHub.Api_HostAddress}}/api/services
+Authorization: Bearer {{login2.response.body.token}}
+Content-Type: application/json
+
+{
+  "proposalModel": "DIRECT_REQUEST",
+  "serviceCategoryId": 1,
+  "description": "Torneira da casa de banho com fuga de água.",
+  "requestedStartDate": "2026-12-01",
+  "requestedEndDate": "2026-12-04",
+  "professionalProfileIds": [{{createProfile.response.body.professionalProfileId}}]
+}
+
+### E20 - Publish a job with another address (geocoded by Nominatim; the client's location does not change)
+POST {{LocalHub.Api_HostAddress}}/api/services
+Authorization: Bearer {{login2.response.body.token}}
+Content-Type: application/json
+
+{
+  "proposalModel": "PUBLIC",
+  "serviceCategoryId": 1,
+  "description": "Substituir a torneira da cozinha que pinga.",
+  "requestedStartDate": "2026-12-01",
+  "location": "Rua de Costa Cabral 500, Porto"
+}
+
+### E20 - Published job with professionalProfileIds and a date in the past (expect 400 with both fields)
+POST {{LocalHub.Api_HostAddress}}/api/services
+Authorization: Bearer {{login2.response.body.token}}
+Content-Type: application/json
+
+{
+  "proposalModel": "PUBLIC",
+  "serviceCategoryId": 1,
+  "description": "Pintar a sala.",
+  "requestedStartDate": "2020-01-01",
+  "professionalProfileIds": [1]
+}
+
+### E20 - A provider cannot create services (expect 403)
+POST {{LocalHub.Api_HostAddress}}/api/services
+Authorization: Bearer {{loginProvider.response.body.token}}
+Content-Type: application/json
+
+{
+  "proposalModel": "PUBLIC",
+  "serviceCategoryId": 1,
+  "description": "Pintar a sala.",
+  "requestedStartDate": "2026-12-01"
+}

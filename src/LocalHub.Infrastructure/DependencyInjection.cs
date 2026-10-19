@@ -1,4 +1,5 @@
 using LocalHub.Domain.Accounts;
+using LocalHub.Domain.Services;
 using LocalHub.Infrastructure.Categories;
 using LocalHub.Infrastructure.Geocoding;
 using LocalHub.Infrastructure.Security;
@@ -24,6 +25,10 @@ public static class DependencyInjection
             {
                 npgsql.MapEnum<UserRole>("user_role", nameTranslator: UpperSnakeCaseNameTranslator.Instance);
                 npgsql.MapEnum<ActivationStatus>("activation_status",
+                    nameTranslator: UpperSnakeCaseNameTranslator.Instance);
+                npgsql.MapEnum<ProposalModel>("proposal_model", nameTranslator: UpperSnakeCaseNameTranslator.Instance);
+                npgsql.MapEnum<ServiceStatus>("service_status", nameTranslator: UpperSnakeCaseNameTranslator.Instance);
+                npgsql.MapEnum<DirectRequestStatus>("direct_request_status",
                     nameTranslator: UpperSnakeCaseNameTranslator.Instance);
             })
             .UseCamelCaseNamingConvention());
