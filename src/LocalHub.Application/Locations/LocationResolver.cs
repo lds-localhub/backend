@@ -7,8 +7,8 @@ using LocalHub.Infrastructure.Geocoding;
 namespace LocalHub.Application.Locations;
 
 // Turns the location sent by the user (an address or a pair of coordinates) into an address and a point, using
-// the geocoding service. It does not change any entity, so it can be used before loading them (E16 and, later,
-// the features that search by distance).
+// the geocoding service. It does not change any entity, so it can be used before loading them (E12, E16 and the
+// reference location of the search of providers, E18).
 public class LocationResolver(IGeocodingService geocodingService)
 {
     public async Task<ResolvedLocation> ResolveAsync(SetLocationRequest request, CancellationToken cancellationToken)
@@ -30,6 +30,31 @@ public class LocationResolver(IGeocodingService geocodingService)
         return hasAddress
             ? await FromAddressAsync(request.Address!, cancellationToken)
             : await FromCoordinatesAsync(request.Latitude, request.Longitude, cancellationToken);
+    }
+
+    // E18 (RF-F005-02): the reference location of a search, in this order: the coordinates, the address or the
+    // registered location of the client. Nothing is saved. Unlike E16, the coordinates do not need an address, so
+    // they are not sent to the geocoding service.
+    public async Task<GeoPoint> ResolveReferenceAsync(
+        string? address,
+        decimal? latitude,
+        decimal? longitude,
+        GeoPoint? registeredLocation,
+        CancellationToken cancellationToken)
+    {
+        if (latitude is not null || longitude is not null)
+        {
+            return ToPoint(latitude, longitude);
+        }
+
+        if (!string.IsNullOrWhiteSpace(address))
+        {
+            var location = await FromAddressAsync(address, cancellationToken);
+            return location.Coordinates;
+        }
+
+        return registeredLocation ?? throw new DomainException(DomainErrorKind.Validation,
+            "Indique uma morada ou as coordenadas da localização de referência.", "address");
     }
 
     private async Task<ResolvedLocation> FromAddressAsync(string address, CancellationToken cancellationToken)
@@ -54,17 +79,7 @@ public class LocationResolver(IGeocodingService geocodingService)
     private async Task<ResolvedLocation> FromCoordinatesAsync(
         decimal? latitude, decimal? longitude, CancellationToken cancellationToken)
     {
-        if (latitude is null)
-        {
-            throw new DomainException(DomainErrorKind.Validation, "Indique a latitude.", "latitude");
-        }
-
-        if (longitude is null)
-        {
-            throw new DomainException(DomainErrorKind.Validation, "Indique a longitude.", "longitude");
-        }
-
-        GeoPoint coordinates = GeoPoint.Create(latitude.Value, longitude.Value);
+        GeoPoint coordinates = ToPoint(latitude, longitude);
 
         // The address is always saved with the coordinates, so a point without an address is rejected.
         string? address = await geocodingService.ReverseGeocodeAsync(coordinates, cancellationToken);
@@ -75,5 +90,21 @@ public class LocationResolver(IGeocodingService geocodingService)
         }
 
         return new ResolvedLocation(address, coordinates);
+    }
+
+    // Both coordinates are required, inside the valid ranges (RF-F015-04).
+    private static GeoPoint ToPoint(decimal? latitude, decimal? longitude)
+    {
+        if (latitude is null)
+        {
+            throw new DomainException(DomainErrorKind.Validation, "Indique a latitude.", "latitude");
+        }
+
+        if (longitude is null)
+        {
+            throw new DomainException(DomainErrorKind.Validation, "Indique a longitude.", "longitude");
+        }
+
+        return GeoPoint.Create(latitude.Value, longitude.Value);
     }
 }

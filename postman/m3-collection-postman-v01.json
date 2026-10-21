@@ -3148,6 +3148,438 @@
           ]
         }
       ]
+    },
+    {
+      "name": "F005 — Pesquisa de Prestadores",
+      "description": "Endpoint E18 (API v03, secção 8). Usa o perfil e a categoria criados na F004 e a sessão do Cliente da F001, com a localização definida na F015, por isso deve ser executada depois dessas pastas. O pedido com morada precisa de acesso à Internet (Nominatim).",
+      "item": [
+        {
+          "name": "E18 — Pesquisar sem sessão, com coordenadas (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/search/providers?serviceCategoryId={{profileCategoryId}}&latitude=41.1496&longitude=-8.6109",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "search",
+                "providers"
+              ],
+              "query": [
+                {
+                  "key": "serviceCategoryId",
+                  "value": "{{profileCategoryId}}"
+                },
+                {
+                  "key": "latitude",
+                  "value": "41.1496"
+                },
+                {
+                  "key": "longitude",
+                  "value": "-8.6109"
+                }
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "RF-F005-01, RF-F005-02. Pesquisa pública na categoria do perfil da F004, a partir das coordenadas da Avenida dos Aliados (Porto). Os resultados vêm ordenados por distância crescente, com a distância em km com uma casa decimal e o indicador dentro / fora do raio."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "const profile = body.items.find(p => p.professionalProfileId === Number(pm.collectionVariables.get(\"profileId\")));",
+                  "pm.test(\"Resposta paginada\", () => {",
+                  "    pm.expect(body.page).to.eql(1);",
+                  "    pm.expect(body.pageSize).to.eql(20);",
+                  "    pm.expect(body.total).to.be.at.least(1);",
+                  "});",
+                  "pm.test(\"Inclui o perfil da F004, dentro do raio\", () => {",
+                  "    pm.expect(profile).to.not.eql(undefined);",
+                  "    pm.expect(profile.name).to.eql(\"Canalizações Silva\");",
+                  "    pm.expect(profile.serviceCategories.map(c => c.serviceCategoryId)).to.include(Number(pm.collectionVariables.get(\"profileCategoryId\")));",
+                  "    pm.expect(profile.averageRating).to.eql(null);",
+                  "    pm.expect(profile.distanceKm).to.be.below(5);",
+                  "    pm.expect(profile.serviceRadiusKm).to.eql(25);",
+                  "    pm.expect(profile.withinServiceRadius).to.eql(true);",
+                  "});",
+                  "pm.test(\"Ordenada por distância crescente\", () => {",
+                  "    const distances = body.items.map(p => p.distanceKm);",
+                  "    pm.expect(distances).to.eql([...distances].sort((a, b) => a - b));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E18 — Pesquisar com morada (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/search/providers?serviceCategoryId={{profileCategoryId}}&address=Rua de Santa Catarina 200, Porto",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "search",
+                "providers"
+              ],
+              "query": [
+                {
+                  "key": "serviceCategoryId",
+                  "value": "{{profileCategoryId}}"
+                },
+                {
+                  "key": "address",
+                  "value": "Rua de Santa Catarina 200, Porto"
+                }
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "RF-F005-02. A morada é convertida em coordenadas pelo Nominatim (precisa de acesso à Internet) e usada só nesta pesquisa. É a morada do perfil da F004, por isso a distância é quase 0."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "const profile = body.items.find(p => p.professionalProfileId === Number(pm.collectionVariables.get(\"profileId\")));",
+                  "pm.test(\"O perfil fica a menos de 1 km\", () => {",
+                  "    pm.expect(profile).to.not.eql(undefined);",
+                  "    pm.expect(profile.distanceKm).to.be.below(1);",
+                  "    pm.expect(profile.withinServiceRadius).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E18 — Cliente usa a localização registada (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/search/providers?serviceCategoryId={{profileCategoryId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "search",
+                "providers"
+              ],
+              "query": [
+                {
+                  "key": "serviceCategoryId",
+                  "value": "{{profileCategoryId}}"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F005-02, regra 1: sem coordenadas nem morada, usa a localização registada do Cliente da F001 (definida por coordenadas na F015, a cerca de 40 km do Porto). RF-F005-01, regra 7: o Prestador fora do raio de 25 km continua a ser apresentado."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "const profile = body.items.find(p => p.professionalProfileId === Number(pm.collectionVariables.get(\"profileId\")));",
+                  "pm.test(\"O perfil aparece fora do raio\", () => {",
+                  "    pm.expect(profile).to.not.eql(undefined);",
+                  "    pm.expect(profile.distanceKm).to.be.above(25);",
+                  "    pm.expect(profile.withinServiceRadius).to.eql(false);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E18 — Filtro pelo nome, sem distinguir maiúsculas de minúsculas (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/search/providers?serviceCategoryId={{profileCategoryId}}&latitude=41.1496&longitude=-8.6109&name=SILVA",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "search",
+                "providers"
+              ],
+              "query": [
+                {
+                  "key": "serviceCategoryId",
+                  "value": "{{profileCategoryId}}"
+                },
+                {
+                  "key": "latitude",
+                  "value": "41.1496"
+                },
+                {
+                  "key": "longitude",
+                  "value": "-8.6109"
+                },
+                {
+                  "key": "name",
+                  "value": "SILVA"
+                }
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "RF-F009-02, regra 2: filtra pelo nome do Prestador, sem distinguir maiúsculas de minúsculas."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "const profile = body.items.find(p => p.professionalProfileId === Number(pm.collectionVariables.get(\"profileId\")));",
+                  "pm.test(\"Só Prestadores com \\\"silva\\\" no nome\", () => {",
+                  "    pm.expect(profile).to.not.eql(undefined);",
+                  "    body.items.forEach(p => pm.expect(p.name.toLowerCase()).to.include(\"silva\"));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E18 — Sem localização de referência (400)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/search/providers?serviceCategoryId={{profileCategoryId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "search",
+                "providers"
+              ],
+              "query": [
+                {
+                  "key": "serviceCategoryId",
+                  "value": "{{profileCategoryId}}"
+                }
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "RF-F005-01, regra 5: um Visitante sem morada nem coordenadas não pode pesquisar."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"Erro em Problem Details no campo address\", () => {",
+                  "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.type).to.eql(\"https://tools.ietf.org/html/rfc9110#section-15.5.1\");",
+                  "    pm.expect(body.errors).to.have.property(\"address\");",
+                  "    pm.expect(body.instance).to.eql(\"/\" + pm.request.url.path.join(\"/\"));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E18 — Categoria inexistente (400)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/search/providers?serviceCategoryId=2147483647&latitude=41.1496&longitude=-8.6109",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "search",
+                "providers"
+              ],
+              "query": [
+                {
+                  "key": "serviceCategoryId",
+                  "value": "2147483647"
+                },
+                {
+                  "key": "latitude",
+                  "value": "41.1496"
+                },
+                {
+                  "key": "longitude",
+                  "value": "-8.6109"
+                }
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "RF-F005-01, regra 2: a categoria tem de existir e estar ativa."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"Erro em Problem Details no campo serviceCategoryId\", () => {",
+                  "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.type).to.eql(\"https://tools.ietf.org/html/rfc9110#section-15.5.1\");",
+                  "    pm.expect(body.errors).to.have.property(\"serviceCategoryId\");",
+                  "    pm.expect(body.instance).to.eql(\"/\" + pm.request.url.path.join(\"/\"));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E18 — Coordenadas fora do intervalo (400)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/search/providers?serviceCategoryId={{profileCategoryId}}&latitude=95&longitude=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "search",
+                "providers"
+              ],
+              "query": [
+                {
+                  "key": "serviceCategoryId",
+                  "value": "{{profileCategoryId}}"
+                },
+                {
+                  "key": "latitude",
+                  "value": "95"
+                },
+                {
+                  "key": "longitude",
+                  "value": "10"
+                }
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "RF-F015-04: a latitude tem de estar entre -90 e 90 e a longitude entre -180 e 180."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"Erro em Problem Details no campo latitude\", () => {",
+                  "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.type).to.eql(\"https://tools.ietf.org/html/rfc9110#section-15.5.1\");",
+                  "    pm.expect(body.errors).to.have.property(\"latitude\");",
+                  "    pm.expect(body.instance).to.eql(\"/\" + pm.request.url.path.join(\"/\"));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E04 — A pesquisa não altera a localização registada (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "me"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F005-02, regra 3: as localizações indicadas nas pesquisas não alteram a localização registada do Cliente (a da F015)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Localização da F015\", () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.latitude).to.eql(41.366);",
+                  "    pm.expect(body.longitude).to.eql(-8.194);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
     }
   ],
   "variable": [

@@ -79,9 +79,14 @@ $env:ConnectionStrings__LocalHub = "Host=localhost;Port=5432;Database=localhub_d
 
 A localização (`PUT /api/users/me/location`) e a criação do perfil profissional (`POST /api/profiles`) obtêm as
 coordenadas a partir da morada, e a morada a partir das coordenadas, através do serviço público
-[Nominatim](https://nominatim.org/) (OpenStreetMap). A secção `Nominatim` do `appsettings.json` já tem os valores
-necessários e não tem segredos; a API precisa de acesso à Internet para estes pedidos. Os testes não dependem do
-Nominatim: usam um serviço de geocodificação falso.
+[Nominatim](https://nominatim.org/) (OpenStreetMap). A pesquisa de Prestadores (`GET /api/search/providers`) também
+o usa quando recebe uma morada (`address`); com coordenadas ou com a localização registada do Cliente não o chama.
+A secção `Nominatim` do `appsettings.json` já tem os valores necessários e não tem segredos; a API precisa de acesso
+à Internet para estes pedidos. Os testes não dependem do Nominatim: usam um serviço de geocodificação falso.
+
+As distâncias da pesquisa são calculadas pelo PostgreSQL, com a fórmula de Haversine (Documentação da Arquitetura,
+DEC-06), sem PostGIS nem outras extensões: o método `GeoDistance.HaversineKm` é traduzido para SQL em cada consulta
+(`LocalHub.Infrastructure/Locations/GeoDistanceTranslation.cs`), por isso nada é criado na base de dados.
 
 ## Compilar, testar e formatar
 
@@ -137,7 +142,8 @@ execução regista contas novas com e-mails fictícios (`@localhub.test`), por i
 Os pedidos da gestão de contas (F002) iniciam sessão com o Administrador `ana.almeida@localhub.test`. A
 palavra-passe não está na collection: é a de `Seed:DefaultPassword` (ou a dos scripts de `database/`, se a base de
 dados foi criada com eles) e é indicada na execução, na variável `adminPassword`, como no comando acima. As
-pastas F003 e F004 também a usam, para criar as categorias.
+pastas F003 e F004 também a usam, para criar as categorias. A pasta F005 (pesquisa de Prestadores) usa o perfil e a
+categoria criados na F004 e o Cliente da F001, com a localização da F015, por isso só funciona depois dessas pastas.
 
 ## Integração contínua
 
