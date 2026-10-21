@@ -1,6 +1,7 @@
 using LocalHub.Domain.Accounts;
 using LocalHub.Domain.Categories;
 using LocalHub.Domain.Profiles;
+using LocalHub.Infrastructure.Locations;
 
 using Microsoft.EntityFrameworkCore;
 
@@ -17,5 +18,8 @@ public class LocalHubDbContext(DbContextOptions<LocalHubDbContext> options) : Db
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(LocalHubDbContext).Assembly);
+
+        // GeoDistance.HaversineKm, used in the searches by distance (DEC-06).
+        GeoDistanceTranslation.Register(modelBuilder);
     }
 }

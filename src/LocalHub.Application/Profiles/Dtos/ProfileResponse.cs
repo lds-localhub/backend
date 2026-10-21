@@ -18,11 +18,8 @@ public record ProfileResponse(
     // The profile must be loaded with its provider and the categories of its areas.
     public static ProfileResponse From(ProfessionalProfile profile)
     {
-        var categories = profile.ServiceAreas
-            .Select(a => new ProfileCategoryResponse(a.ServiceCategoryId, a.ServiceCategory.Name))
-            .OrderBy(c => c.Name, StringComparer.CurrentCulture)
-            .ThenBy(c => c.ServiceCategoryId)
-            .ToList();
+        var categories = ProfileCategoryResponse.InDisplayOrder(
+            profile.ServiceAreas.Select(a => new ProfileCategoryResponse(a.ServiceCategoryId, a.ServiceCategory.Name)));
 
         return new ProfileResponse(
             profile.ProfessionalProfileId,
@@ -38,4 +35,12 @@ public record ProfileResponse(
     }
 }
 
-public record ProfileCategoryResponse(int ServiceCategoryId, string Name);
+public record ProfileCategoryResponse(int ServiceCategoryId, string Name)
+{
+    // The same order wherever the categories of a profile are listed (E12 to E14 and the results of E18).
+    public static IReadOnlyList<ProfileCategoryResponse> InDisplayOrder(IEnumerable<ProfileCategoryResponse> categories) =>
+        categories
+            .OrderBy(c => c.Name, StringComparer.CurrentCulture)
+            .ThenBy(c => c.ServiceCategoryId)
+            .ToList();
+}

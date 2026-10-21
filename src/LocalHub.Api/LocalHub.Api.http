@@ -191,3 +191,19 @@ Content-Type: application/json
 ### E13 - A client gets the profile of the provider
 GET {{LocalHub.Api_HostAddress}}/api/profiles/{{createProfile.response.body.professionalProfileId}}
 Authorization: Bearer {{login2.response.body.token}}
+
+### E18 - Search providers of "Canalização" (category 1) near the given coordinates (public, ordered by distance)
+GET {{LocalHub.Api_HostAddress}}/api/search/providers?serviceCategoryId=1&latitude=41.1496&longitude=-8.6109
+
+### E18 - Search with an address (geocoded by Nominatim, needs Internet access; the address is not saved)
+GET {{LocalHub.Api_HostAddress}}/api/search/providers?serviceCategoryId=1&address=Avenida%20dos%20Aliados%2C%20Porto
+
+### E18 - A client without coordinates and without an address: its registered location is used
+GET {{LocalHub.Api_HostAddress}}/api/search/providers?serviceCategoryId=1&name=hugo
+Authorization: Bearer {{login2.response.body.token}}
+
+### E18 - Without a reference location (expect 400 on "address")
+GET {{LocalHub.Api_HostAddress}}/api/search/providers?serviceCategoryId=1
+
+### E18 - Inactive category: 9 is "Climatização" in the reference data (expect 400 on "serviceCategoryId")
+GET {{LocalHub.Api_HostAddress}}/api/search/providers?serviceCategoryId=9&latitude=41.1496&longitude=-8.6109
