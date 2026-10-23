@@ -3,6 +3,7 @@ using LocalHub.Application.Categories;
 using LocalHub.Application.Locations;
 using LocalHub.Application.Profiles;
 using LocalHub.Application.Search;
+using LocalHub.Application.Services;
 using LocalHub.Infrastructure;
 
 using Microsoft.Extensions.Configuration;
@@ -24,6 +25,7 @@ public static class DependencyInjection
         services.AddScoped<LocationResolver>();
         services.AddScoped<LocationService>();
         services.AddScoped<ProfileService>();
+        services.AddScoped<ServiceWorkflowService>();
         services.AddScoped<SearchService>();
 
         return services;

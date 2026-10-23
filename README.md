@@ -77,8 +77,9 @@ Em alternativa, definir a cadeia de ligação através de uma variável de ambie
 $env:ConnectionStrings__LocalHub = "Host=localhost;Port=5432;Database=localhub_dev;Username=localhub;Password=<palavra-passe>"
 ```
 
-A localização (`PUT /api/users/me/location`) e a criação do perfil profissional (`POST /api/profiles`) obtêm as
-coordenadas a partir da morada, e a morada a partir das coordenadas, através do serviço público
+A localização (`PUT /api/users/me/location`), a criação do perfil profissional (`POST /api/profiles`) e a criação
+de um serviço com outra morada (`POST /api/services`) obtêm as coordenadas a partir da morada, e a morada a partir
+das coordenadas, através do serviço público
 [Nominatim](https://nominatim.org/) (OpenStreetMap). A pesquisa de Prestadores (`GET /api/search/providers`) também
 o usa quando recebe uma morada (`address`); com coordenadas ou com a localização registada do Cliente não o chama.
 A secção `Nominatim` do `appsettings.json` já tem os valores necessários e não tem segredos; a API precisa de acesso
@@ -144,6 +145,8 @@ palavra-passe não está na collection: é a de `Seed:DefaultPassword` (ou a dos
 dados foi criada com eles) e é indicada na execução, na variável `adminPassword`, como no comando acima. As
 pastas F003 e F004 também a usam, para criar as categorias. A pasta F005 (pesquisa de Prestadores) usa o perfil e a
 categoria criados na F004 e o Cliente da F001, com a localização da F015, por isso só funciona depois dessas pastas.
+A pasta F009 e F010 (criar serviço) usa o Cliente da F001 e a localização definida na F015, e o perfil criado na
+F004, por isso tem de ser executada depois delas.
 
 ## Integração contínua
 

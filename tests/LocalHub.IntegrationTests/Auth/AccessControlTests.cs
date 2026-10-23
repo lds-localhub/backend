@@ -30,6 +30,7 @@ public class AccessControlTests(LocalHubApiFactory factory)
         { "GET", "/api/profiles/1" },
         { "PUT", "/api/profiles/me" },
         { "PUT", "/api/profiles/me/service-radius" },
+        { "POST", "/api/services" },
     };
 
     // Add each endpoint restricted to the administrator here, once for each role that is not authorized.
