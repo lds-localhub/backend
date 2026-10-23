@@ -116,4 +116,17 @@ public class AccessControlTests(LocalHubApiFactory factory)
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
+
+    // E18 is public (RF-F001-03, rule 3; RF-F005-01, rule 1): without parameters the request reaches the validation
+    // (400, no category), not the authentication.
+    [Fact]
+    [Trait("Requisito", "RF-F001-03")]
+    [Trait("Requisito", "RF-F005-01")]
+    public async Task PesquisarPrestadores_SemToken_NaoDevolve401()
+    {
+        using var response = await SendWithTokenAsync(_client, HttpMethod.Get, "/api/search/providers", token: null);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        await AssertProblemAsync(response, "https://tools.ietf.org/html/rfc9110#section-15.5.1", "/api/search/providers");
+    }
 }
