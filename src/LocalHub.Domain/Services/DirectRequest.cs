@@ -36,6 +36,18 @@ public class DirectRequest
     // Section 10.4: PENDING → DECLINED, when the provider declines the request (RF-F007-02).
     internal void Decline(DateTimeOffset now) => Answer(DirectRequestStatus.Declined, now);
 
+    // Section 10.4: PENDING → VOID, when the client accepts a proposal of the service (RF-F007-03). The provider did
+    // not answer, so responseDate stays null.
+    internal void Void()
+    {
+        if (Status != DirectRequestStatus.Pending)
+        {
+            throw new DomainException(DomainErrorKind.InvalidTransition, "A solicitação direta já não está pendente.");
+        }
+
+        Status = DirectRequestStatus.Void;
+    }
+
     // The other states are final (RF-F007-08).
     private void Answer(DirectRequestStatus newStatus, DateTimeOffset now)
     {

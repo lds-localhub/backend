@@ -180,6 +180,72 @@ public class Service
         return request;
     }
 
+    // RF-F007-03 and RF-F008-02 (E28), sections 10.1 to 10.4: only the client that created the service accepts a
+    // PENDING proposal of an OPEN service. The service becomes ASSIGNED, the other PENDING proposals DECLINED and the
+    // direct requests still PENDING become VOID. The provider of the proposal must have an ACTIVE account
+    // (RF-F002-02, rule 7). The proposals must be loaded with the profile and its provider, and all the direct requests.
+    // PENDING: the change of state of the service is not recorded in ServiceStatusHistory yet (I050).
+    public Proposal AcceptProposal(int proposalId, int clientId, DateTimeOffset now)
+    {
+        var proposal = FindProposal(proposalId, clientId);
+        if (Status != ServiceStatus.Open)
+        {
+            throw new DomainException(DomainErrorKind.InvalidTransition, "O serviço já não está aberto.");
+        }
+
+        if (proposal.Status != ProposalStatus.Pending)
+        {
+            throw new DomainException(DomainErrorKind.InvalidTransition, "A proposta já não está pendente.");
+        }
+
+        if (proposal.ProfessionalProfile.ServiceProvider.Status != ActivationStatus.Active)
+        {
+            throw new DomainException(DomainErrorKind.Conflict,
+                "Não é possível aceitar a proposta de um Prestador com a conta desativada.");
+        }
+
+        Status = ServiceStatus.Assigned;
+        proposal.Accept(now);
+        foreach (var other in _proposals.Where(p => p != proposal && p.Status == ProposalStatus.Pending))
+        {
+            other.Decline(now);
+        }
+
+        foreach (var request in _directRequests.Where(r => r.Status == DirectRequestStatus.Pending))
+        {
+            request.Void();
+        }
+
+        return proposal;
+    }
+
+    // RF-F007-04 and RF-F008-03 (E29), section 10.3: only the client that created the service declines a PENDING
+    // proposal of an OPEN service. The other proposals, the direct requests and the service do not change.
+    public Proposal DeclineProposal(int proposalId, int clientId, DateTimeOffset now)
+    {
+        var proposal = FindProposal(proposalId, clientId);
+        if (Status != ServiceStatus.Open)
+        {
+            throw new DomainException(DomainErrorKind.InvalidTransition, "O serviço já não está aberto.");
+        }
+
+        proposal.Decline(now);
+        return proposal;
+    }
+
+    // The client that created the service is the only actor of the decisions on the proposals (section 10.3).
+    private Proposal FindProposal(int proposalId, int clientId)
+    {
+        if (clientId != ClientId)
+        {
+            throw new DomainException(DomainErrorKind.Forbidden,
+                "Só o Cliente que criou o serviço pode decidir sobre as propostas.");
+        }
+
+        return _proposals.SingleOrDefault(p => p.ProposalId == proposalId)
+               ?? throw new DomainException(DomainErrorKind.Conflict, "A proposta não pertence a este serviço.");
+    }
+
     // The date of "now" in Portugal: a single date equal to it is accepted (RF-F010-01, rule 5).
     public static DateOnly TodayInPortugal(DateTimeOffset now) =>
         DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(now, Portugal).DateTime);

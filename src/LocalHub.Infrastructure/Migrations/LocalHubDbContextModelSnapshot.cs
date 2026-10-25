@@ -271,6 +271,12 @@ namespace LocalHub.Infrastructure.Migrations
                         .HasColumnType("direct_request_status")
                         .HasColumnName("status");
 
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
                     b.HasKey("DirectRequestId")
                         .HasName("PK_DirectRequest");
 
@@ -332,6 +338,12 @@ namespace LocalHub.Infrastructure.Migrations
                         .HasColumnType("proposal_status")
                         .HasColumnName("status");
 
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
                     b.HasKey("ProposalId")
                         .HasName("PK_Proposal");
 
@@ -341,6 +353,11 @@ namespace LocalHub.Infrastructure.Migrations
                     b.HasIndex("ProfessionalProfileId", "ServiceId")
                         .IsUnique()
                         .HasDatabaseName("UQ_Proposal_professionalProfileId_serviceId");
+
+                    b.HasIndex(new[] { "ServiceId" }, "UX_Proposal_serviceId_accepted")
+                        .IsUnique()
+                        .HasDatabaseName("UX_Proposal_serviceId_accepted")
+                        .HasFilter("\"status\" = 'ACCEPTED'");
 
                     b.ToTable("Proposal", null, t =>
                         {

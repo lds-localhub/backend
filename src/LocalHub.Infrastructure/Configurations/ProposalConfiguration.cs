@@ -9,6 +9,8 @@ namespace LocalHub.Infrastructure.Configurations;
 // The relationship to Service (ON DELETE CASCADE) is configured in ServiceConfiguration.
 public class ProposalConfiguration : IEntityTypeConfiguration<Proposal>
 {
+    public const string AcceptedIndexName = "UX_Proposal_serviceId_accepted";
+
     public void Configure(EntityTypeBuilder<Proposal> builder)
     {
         builder.HasKey(p => p.ProposalId).HasName("PK_Proposal");
@@ -28,6 +30,14 @@ public class ProposalConfiguration : IEntityTypeConfiguration<Proposal>
             .IsUnique()
             .HasDatabaseName("UQ_Proposal_professionalProfileId_serviceId");
         builder.HasIndex(p => p.ServiceId).HasDatabaseName("IX_Proposal_serviceId");
+        // At most one accepted proposal per service, even with simultaneous requests (Class Model, rule R1a).
+        builder.HasIndex(p => p.ServiceId, AcceptedIndexName)
+            .IsUnique()
+            .HasDatabaseName(AcceptedIndexName)
+            .HasFilter("\"status\" = 'ACCEPTED'");
+
+        // xmin (Class Model, rule R1b): accepting and declining the same proposal at the same time cannot both be saved.
+        builder.Property<uint>(ServiceConfiguration.VersionProperty).IsRowVersion();
 
         builder.ToTable("Proposal", t =>
         {

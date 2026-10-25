@@ -26,6 +26,10 @@ public class DirectRequestConfiguration : IEntityTypeConfiguration<DirectRequest
             .HasDatabaseName("UQ_DirectRequest_professionalProfileId_serviceId");
         builder.HasIndex(r => r.ServiceId).HasDatabaseName("IX_DirectRequest_serviceId");
 
+        // xmin (Class Model, rule R1b): an answer of the provider (E24, E25) and the VOID of the acceptance (E28) of the
+        // same request cannot both be saved.
+        builder.Property<uint>(ServiceConfiguration.VersionProperty).IsRowVersion();
+
         builder.ToTable("DirectRequest", t =>
         {
             // Response date required for PROPOSAL_SUBMITTED and DECLINED; null for PENDING and VOID.

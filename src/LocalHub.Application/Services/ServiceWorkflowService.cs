@@ -9,6 +9,7 @@ using LocalHub.Domain.Locations;
 using LocalHub.Domain.Profiles;
 using LocalHub.Domain.Services;
 using LocalHub.Infrastructure;
+using LocalHub.Infrastructure.Configurations;
 
 using Microsoft.EntityFrameworkCore;
 
@@ -130,7 +131,11 @@ public class ServiceWorkflowService(
         {
             await db.SaveChangesAsync(cancellationToken);
         }
-        catch (DbUpdateException ex) when (ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })
+        catch (DbUpdateException ex) when (ex.InnerException is PostgresException
+        {
+            SqlState: PostgresErrorCodes.UniqueViolation,
+            ConstraintName: "UQ_Proposal_professionalProfileId_serviceId"
+        })
         {
             // Two simultaneous proposals of the same provider: the second one is refused by the unique index.
             throw new DomainException(DomainErrorKind.Conflict, "Já apresentou uma proposta a este serviço.");
@@ -257,6 +262,190 @@ public class ServiceWorkflowService(
             myProposal?.Status == ProposalStatus.Accepted ? myResponse : null,
             History: []);
     }
+
+    // E21 (RF-F008-01): the client sees the services it created; the provider, the services in which its proposal was
+    // accepted. Newest first, filtered by state and modality. pendingProposalsCount is always 0 for the provider.
+    public async Task<PagedResult<ServiceListItem>> ListMineAsync(
+        string? status, string? proposalModel, PageRequest page, CancellationToken cancellationToken)
+    {
+        var errors = new Dictionary<string, string[]>();
+        var statusFilter = EnumQuery.Parse<ServiceStatus>(status, "status", errors);
+        var modelFilter = EnumQuery.Parse<ProposalModel>(proposalModel, "proposalModel", errors);
+        page.Validate(errors);
+        if (errors.Count > 0)
+        {
+            throw new ValidationException(errors);
+        }
+
+        bool isClient = currentUser.Role == UserRole.Client;
+        IQueryable<Service> services = db.Services.AsNoTracking();
+        if (isClient)
+        {
+            services = services.Where(s => s.ClientId == currentUser.UserId);
+        }
+        else
+        {
+            int profileId = await db.FindProfileIdAsync(currentUser.UserId, cancellationToken)
+                            ?? throw new ForbiddenException(ProfileService.MissingProfileMessage, ErrorTypes.MissingProfile);
+            services = services.Where(s => s.Proposals.Any(
+                p => p.ProfessionalProfileId == profileId && p.Status == ProposalStatus.Accepted));
+        }
+
+        if (statusFilter is not null)
+        {
+            services = services.Where(s => s.Status == statusFilter);
+        }
+
+        if (modelFilter is not null)
+        {
+            services = services.Where(s => s.ProposalModel == modelFilter);
+        }
+
+        int total = await services.CountAsync(cancellationToken);
+        var items = await services
+            .OrderByDescending(s => s.CreationDate)
+            .ThenByDescending(s => s.ServiceId)
+            .Skip(page.Skip)
+            .Take(page.PageSize)
+            .Select(s => new ServiceListItem(
+                s.ServiceId,
+                s.ClientId,
+                s.ProposalModel,
+                new ServiceCategorySummary(s.ServiceCategoryId, s.ServiceCategory.Name),
+                s.Description,
+                s.RequestedStartDate,
+                s.RequestedEndDate,
+                s.Status,
+                s.Location,
+                s.Latitude,
+                s.Longitude,
+                s.CreationDate,
+                s.ActualCompletionDate,
+                isClient ? s.Proposals.Count(p => p.Status == ProposalStatus.Pending) : 0))
+            .ToListAsync(cancellationToken);
+
+        return new PagedResult<ServiceListItem>(page.Page, page.PageSize, total, items);
+    }
+
+    // E22 (RF-F007-09, RF-F008-01), client side: only the client that created the service, with all the direct
+    // requests and the accepted proposal.
+    public async Task<ClientServiceResponse> GetForClientAsync(int serviceId, CancellationToken cancellationToken)
+    {
+        var service = await FindOwnServiceAsync(db.Services.AsNoTracking(), serviceId, cancellationToken);
+        return ClientServiceResponse.From(service);
+    }
+
+    // E26 (RF-F007-09, RF-F008-01): all the proposals of the service, newest first, optionally filtered by state.
+    // Only the PENDING proposals of an OPEN service can be accepted or declined (E28, E29).
+    public async Task<IReadOnlyList<ClientProposalResponse>> ListProposalsAsync(
+        int serviceId, string? status, CancellationToken cancellationToken)
+    {
+        var errors = new Dictionary<string, string[]>();
+        var statusFilter = EnumQuery.Parse<ProposalStatus>(status, "status", errors);
+        if (errors.Count > 0)
+        {
+            throw new ValidationException(errors);
+        }
+
+        var service = await FindOwnServiceAsync(db.Services.AsNoTracking(), serviceId, cancellationToken);
+        return service.Proposals
+            .Where(p => statusFilter is null || p.Status == statusFilter)
+            .OrderByDescending(p => p.CreationDate)
+            .ThenByDescending(p => p.ProposalId)
+            .Select(ClientProposalResponse.From)
+            .ToList();
+    }
+
+    // E28 (RF-F007-03, RF-F008-02). The changes of the service, of the proposals and of the direct requests are saved
+    // with a single SaveChangesAsync (rule R1). Two simultaneous acceptances in the same service: the second one is
+    // refused by xmin or by the index of the accepted proposal, and gets 409.
+    public async Task<ClientServiceResponse> AcceptProposalAsync(
+        int serviceId, int proposalId, CancellationToken cancellationToken)
+    {
+        var service = await FindOwnServiceAsync(db.Services, serviceId, cancellationToken);
+        EnsureProposalBelongs(service, proposalId);
+
+        service.AcceptProposal(proposalId, currentUser.UserId, Now());
+        await SaveDecisionAsync(cancellationToken);
+
+        return ClientServiceResponse.From(service);
+    }
+
+    // E29 (RF-F007-04, RF-F008-03): only the proposal changes; the service stays OPEN.
+    public async Task<ProposalResponse> DeclineProposalAsync(
+        int serviceId, int proposalId, CancellationToken cancellationToken)
+    {
+        var service = await FindOwnServiceAsync(db.Services, serviceId, cancellationToken);
+        EnsureProposalBelongs(service, proposalId);
+
+        var proposal = service.DeclineProposal(proposalId, currentUser.UserId, Now());
+        await SaveDecisionAsync(cancellationToken);
+
+        return ProposalResponse.From(proposal);
+    }
+
+    // The service with everything the client sees (E22, E26, E28). 404 when it does not exist; 403 when it was created
+    // by another client (API documentation, section 7).
+    private async Task<Service> FindOwnServiceAsync(
+        IQueryable<Service> services, int serviceId, CancellationToken cancellationToken)
+    {
+        var service = await services
+            .Include(s => s.ServiceCategory)
+            .Include(s => s.DirectRequests).ThenInclude(r => r.ProfessionalProfile).ThenInclude(p => p.ServiceProvider)
+            .Include(s => s.Proposals).ThenInclude(p => p.ProfessionalProfile).ThenInclude(p => p.ServiceProvider)
+            .AsSplitQuery()
+            .SingleOrDefaultAsync(s => s.ServiceId == serviceId, cancellationToken)
+            ?? throw new NotFoundException("Serviço não encontrado.");
+
+        if (service.ClientId != currentUser.UserId)
+        {
+            throw new ForbiddenException("Não tem permissão para aceder a este serviço.");
+        }
+
+        return service;
+    }
+
+    // A proposal of another service is reported as not found (API documentation, E28 and E29).
+    private static void EnsureProposalBelongs(Service service, int proposalId)
+    {
+        if (service.Proposals.All(p => p.ProposalId != proposalId))
+        {
+            throw new NotFoundException("Proposta não encontrada.");
+        }
+    }
+
+    // PostgreSQL keeps microseconds (timestamptz), so the instant is truncated before it is used.
+    private DateTimeOffset Now()
+    {
+        var utcNow = timeProvider.GetUtcNow();
+        return utcNow.AddTicks(-(utcNow.Ticks % TimeSpan.TicksPerMicrosecond));
+    }
+
+    // Rule R1: a service, a proposal or a direct request changed by another request after being read (xmin), or a
+    // second accepted proposal in the service (UX_Proposal_serviceId_accepted), is not saved. The client has to
+    // reload the service, so the error is a 409 transicao-invalida.
+    private async Task SaveDecisionAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await db.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            throw new DomainException(DomainErrorKind.InvalidTransition, ChangedByAnotherRequestMessage);
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is PostgresException
+        {
+            SqlState: PostgresErrorCodes.UniqueViolation,
+            ConstraintName: ProposalConfiguration.AcceptedIndexName
+        })
+        {
+            throw new DomainException(DomainErrorKind.InvalidTransition, ChangedByAnotherRequestMessage);
+        }
+    }
+
+    private const string ChangedByAnotherRequestMessage =
+        "O serviço foi alterado por outro pedido entretanto. Recarregue-o e tente novamente.";
 
     // The rules that need neither the database nor the Nominatim, all reported in the same response.
     private static void CollectFieldErrors(FieldErrors errors, CreateServiceRequest request, DateTimeOffset now)
