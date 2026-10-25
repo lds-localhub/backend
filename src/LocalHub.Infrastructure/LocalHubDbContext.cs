@@ -17,6 +17,7 @@ public class LocalHubDbContext(DbContextOptions<LocalHubDbContext> options) : Db
     public DbSet<ServiceArea> ServiceAreas => Set<ServiceArea>();
     public DbSet<Service> Services => Set<Service>();
     public DbSet<DirectRequest> DirectRequests => Set<DirectRequest>();
+    public DbSet<Proposal> Proposals => Set<Proposal>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

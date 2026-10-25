@@ -3985,6 +3985,1408 @@
           ]
         }
       ]
+    },
+    {
+      "name": "F007 e F011 — Propostas e solicitações do Prestador",
+      "description": "Endpoints E22, E23, E24, E25 e E27 (API v03, secção 8). Usa o Cliente (token) e o Prestador com perfil (profileEmail, profileId, profileCategoryId) das pastas anteriores e o serviço criado na pasta F009 e F010 (serviceId); executar depois dessas pastas.",
+      "item": [
+        {
+          "name": "E23 — Listar as solicitações recebidas (200, guarda directRequestId)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/direct-requests",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "direct-requests"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{profileToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F007-09. O Prestador vê as solicitações dirigidas ao seu perfil, da mais recente para a mais antiga, sem dados do Cliente."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "const mine = body.items.find(r => r.service.serviceId === Number(pm.collectionVariables.get(\"serviceId\")));",
+                  "pm.test(\"Estrutura da página\", () => {",
+                  "    pm.expect(body.page).to.eql(1);",
+                  "    pm.expect(body.pageSize).to.eql(20);",
+                  "    pm.expect(body.total).to.be.at.least(1);",
+                  "});",
+                  "pm.test(\"A solicitação do serviço criado em E20 está pendente e sem proposta\", () => {",
+                  "    pm.expect(mine.status).to.eql(\"PENDING\");",
+                  "    pm.expect(mine.responseDate).to.eql(null);",
+                  "    pm.expect(mine.proposal).to.eql(null);",
+                  "});",
+                  "pm.test(\"Sem dados do Cliente\", () => pm.expect(pm.response.text()).to.not.include(\"clientId\"));",
+                  "pm.collectionVariables.set(\"directRequestId\", mine.directRequestId);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E23 — Filtro de estado inválido (400)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/direct-requests?status=INVALIDO",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "direct-requests"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "INVALIDO"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{profileToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F007-09: o filtro só aceita os valores de direct_request_status."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 400\", () => pm.response.to.have.status(400));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Erro no campo status\", () => pm.expect(body.errors).to.have.property(\"status\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E23 — Pedido de um Cliente (403)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/direct-requests",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "direct-requests"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F007-09: nesta fase só o Prestador consulta as solicitações recebidas."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 403\", () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E22 — Consultar o serviço como destinatário (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/services/{{serviceId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "services",
+                "{{serviceId}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{profileToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F007-09, RNF-06. O Prestador vê só a sua solicitação direta e a distância; sem clientId nem outros Prestadores."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Serviço aberto, com a distância e só a solicitação do Prestador\", () => {",
+                  "    pm.expect(body.serviceId).to.eql(Number(pm.collectionVariables.get(\"serviceId\")));",
+                  "    pm.expect(body.status).to.eql(\"OPEN\");",
+                  "    pm.expect(body.distanceKm).to.be.a(\"number\");",
+                  "    pm.expect(body.directRequests.length).to.eql(1);",
+                  "    pm.expect(body.directRequests[0].professionalProfileId).to.eql(Number(pm.collectionVariables.get(\"profileId\")));",
+                  "    pm.expect(body.myProposal).to.eql(null);",
+                  "    pm.expect(body.acceptedProposal).to.eql(null);",
+                  "});",
+                  "pm.test(\"Sem dados do Cliente\", () => pm.expect(body).to.not.have.property(\"clientId\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E22 — Serviço inexistente (404)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/services/2147483647",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "services",
+                "2147483647"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{profileToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "API v03, secção 7: 404 para um serviço inexistente."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 404\", () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E25 — Valor com três casas decimais (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/services/{{serviceId}}/proposals",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "services",
+                "{{serviceId}}",
+                "proposals"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 12.345,\n  \"conditions\": \"Material incluído.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{profileToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F007-01, critério 2: o valor tem no máximo duas casas decimais (também são rejeitados 0, -10 e 100000.01)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 400\", () => pm.response.to.have.status(400));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Erro no campo amount\", () => pm.expect(body.errors).to.have.property(\"amount\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E25 — Condições em falta (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/services/{{serviceId}}/proposals",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "services",
+                "{{serviceId}}",
+                "proposals"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 80\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{profileToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F007-01, critério 2: as condições são obrigatórias."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 400\", () => pm.response.to.have.status(400));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Erro no campo conditions\", () => pm.expect(body.errors).to.have.property(\"conditions\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E25 — Pedido de um Cliente (403)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/services/{{serviceId}}/proposals",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "services",
+                "{{serviceId}}",
+                "proposals"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 80,\n  \"conditions\": \"Inclui deslocação e material.\",\n  \"obs\": \"Disponível dia 9 às 18h30.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F007-01: só o Prestador apresenta propostas."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 403\", () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E25 — Sem token (401)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/services/{{serviceId}}/proposals",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "services",
+                "{{serviceId}}",
+                "proposals"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 80,\n  \"conditions\": \"Inclui deslocação e material.\",\n  \"obs\": \"Disponível dia 9 às 18h30.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "RF-F001-03: o pedido sem sessão é rejeitado."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 401\", () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E25 — Apresentar proposta à solicitação direta (201, guarda proposalId)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/services/{{serviceId}}/proposals",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "services",
+                "{{serviceId}}",
+                "proposals"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 80,\n  \"conditions\": \"Inclui deslocação e material.\",\n  \"obs\": \"Disponível dia 9 às 18h30.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{profileToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F007-01. A solicitação passa a PROPOSAL_SUBMITTED e a proposta fica PENDING."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 201\", () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Proposta pendente com os dados enviados\", () => {",
+                  "    pm.expect(body.serviceId).to.eql(Number(pm.collectionVariables.get(\"serviceId\")));",
+                  "    pm.expect(body.professionalProfileId).to.eql(Number(pm.collectionVariables.get(\"profileId\")));",
+                  "    pm.expect(body.amount).to.eql(80);",
+                  "    pm.expect(body.conditions).to.eql(\"Inclui deslocação e material.\");",
+                  "    pm.expect(body.obs).to.eql(\"Disponível dia 9 às 18h30.\");",
+                  "    pm.expect(body.status).to.eql(\"PENDING\");",
+                  "    pm.expect(body.decisionDate).to.eql(null);",
+                  "});",
+                  "pm.test(\"Cabeçalho Location\", () => pm.expect(pm.response.headers.get(\"Location\")).to.eql(`/api/services/${body.serviceId}/proposals/${body.proposalId}`));",
+                  "pm.collectionVariables.set(\"proposalId\", body.proposalId);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E25 — Segunda proposta ao mesmo serviço (409)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/services/{{serviceId}}/proposals",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "services",
+                "{{serviceId}}",
+                "proposals"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 80,\n  \"conditions\": \"Inclui deslocação e material.\",\n  \"obs\": \"Disponível dia 9 às 18h30.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{profileToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F007-01, critério 4: cada Prestador só apresenta uma proposta por serviço."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 409\", () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E22 — O serviço depois da proposta (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/services/{{serviceId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "services",
+                "{{serviceId}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{profileToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F007-09. myProposal é a proposta do Prestador e a solicitação está PROPOSAL_SUBMITTED."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"A proposta e a solicitação respondida\", () => {",
+                  "    pm.expect(body.myProposal.proposalId).to.eql(Number(pm.collectionVariables.get(\"proposalId\")));",
+                  "    pm.expect(body.myProposal.status).to.eql(\"PENDING\");",
+                  "    pm.expect(body.directRequests[0].status).to.eql(\"PROPOSAL_SUBMITTED\");",
+                  "    pm.expect(body.directRequests[0].responseDate).to.be.a(\"string\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E24 — Recusar uma solicitação com proposta apresentada (409 transicao-invalida)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/direct-requests/{{directRequestId}}/decline",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "direct-requests",
+                "{{directRequestId}}",
+                "decline"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{profileToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F007-08: só a solicitação PENDING pode ser recusada."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 409\", () => pm.response.to.have.status(409));",
+                  "pm.test(\"Tipo transicao-invalida\", () => pm.expect(pm.response.json().type).to.eql(\"https://localhub.local/erros/transicao-invalida\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E20 — Criar um serviço para recusar (201, guarda declineRequestId)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/services",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "services"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"proposalModel\": \"DIRECT_REQUEST\",\n  \"serviceCategoryId\": {{profileCategoryId}},\n  \"description\": \"Substituir o sifão do lava-loiça.\",\n  \"requestedStartDate\": \"{{serviceStartDate}}\",\n  \"requestedEndDate\": \"{{serviceEndDate}}\",\n  \"professionalProfileIds\": [\n    {{profileId}}\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Prepara uma solicitação PENDING para o pedido E24 seguinte."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Dates relative to today, so the collection can be run on any day (start tomorrow, end three days later).",
+                  "const day = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };",
+                  "pm.collectionVariables.set(\"serviceStartDate\", day(1));",
+                  "pm.collectionVariables.set(\"serviceEndDate\", day(3));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 201\", () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set(\"declineServiceId\", body.serviceId);",
+                  "pm.collectionVariables.set(\"declineRequestId\", body.directRequests[0].directRequestId);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E24 — Pedido de um Cliente (403)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/direct-requests/{{declineRequestId}}/decline",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "direct-requests",
+                "{{declineRequestId}}",
+                "decline"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F007-02, regra 1: só o Prestador destinatário recusa; um Cliente recebe 403 e a solicitação continua PENDING."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 403\", () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E24 — Recusar a solicitação (200, DECLINED)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/direct-requests/{{declineRequestId}}/decline",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "direct-requests",
+                "{{declineRequestId}}",
+                "decline"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{profileToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F007-02. A solicitação passa a DECLINED com responseDate e o serviço mantém-se OPEN."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Solicitação recusada\", () => {",
+                  "    pm.expect(body.directRequestId).to.eql(Number(pm.collectionVariables.get(\"declineRequestId\")));",
+                  "    pm.expect(body.serviceId).to.eql(Number(pm.collectionVariables.get(\"declineServiceId\")));",
+                  "    pm.expect(body.status).to.eql(\"DECLINED\");",
+                  "    pm.expect(body.responseDate).to.be.a(\"string\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E24 — Recusar de novo a mesma solicitação (409 transicao-invalida)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/direct-requests/{{declineRequestId}}/decline",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "direct-requests",
+                "{{declineRequestId}}",
+                "decline"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{profileToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F007-08: uma solicitação recusada é final."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 409\", () => pm.response.to.have.status(409));",
+                  "pm.test(\"Tipo transicao-invalida\", () => pm.expect(pm.response.json().type).to.eql(\"https://localhub.local/erros/transicao-invalida\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E24 — Solicitação inexistente (404)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/direct-requests/2147483647/decline",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "direct-requests",
+                "2147483647",
+                "decline"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{profileToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "API v03, E24: 404 para uma solicitação inexistente."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 404\", () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E22 — O serviço continua aberto depois da recusa (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/services/{{declineServiceId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "services",
+                "{{declineServiceId}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{profileToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F007-02, regra 3: a recusa não altera o estado do serviço."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Serviço OPEN com a solicitação DECLINED\", () => {",
+                  "    pm.expect(body.status).to.eql(\"OPEN\");",
+                  "    pm.expect(body.directRequests[0].status).to.eql(\"DECLINED\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E23 — Filtro pelo estado DECLINED (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/direct-requests?status=DECLINED",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "direct-requests"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "DECLINED"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{profileToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F007-09: o filtro devolve só as solicitações recusadas."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Só solicitações DECLINED\", () => {",
+                  "    pm.expect(body.total).to.be.at.least(1);",
+                  "    pm.expect(body.items.every(r => r.status === \"DECLINED\")).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E20 — Publicar um trabalho (201, guarda publicServiceId)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/services",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "services"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"proposalModel\": \"PUBLIC\",\n  \"serviceCategoryId\": {{profileCategoryId}},\n  \"description\": \"Substituir a torneira da cozinha que pinga.\",\n  \"requestedStartDate\": \"{{serviceStartDate}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Prepara o trabalho publicado a que o Prestador apresenta proposta."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Dates relative to today, so the collection can be run on any day (start tomorrow, end three days later).",
+                  "const day = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };",
+                  "pm.collectionVariables.set(\"serviceStartDate\", day(1));",
+                  "pm.collectionVariables.set(\"serviceEndDate\", day(3));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 201\", () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set(\"publicServiceId\", pm.response.json().serviceId);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E22 — Consultar o trabalho publicado sem ter proposta (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/services/{{publicServiceId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "services",
+                "{{publicServiceId}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{profileToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F011-01. Um Prestador com perfil vê um trabalho publicado OPEN, sem contactos do Cliente."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Trabalho publicado sem solicitações nem proposta\", () => {",
+                  "    pm.expect(body.proposalModel).to.eql(\"PUBLIC\");",
+                  "    pm.expect(body.directRequests).to.eql([]);",
+                  "    pm.expect(body.myProposal).to.eql(null);",
+                  "    pm.expect(body).to.not.have.property(\"clientId\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E25 — Apresentar proposta ao trabalho publicado (201)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/services/{{publicServiceId}}/proposals",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "services",
+                "{{publicServiceId}}",
+                "proposals"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 150,\n  \"conditions\": \"Material incluído.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{profileToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F011-02. A proposta fica PENDING; as observações são opcionais."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 201\", () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Proposta pendente sem observações\", () => {",
+                  "    pm.expect(body.status).to.eql(\"PENDING\");",
+                  "    pm.expect(body.obs).to.eql(null);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E27 — Listar as minhas propostas (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/proposals",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "proposals"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{profileToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F008-07. As propostas do Prestador, da mais recente para a mais antiga, com o resumo do serviço."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Duas propostas, a mais recente primeiro\", () => {",
+                  "    pm.expect(body.total).to.eql(2);",
+                  "    pm.expect(body.items.map(p => p.serviceId)).to.eql([Number(pm.collectionVariables.get(\"publicServiceId\")), Number(pm.collectionVariables.get(\"serviceId\"))]);",
+                  "});",
+                  "pm.test(\"Resumo do serviço\", () => {",
+                  "    pm.expect(body.items[0].service.proposalModel).to.eql(\"PUBLIC\");",
+                  "    pm.expect(body.items[0].service.status).to.eql(\"OPEN\");",
+                  "    pm.expect(body.items[1].service.proposalModel).to.eql(\"DIRECT_REQUEST\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E27 — Filtros por estado e modalidade (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/proposals?status=PENDING&proposalModel=PUBLIC&page=1&pageSize=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "proposals"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "PENDING"
+                },
+                {
+                  "key": "proposalModel",
+                  "value": "PUBLIC"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "10"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{profileToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F008-07, regra 5: filtro pelo estado da proposta e pela modalidade do serviço, com paginação."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Só a proposta ao trabalho publicado\", () => {",
+                  "    pm.expect(body.pageSize).to.eql(10);",
+                  "    pm.expect(body.total).to.eql(1);",
+                  "    pm.expect(body.items[0].serviceId).to.eql(Number(pm.collectionVariables.get(\"publicServiceId\")));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E27 — Filtro de estado inválido (400)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/proposals?status=INVALIDO",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "proposals"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "INVALIDO"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{profileToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F008-07: o filtro só aceita os valores de proposal_status."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 400\", () => pm.response.to.have.status(400));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Erro no campo status\", () => pm.expect(body.errors).to.have.property(\"status\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E27 — Pedido de um Cliente (403)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/proposals",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "proposals"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F008-07: só o Prestador consulta as suas propostas."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 403\", () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E27 — Sem token (401)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/proposals",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "proposals"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "RF-F001-03: o pedido sem sessão é rejeitado."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 401\", () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
     }
   ],
   "variable": [
@@ -4086,6 +5488,26 @@
     },
     {
       "key": "serviceId",
+      "value": ""
+    },
+    {
+      "key": "directRequestId",
+      "value": ""
+    },
+    {
+      "key": "proposalId",
+      "value": ""
+    },
+    {
+      "key": "declineServiceId",
+      "value": ""
+    },
+    {
+      "key": "declineRequestId",
+      "value": ""
+    },
+    {
+      "key": "publicServiceId",
       "value": ""
     }
   ]

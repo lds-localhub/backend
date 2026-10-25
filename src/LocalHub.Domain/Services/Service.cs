@@ -47,6 +47,9 @@ public class Service
     private readonly List<DirectRequest> _directRequests = [];
     public IReadOnlyCollection<DirectRequest> DirectRequests => _directRequests;
 
+    private readonly List<Proposal> _proposals = [];
+    public IReadOnlyCollection<Proposal> Proposals => _proposals;
+
     // Private: a service is created with Create. Entity Framework uses this constructor when it reads a service.
     private Service() { }
 
@@ -111,6 +114,70 @@ public class Service
         }
 
         return service;
+    }
+
+    // RF-F007-01 and RF-F011-02 (E25), sections 10.3 and 10.4. The provider must have the category of the service and,
+    // with DIRECT_REQUEST, a direct request. The Client (loaded with the service) must have an ACTIVE account.
+    // The provider's areas must be loaded, and the direct requests and the proposals of the provider too.
+    // A provider presents one proposal per service, whatever the state of the first one.
+    public Proposal SubmitProposal(
+        ProfessionalProfile provider, decimal? amount, string? conditions, string? obs, DateTimeOffset now)
+    {
+        if (Client.Status != ActivationStatus.Active)
+        {
+            throw new DomainException(DomainErrorKind.Forbidden,
+                "Não pode apresentar propostas a um serviço de um Cliente com a conta desativada.");
+        }
+
+        if (provider.ServiceAreas.All(a => a.ServiceCategoryId != ServiceCategoryId))
+        {
+            throw new DomainException(DomainErrorKind.Forbidden,
+                "O seu perfil não tem a categoria deste serviço.");
+        }
+
+        var request = _directRequests.SingleOrDefault(r => r.ProfessionalProfileId == provider.ProfessionalProfileId);
+        if (ProposalModel == ProposalModel.DirectRequest && request is null)
+        {
+            throw new DomainException(DomainErrorKind.Forbidden,
+                "Não recebeu uma solicitação direta para este serviço.");
+        }
+
+        if (Status != ServiceStatus.Open)
+        {
+            throw new DomainException(DomainErrorKind.InvalidTransition, "O serviço já não está aberto.");
+        }
+
+        if (_proposals.Any(p => p.ProfessionalProfileId == provider.ProfessionalProfileId))
+        {
+            throw new DomainException(DomainErrorKind.Conflict, "Já apresentou uma proposta a este serviço.");
+        }
+
+        var proposal = new Proposal(provider, amount, conditions, obs, now);
+        request?.MarkProposalSubmitted(now);
+        _proposals.Add(proposal);
+        return proposal;
+    }
+
+    // RF-F007-02 (E24), section 10.4: only the provider that received the request declines it, while the service is
+    // OPEN. The service stays OPEN, even without other pending requests and proposals.
+    public DirectRequest DeclineDirectRequest(int directRequestId, int professionalProfileId, DateTimeOffset now)
+    {
+        var request = _directRequests.SingleOrDefault(r => r.DirectRequestId == directRequestId)
+                      ?? throw new DomainException(DomainErrorKind.Conflict,
+                          "A solicitação direta não pertence a este serviço.");
+        if (request.ProfessionalProfileId != professionalProfileId)
+        {
+            throw new DomainException(DomainErrorKind.Forbidden,
+                "Só o Prestador destinatário pode recusar a solicitação direta.");
+        }
+
+        if (Status != ServiceStatus.Open)
+        {
+            throw new DomainException(DomainErrorKind.InvalidTransition, "O serviço já não está aberto.");
+        }
+
+        request.Decline(now);
+        return request;
     }
 
     // The date of "now" in Portugal: a single date equal to it is accepted (RF-F010-01, rule 5).
