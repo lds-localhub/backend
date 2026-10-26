@@ -26,6 +26,7 @@ public static class DependencyInjection
         services.AddScoped<LocationService>();
         services.AddScoped<ProfileService>();
         services.AddScoped<ServiceWorkflowService>();
+        services.AddScoped<DirectRequestService>();
         services.AddScoped<SearchService>();
 
         return services;

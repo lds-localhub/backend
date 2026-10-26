@@ -30,6 +30,7 @@ public static class DependencyInjection
                 npgsql.MapEnum<ServiceStatus>("service_status", nameTranslator: UpperSnakeCaseNameTranslator.Instance);
                 npgsql.MapEnum<DirectRequestStatus>("direct_request_status",
                     nameTranslator: UpperSnakeCaseNameTranslator.Instance);
+                npgsql.MapEnum<ProposalStatus>("proposal_status", nameTranslator: UpperSnakeCaseNameTranslator.Instance);
             })
             .UseCamelCaseNamingConvention());
         services.AddHealthChecks().AddDbContextCheck<LocalHubDbContext>();

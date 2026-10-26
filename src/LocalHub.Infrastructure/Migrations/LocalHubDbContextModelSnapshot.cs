@@ -25,6 +25,7 @@ namespace LocalHub.Infrastructure.Migrations
             NpgsqlModelBuilderExtensions.HasPostgresEnum(modelBuilder, "activation_status", new[] { "ACTIVE", "INACTIVE" });
             NpgsqlModelBuilderExtensions.HasPostgresEnum(modelBuilder, "direct_request_status", new[] { "DECLINED", "PENDING", "PROPOSAL_SUBMITTED", "VOID" });
             NpgsqlModelBuilderExtensions.HasPostgresEnum(modelBuilder, "proposal_model", new[] { "DIRECT_REQUEST", "PUBLIC" });
+            NpgsqlModelBuilderExtensions.HasPostgresEnum(modelBuilder, "proposal_status", new[] { "ACCEPTED", "DECLINED", "PENDING", "VOID" });
             NpgsqlModelBuilderExtensions.HasPostgresEnum(modelBuilder, "service_status", new[] { "ASSIGNED", "CANCELLED", "COMPLETED", "OPEN" });
             NpgsqlModelBuilderExtensions.HasPostgresEnum(modelBuilder, "user_role", new[] { "ADMIN", "CLIENT", "PROVIDER" });
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -286,6 +287,73 @@ namespace LocalHub.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("LocalHub.Domain.Services.Proposal", b =>
+                {
+                    b.Property<int>("ProposalId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("proposalId");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityAlwaysColumn(b.Property<int>("ProposalId"));
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(8, 2)
+                        .HasColumnType("numeric(8,2)")
+                        .HasColumnName("amount");
+
+                    b.Property<string>("Conditions")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("conditions");
+
+                    b.Property<DateTimeOffset>("CreationDate")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("creationDate");
+
+                    b.Property<DateTimeOffset?>("DecisionDate")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("decisionDate");
+
+                    b.Property<string>("Obs")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("obs");
+
+                    b.Property<int>("ProfessionalProfileId")
+                        .HasColumnType("integer")
+                        .HasColumnName("professionalProfileId");
+
+                    b.Property<int>("ServiceId")
+                        .HasColumnType("integer")
+                        .HasColumnName("serviceId");
+
+                    b.Property<ProposalStatus>("Status")
+                        .HasColumnType("proposal_status")
+                        .HasColumnName("status");
+
+                    b.HasKey("ProposalId")
+                        .HasName("PK_Proposal");
+
+                    b.HasIndex("ServiceId")
+                        .HasDatabaseName("IX_Proposal_serviceId");
+
+                    b.HasIndex("ProfessionalProfileId", "ServiceId")
+                        .IsUnique()
+                        .HasDatabaseName("UQ_Proposal_professionalProfileId_serviceId");
+
+                    b.ToTable("Proposal", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Proposal_amount", "\"amount\" > 0 AND \"amount\" <= 100000");
+
+                            t.HasCheckConstraint("CK_Proposal_conditions", "btrim(\"conditions\") <> ''");
+
+                            t.HasCheckConstraint("CK_Proposal_decisionDate", "(\"status\" = 'PENDING') = (\"decisionDate\" IS NULL) AND (\"decisionDate\" IS NULL OR \"decisionDate\" >= \"creationDate\")");
+
+                            t.HasCheckConstraint("CK_Proposal_obs", "\"obs\" IS NULL OR btrim(\"obs\") <> ''");
+                        });
+                });
+
             modelBuilder.Entity("LocalHub.Domain.Services.Service", b =>
                 {
                     b.Property<int>("ServiceId")
@@ -442,6 +510,25 @@ namespace LocalHub.Infrastructure.Migrations
                     b.Navigation("ProfessionalProfile");
                 });
 
+            modelBuilder.Entity("LocalHub.Domain.Services.Proposal", b =>
+                {
+                    b.HasOne("LocalHub.Domain.Profiles.ProfessionalProfile", "ProfessionalProfile")
+                        .WithMany()
+                        .HasForeignKey("ProfessionalProfileId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("FK_Proposal_ProfessionalProfile");
+
+                    b.HasOne("LocalHub.Domain.Services.Service", null)
+                        .WithMany("Proposals")
+                        .HasForeignKey("ServiceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK_Proposal_Service");
+
+                    b.Navigation("ProfessionalProfile");
+                });
+
             modelBuilder.Entity("LocalHub.Domain.Services.Service", b =>
                 {
                     b.HasOne("LocalHub.Domain.Accounts.User", "Client")
@@ -476,6 +563,8 @@ namespace LocalHub.Infrastructure.Migrations
             modelBuilder.Entity("LocalHub.Domain.Services.Service", b =>
                 {
                     b.Navigation("DirectRequests");
+
+                    b.Navigation("Proposals");
                 });
 #pragma warning restore 612, 618
         }

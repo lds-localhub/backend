@@ -46,6 +46,13 @@ public class ServiceConfiguration : IEntityTypeConfiguration<Service>
             .OnDelete(DeleteBehavior.Cascade);
         builder.Navigation(s => s.DirectRequests).UsePropertyAccessMode(PropertyAccessMode.Field);
 
+        builder.HasMany(s => s.Proposals)
+            .WithOne()
+            .HasForeignKey(p => p.ServiceId)
+            .HasConstraintName("FK_Proposal_Service")
+            .OnDelete(DeleteBehavior.Cascade);
+        builder.Navigation(s => s.Proposals).UsePropertyAccessMode(PropertyAccessMode.Field);
+
         builder.ToTable("Service", t =>
         {
             t.HasCheckConstraint("CK_Service_description", "btrim(\"description\") <> ''");

@@ -1,3 +1,4 @@
+using LocalHub.Domain.Common;
 using LocalHub.Domain.Profiles;
 
 namespace LocalHub.Domain.Services;
@@ -27,5 +28,23 @@ public class DirectRequest
         ProfessionalProfileId = profile.ProfessionalProfileId;
         Status = DirectRequestStatus.Pending;
         CreationDate = now;
+    }
+
+    // Section 10.4: PENDING → PROPOSAL_SUBMITTED, when the provider submits a proposal (RF-F007-01).
+    internal void MarkProposalSubmitted(DateTimeOffset now) => Answer(DirectRequestStatus.ProposalSubmitted, now);
+
+    // Section 10.4: PENDING → DECLINED, when the provider declines the request (RF-F007-02).
+    internal void Decline(DateTimeOffset now) => Answer(DirectRequestStatus.Declined, now);
+
+    // The other states are final (RF-F007-08).
+    private void Answer(DirectRequestStatus newStatus, DateTimeOffset now)
+    {
+        if (Status != DirectRequestStatus.Pending)
+        {
+            throw new DomainException(DomainErrorKind.InvalidTransition, "A solicitação direta já não está pendente.");
+        }
+
+        Status = newStatus;
+        ResponseDate = now;
     }
 }
