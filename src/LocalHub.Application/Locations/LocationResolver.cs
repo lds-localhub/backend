@@ -8,8 +8,15 @@ namespace LocalHub.Application.Locations;
 // the geocoding service. It does not change any entity, so it can be used before loading them (E12, E16 and the
 // reference location of the search of providers, E18). The sizes and the ranges were validated by the DTO; here are
 // the rules that compare fields or need the geocoding service (rule R17).
-public class LocationResolver(IGeocodingService geocodingService)
+public class LocationResolver
 {
+    private readonly IGeocodingService _geocodingService;
+
+    public LocationResolver(IGeocodingService geocodingService)
+    {
+        _geocodingService = geocodingService;
+    }
+
     public async Task<ResolvedLocation> ResolveAsync(SetLocationRequest request, CancellationToken cancellationToken)
     {
         bool hasAddress = !string.IsNullOrWhiteSpace(request.Address);
@@ -59,15 +66,20 @@ public class LocationResolver(IGeocodingService geocodingService)
             return location.Coordinates;
         }
 
-        return registeredLocation ?? throw new ValidationException(
-            "address", "Indique uma morada ou as coordenadas da localização de referência.");
+        if (registeredLocation is null)
+        {
+            throw new ValidationException(
+                "address", "Indique uma morada ou as coordenadas da localização de referência.");
+        }
+
+        return registeredLocation;
     }
 
     private async Task<ResolvedLocation> FromAddressAsync(
         string address, string field, string notFoundMessage, CancellationToken cancellationToken)
     {
         string trimmed = address.Trim();
-        Coordinates? coordinates = await geocodingService.GeocodeAsync(trimmed, cancellationToken);
+        Coordinates? coordinates = await _geocodingService.GeocodeAsync(trimmed, cancellationToken);
         if (coordinates is null)
         {
             throw new ValidationException(field, notFoundMessage);
@@ -82,7 +94,7 @@ public class LocationResolver(IGeocodingService geocodingService)
         Coordinates coordinates = ToPoint(latitude, longitude);
 
         // The address is always saved with the coordinates, so a point without an address is rejected.
-        string? address = await geocodingService.ReverseGeocodeAsync(coordinates, cancellationToken);
+        string? address = await _geocodingService.ReverseGeocodeAsync(coordinates, cancellationToken);
         if (address is null)
         {
             throw new ValidationException("latitude", "Não foi possível obter uma morada para estas coordenadas.");

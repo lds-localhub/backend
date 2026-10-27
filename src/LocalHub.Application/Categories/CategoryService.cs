@@ -12,15 +12,24 @@ using Npgsql;
 
 namespace LocalHub.Application.Categories;
 
-public class CategoryService(LocalHubDbContext db, ICategoryUsage categoryUsage)
+public class CategoryService
 {
     private const string DuplicateNameMessage = "Já existe uma categoria com este nome.";
+
+    private readonly LocalHubDbContext _db;
+    private readonly ICategoryUsage _categoryUsage;
+
+    public CategoryService(LocalHubDbContext db, ICategoryUsage categoryUsage)
+    {
+        _db = db;
+        _categoryUsage = categoryUsage;
+    }
 
     // E08: only the active categories, unless the administrator asks for all of them (RF-F003-04).
     // The controller checks that includeInactive is only used by the administrator.
     public async Task<IReadOnlyList<CategoryResponse>> ListAsync(bool includeInactive, CancellationToken cancellationToken)
     {
-        var query = db.ServiceCategories.AsNoTracking();
+        var query = _db.ServiceCategories.AsNoTracking();
         if (!includeInactive)
         {
             query = query.Where(c => c.Status == ActivationStatus.Active);
@@ -40,7 +49,7 @@ public class CategoryService(LocalHubDbContext db, ICategoryUsage categoryUsage)
         var category = ServiceCategory.Create(request.Name!);
         await EnsureNameIsFreeAsync(category.Name, exceptCategoryId: null, cancellationToken);
 
-        db.ServiceCategories.Add(category);
+        _db.ServiceCategories.Add(category);
         await SaveAsync(cancellationToken);
 
         return CategoryResponse.From(category);
@@ -67,7 +76,7 @@ public class CategoryService(LocalHubDbContext db, ICategoryUsage categoryUsage)
         // An inactive category gets the "already inactive" error, whatever its use.
         if (category.Status == ActivationStatus.Active)
         {
-            var usage = await categoryUsage.CountAsync(serviceCategoryId, cancellationToken);
+            var usage = await _categoryUsage.CountAsync(serviceCategoryId, cancellationToken);
             if (usage.IsInUse)
             {
                 throw new CategoryInUseException(DescribeUsage(usage));
@@ -75,7 +84,7 @@ public class CategoryService(LocalHubDbContext db, ICategoryUsage categoryUsage)
         }
 
         category.Deactivate();
-        await db.SaveChangesAsync(cancellationToken);
+        await _db.SaveChangesAsync(cancellationToken);
 
         return CategoryResponse.From(category);
     }
@@ -103,10 +112,14 @@ public class CategoryService(LocalHubDbContext db, ICategoryUsage categoryUsage)
 
     private async Task<ServiceCategory> FindAsync(int serviceCategoryId, CancellationToken cancellationToken)
     {
-        var category = await db.ServiceCategories
+        var category = await _db.ServiceCategories
             .SingleOrDefaultAsync(c => c.ServiceCategoryId == serviceCategoryId, cancellationToken);
+        if (category is null)
+        {
+            throw new NotFoundException("Categoria não encontrada.");
+        }
 
-        return category ?? throw new NotFoundException("Categoria não encontrada.");
+        return category;
     }
 
     // The names keep their upper case letters ("Canalização"), so the comparison ignoring upper and lower case is done
@@ -119,7 +132,7 @@ public class CategoryService(LocalHubDbContext db, ICategoryUsage categoryUsage)
         // in C#: Entity Framework translates it to SQL, and only ToLower() can be translated (ToLowerInvariant and
         // string.Equals with a StringComparison cannot).
 #pragma warning disable CA1304, CA1311, CA1862
-        bool exists = await db.ServiceCategories.AnyAsync(
+        bool exists = await _db.ServiceCategories.AnyAsync(
             c => c.Name.ToLower() == lowerName && c.ServiceCategoryId != exceptCategoryId,
             cancellationToken);
 #pragma warning restore CA1304, CA1311, CA1862
@@ -134,16 +147,20 @@ public class CategoryService(LocalHubDbContext db, ICategoryUsage categoryUsage)
     {
         try
         {
-            await db.SaveChangesAsync(cancellationToken);
+            await _db.SaveChangesAsync(cancellationToken);
         }
-        catch (DbUpdateException ex) when (ex.InnerException is PostgresException
-        {
-            SqlState: PostgresErrorCodes.UniqueViolation,
-            ConstraintName: "UX_ServiceCategory_name"
-        })
+        catch (DbUpdateException ex)
         {
             // Two requests with the same name at the same time: the unique index rejects the second one.
-            throw new DomainException(DomainErrorKind.Conflict, DuplicateNameMessage, "name");
+            if (ex.InnerException is PostgresException postgres
+                && postgres.SqlState == PostgresErrorCodes.UniqueViolation
+                && postgres.ConstraintName == "UX_ServiceCategory_name")
+            {
+                throw new DomainException(DomainErrorKind.Conflict, DuplicateNameMessage, "name");
+            }
+
+            // Any other error of the database is not expected: the request gets 500.
+            throw;
         }
     }
 }

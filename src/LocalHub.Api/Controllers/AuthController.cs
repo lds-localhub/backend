@@ -8,14 +8,21 @@ namespace LocalHub.Api.Controllers;
 
 [ApiController]
 [Route("api/auth")]
-public class AuthController(AuthService authService) : ControllerBase
+public class AuthController : ControllerBase
 {
+    private readonly AuthService _authService;
+
+    public AuthController(AuthService authService)
+    {
+        _authService = authService;
+    }
+
     // E01
     [HttpPost("register")]
     [AllowAnonymous]
     public async Task<ActionResult<RegisterResponse>> Register(RegisterRequest request, CancellationToken cancellationToken)
     {
-        var response = await authService.RegisterAsync(request, cancellationToken);
+        var response = await _authService.RegisterAsync(request, cancellationToken);
         return Created("/api/users/me", response);
     }
 
@@ -24,7 +31,7 @@ public class AuthController(AuthService authService) : ControllerBase
     [AllowAnonymous]
     public async Task<ActionResult<LoginResponse>> Login(LoginRequest request, CancellationToken cancellationToken)
     {
-        var response = await authService.LoginAsync(request, cancellationToken);
+        var response = await _authService.LoginAsync(request, cancellationToken);
         return Ok(response);
     }
 
@@ -32,7 +39,7 @@ public class AuthController(AuthService authService) : ControllerBase
     [HttpPost("logout")]
     public async Task<IActionResult> Logout(CancellationToken cancellationToken)
     {
-        await authService.LogoutAsync(cancellationToken);
+        await _authService.LogoutAsync(cancellationToken);
         return NoContent();
     }
 }

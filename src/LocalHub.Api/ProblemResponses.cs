@@ -8,16 +8,26 @@ public static class ProblemResponses
     private const string TypePrefix = "https://localhub.local/erros/";
 
     // The same links that ASP.NET Core uses by default.
-    private static string DefaultType(int status) => status switch
+    private static string DefaultType(int status)
     {
-        StatusCodes.Status400BadRequest => "https://tools.ietf.org/html/rfc9110#section-15.5.1",
-        StatusCodes.Status401Unauthorized => "https://tools.ietf.org/html/rfc9110#section-15.5.2",
-        StatusCodes.Status403Forbidden => "https://tools.ietf.org/html/rfc9110#section-15.5.4",
-        StatusCodes.Status404NotFound => "https://tools.ietf.org/html/rfc9110#section-15.5.5",
-        StatusCodes.Status409Conflict => "https://tools.ietf.org/html/rfc9110#section-15.5.10",
-        StatusCodes.Status503ServiceUnavailable => "https://tools.ietf.org/html/rfc9110#section-15.6.4",
-        _ => "https://tools.ietf.org/html/rfc9110#section-15.6.1",
-    };
+        switch (status)
+        {
+            case StatusCodes.Status400BadRequest:
+                return "https://tools.ietf.org/html/rfc9110#section-15.5.1";
+            case StatusCodes.Status401Unauthorized:
+                return "https://tools.ietf.org/html/rfc9110#section-15.5.2";
+            case StatusCodes.Status403Forbidden:
+                return "https://tools.ietf.org/html/rfc9110#section-15.5.4";
+            case StatusCodes.Status404NotFound:
+                return "https://tools.ietf.org/html/rfc9110#section-15.5.5";
+            case StatusCodes.Status409Conflict:
+                return "https://tools.ietf.org/html/rfc9110#section-15.5.10";
+            case StatusCodes.Status503ServiceUnavailable:
+                return "https://tools.ietf.org/html/rfc9110#section-15.6.4";
+            default:
+                return "https://tools.ietf.org/html/rfc9110#section-15.6.1";
+        }
+    }
 
     public static Task WriteAsync(
         HttpContext context,

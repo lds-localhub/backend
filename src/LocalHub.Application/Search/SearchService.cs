@@ -12,9 +12,20 @@ using Microsoft.EntityFrameworkCore;
 
 namespace LocalHub.Application.Search;
 
-public class SearchService(LocalHubDbContext db, LocationResolver locationResolver, ICurrentUser currentUser)
+public class SearchService
 {
     private const string CategoryField = "serviceCategoryId";
+
+    private readonly LocalHubDbContext _db;
+    private readonly LocationResolver _locationResolver;
+    private readonly ICurrentUser _currentUser;
+
+    public SearchService(LocalHubDbContext db, LocationResolver locationResolver, ICurrentUser currentUser)
+    {
+        _db = db;
+        _locationResolver = locationResolver;
+        _currentUser = currentUser;
+    }
 
     // E18 (RF-F005-01, RF-F005-02, RF-F009-02): the providers of an active category, ordered by the distance to the
     // reference location. The service radius does not limit the results; each result tells whether the reference
@@ -34,13 +45,13 @@ public class SearchService(LocalHubDbContext db, LocationResolver locationResolv
         await EnsureCategoryIsActiveAsync(serviceCategoryId, cancellationToken);
 
         // Last, because an address is sent to the Nominatim: not found → 400, Nominatim down → 503.
-        Coordinates reference = await locationResolver.ResolveReferenceAsync(
+        Coordinates reference = await _locationResolver.ResolveReferenceAsync(
             request.Address, request.Latitude, request.Longitude, await FindClientLocationAsync(cancellationToken),
             cancellationToken);
 
         // Only providers with an active account, a profile with the category and a location (the radius is always
         // defined in the profile) — RF-F005-01, rule 3; RF-F015-05.
-        var profiles = db.ProfessionalProfiles.AsNoTracking()
+        var profiles = _db.ProfessionalProfiles.AsNoTracking()
             .Where(p => p.ServiceProvider.Status == ActivationStatus.Active
                         && p.ServiceProvider.Latitude != null
                         && p.ServiceProvider.Longitude != null
@@ -98,7 +109,7 @@ public class SearchService(LocalHubDbContext db, LocationResolver locationResolv
     // RF-F005-01, rule 2: only active categories can be searched.
     private async Task EnsureCategoryIsActiveAsync(int serviceCategoryId, CancellationToken cancellationToken)
     {
-        bool isActive = await db.ServiceCategories.AnyAsync(
+        bool isActive = await _db.ServiceCategories.AnyAsync(
             c => c.ServiceCategoryId == serviceCategoryId && c.Status == ActivationStatus.Active,
             cancellationToken);
 
@@ -112,13 +123,13 @@ public class SearchService(LocalHubDbContext db, LocationResolver locationResolv
     // Visitors and the other roles always indicate it.
     private async Task<Coordinates?> FindClientLocationAsync(CancellationToken cancellationToken)
     {
-        if (!currentUser.IsAuthenticated || currentUser.Role != UserRole.Client)
+        if (!_currentUser.IsAuthenticated || _currentUser.Role != UserRole.Client)
         {
             return null;
         }
 
-        var location = await db.Users.AsNoTracking()
-            .Where(u => u.UserId == currentUser.UserId && u.Latitude != null && u.Longitude != null)
+        var location = await _db.Users.AsNoTracking()
+            .Where(u => u.UserId == _currentUser.UserId && u.Latitude != null && u.Longitude != null)
             .Select(u => new { Latitude = u.Latitude!.Value, Longitude = u.Longitude!.Value })
             .SingleOrDefaultAsync(cancellationToken);
 

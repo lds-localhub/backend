@@ -10,15 +10,22 @@ namespace LocalHub.Api.Controllers;
 // F004 (E12 to E14) and the service radius of F015 (E17). The administrator has no profile and gets 403.
 [ApiController]
 [Route("api/profiles")]
-public class ProfilesController(ProfileService profileService) : ControllerBase
+public class ProfilesController : ControllerBase
 {
+    private readonly ProfileService _profileService;
+
+    public ProfilesController(ProfileService profileService)
+    {
+        _profileService = profileService;
+    }
+
     // E12: only a provider without a profile (a second profile gets 409).
     [HttpPost]
     [Authorize(Roles = "PROVIDER")]
     public async Task<ActionResult<ProfileResponse>> Create(
         CreateProfileRequest request, CancellationToken cancellationToken)
     {
-        var profile = await profileService.CreateAsync(request, cancellationToken);
+        var profile = await _profileService.CreateAsync(request, cancellationToken);
         return Created($"/api/profiles/{profile.ProfessionalProfileId}", profile);
     }
 
@@ -28,7 +35,7 @@ public class ProfilesController(ProfileService profileService) : ControllerBase
     [RequiresProfessionalProfile]
     public async Task<ActionResult<ProfileResponse>> Get(int professionalProfileId, CancellationToken cancellationToken)
     {
-        return Ok(await profileService.GetAsync(professionalProfileId, cancellationToken));
+        return Ok(await _profileService.GetAsync(professionalProfileId, cancellationToken));
     }
 
     // E14
@@ -38,7 +45,7 @@ public class ProfilesController(ProfileService profileService) : ControllerBase
     public async Task<ActionResult<ProfileResponse>> UpdateMine(
         UpdateProfileRequest request, CancellationToken cancellationToken)
     {
-        return Ok(await profileService.UpdateMineAsync(request, cancellationToken));
+        return Ok(await _profileService.UpdateMineAsync(request, cancellationToken));
     }
 
     // E17
@@ -48,6 +55,6 @@ public class ProfilesController(ProfileService profileService) : ControllerBase
     public async Task<ActionResult<ServiceRadiusResponse>> SetMyServiceRadius(
         ServiceRadiusRequest request, CancellationToken cancellationToken)
     {
-        return Ok(await profileService.SetMyServiceRadiusAsync(request, cancellationToken));
+        return Ok(await _profileService.SetMyServiceRadiusAsync(request, cancellationToken));
     }
 }

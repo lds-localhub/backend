@@ -7,7 +7,7 @@ public sealed class NominatimOptions
     public const string SectionName = "Nominatim";
 
     [Required]
-    public Uri BaseUrl { get; set; } = new("https://nominatim.openstreetmap.org/");
+    public Uri BaseUrl { get; set; } = new Uri("https://nominatim.openstreetmap.org/");
 
     [Required(AllowEmptyStrings = false)]
     public string UserAgent { get; set; } = string.Empty;

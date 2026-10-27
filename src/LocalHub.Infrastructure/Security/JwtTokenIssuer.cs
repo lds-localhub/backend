@@ -9,16 +9,21 @@ using Microsoft.IdentityModel.Tokens;
 
 namespace LocalHub.Infrastructure.Security;
 
-public class JwtTokenIssuer(IOptions<JwtOptions> options) : ITokenIssuer
+public class JwtTokenIssuer : ITokenIssuer
 {
-    private readonly JsonWebTokenHandler _handler = new();
-    private readonly JwtOptions _options = options.Value;
+    private readonly JsonWebTokenHandler _handler = new JsonWebTokenHandler();
+    private readonly JwtOptions _options;
+
+    public JwtTokenIssuer(IOptions<JwtOptions> options)
+    {
+        _options = options.Value;
+    }
 
     public string Issue(User user, UserSession session)
     {
-        SymmetricSecurityKey key = new(Encoding.UTF8.GetBytes(_options.SigningKey));
+        SymmetricSecurityKey key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_options.SigningKey));
 
-        SecurityTokenDescriptor descriptor = new()
+        SecurityTokenDescriptor descriptor = new SecurityTokenDescriptor()
         {
             Issuer = _options.Issuer,
             Audience = _options.Audience,

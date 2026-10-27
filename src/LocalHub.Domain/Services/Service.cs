@@ -36,16 +36,16 @@ public class Service
     public User Client { get; private set; } = null!;
     public ServiceCategory ServiceCategory { get; private set; } = null!;
 
-    private readonly List<Proposal> _proposals = [];
+    private readonly List<Proposal> _proposals = new List<Proposal>();
     public IReadOnlyCollection<Proposal> Proposals => _proposals;
 
-    private readonly List<DirectRequest> _directRequests = [];
+    private readonly List<DirectRequest> _directRequests = new List<DirectRequest>();
     public IReadOnlyCollection<DirectRequest> DirectRequests => _directRequests;
 
     // Null while the service was not reviewed (at most one review per service).
     public Review? Review { get; private set; }
 
-    private readonly List<ServiceStatusHistory> _statusHistory = [];
+    private readonly List<ServiceStatusHistory> _statusHistory = new List<ServiceStatusHistory>();
     public IReadOnlyCollection<ServiceStatusHistory> StatusHistory => _statusHistory;
 
     // Private: a service is created with Create. Entity Framework uses this constructor when it reads a service.
@@ -152,9 +152,13 @@ public class Service
     // OPEN. The service stays OPEN, even without other pending requests and proposals.
     public DirectRequest DeclineDirectRequest(int directRequestId, int professionalProfileId, DateTimeOffset now)
     {
-        var request = _directRequests.SingleOrDefault(r => r.DirectRequestId == directRequestId)
-                      ?? throw new DomainException(DomainErrorKind.Conflict,
-                          "A solicitação direta não pertence a este serviço.");
+        var request = _directRequests.SingleOrDefault(r => r.DirectRequestId == directRequestId);
+        if (request is null)
+        {
+            throw new DomainException(DomainErrorKind.Conflict,
+                "A solicitação direta não pertence a este serviço.");
+        }
+
         if (request.ProfessionalProfileId != professionalProfileId)
         {
             throw new DomainException(DomainErrorKind.Forbidden,

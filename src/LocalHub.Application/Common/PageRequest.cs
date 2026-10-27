@@ -16,12 +16,12 @@ public record PageRequest(int Page = PageRequest.DefaultPage, int PageSize = Pag
     {
         if (Page < 1)
         {
-            errors["page"] = ["A página tem de ser um número inteiro igual ou superior a 1."];
+            errors["page"] = new[] { "A página tem de ser um número inteiro igual ou superior a 1." };
         }
 
         if (PageSize < 1 || PageSize > MaxPageSize)
         {
-            errors["pageSize"] = [$"O tamanho da página tem de estar entre 1 e {MaxPageSize}."];
+            errors["pageSize"] = new[] { $"O tamanho da página tem de estar entre 1 e {MaxPageSize}." };
         }
     }
 }

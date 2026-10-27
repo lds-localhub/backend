@@ -12,8 +12,15 @@ namespace LocalHub.Api.Controllers;
 // Searches by distance: F005 (E18) and, later, F006 (E19).
 [ApiController]
 [Route("api/search")]
-public class SearchController(SearchService searchService) : ControllerBase
+public class SearchController : ControllerBase
 {
+    private readonly SearchService _searchService;
+
+    public SearchController(SearchService searchService)
+    {
+        _searchService = searchService;
+    }
+
     // E18: public (RF-F001-03, rule 3). The parameters are validated by [ApiController] before the method is called
     // (rule R17). With the token of a client, its registered location is used when the request
     // has no coordinates and no address.
@@ -30,6 +37,6 @@ public class SearchController(SearchService searchService) : ControllerBase
         [FromQuery] int pageSize = PageRequest.DefaultPageSize)
     {
         var request = new ProviderSearchRequest(serviceCategoryId, address, latitude, longitude, name);
-        return Ok(await searchService.SearchProvidersAsync(request, new PageRequest(page, pageSize), cancellationToken));
+        return Ok(await _searchService.SearchProvidersAsync(request, new PageRequest(page, pageSize), cancellationToken));
     }
 }

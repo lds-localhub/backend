@@ -9,32 +9,42 @@ using Microsoft.EntityFrameworkCore;
 
 namespace LocalHub.Application.Accounts;
 
-public class AccountService(LocalHubDbContext db, ICurrentUser currentUser, TimeProvider timeProvider)
+public class AccountService
 {
     // Filters accepted by E05: the list never includes administrators (RF-F002-01).
-    private static readonly Dictionary<string, UserRole> RoleFilters = new(StringComparer.OrdinalIgnoreCase)
+    private static readonly Dictionary<string, UserRole> RoleFilters = new Dictionary<string, UserRole>(StringComparer.OrdinalIgnoreCase)
     {
         ["CLIENT"] = UserRole.Client,
         ["PROVIDER"] = UserRole.Provider,
     };
 
-    private static readonly Dictionary<string, ActivationStatus> StatusFilters = new(StringComparer.OrdinalIgnoreCase)
+    private static readonly Dictionary<string, ActivationStatus> StatusFilters = new Dictionary<string, ActivationStatus>(StringComparer.OrdinalIgnoreCase)
     {
         ["ACTIVE"] = ActivationStatus.Active,
         ["INACTIVE"] = ActivationStatus.Inactive,
     };
 
+    private readonly LocalHubDbContext _db;
+    private readonly ICurrentUser _currentUser;
+    private readonly TimeProvider _timeProvider;
+
+    public AccountService(LocalHubDbContext db, ICurrentUser currentUser, TimeProvider timeProvider)
+    {
+        _db = db;
+        _currentUser = currentUser;
+        _timeProvider = timeProvider;
+    }
+
     public async Task<UserResponse> GetMeAsync(CancellationToken cancellationToken)
     {
-        var user = await db.Users.AsNoTracking()
-            .SingleOrDefaultAsync(u => u.UserId == currentUser.UserId, cancellationToken);
-
+        var user = await _db.Users.AsNoTracking()
+            .SingleOrDefaultAsync(u => u.UserId == _currentUser.UserId, cancellationToken);
         if (user is null)
         {
             throw new NotFoundException("Utilizador não encontrado.");
         }
 
-        return UserResponse.From(user, await db.FindProfileIdAsync(user.UserId, cancellationToken));
+        return UserResponse.From(user, await _db.FindProfileIdAsync(user.UserId, cancellationToken));
     }
 
     // E05: accounts of clients and providers, optionally filtered by role and status, ordered by name.
@@ -52,7 +62,7 @@ public class AccountService(LocalHubDbContext db, ICurrentUser currentUser, Time
             }
             else
             {
-                errors["role"] = ["O papel tem de ser CLIENT (Cliente) ou PROVIDER (Prestador de Serviços)."];
+                errors["role"] = new[] { "O papel tem de ser CLIENT (Cliente) ou PROVIDER (Prestador de Serviços)." };
             }
         }
 
@@ -65,7 +75,7 @@ public class AccountService(LocalHubDbContext db, ICurrentUser currentUser, Time
             }
             else
             {
-                errors["status"] = ["O estado tem de ser ACTIVE (Ativa) ou INACTIVE (Desativada)."];
+                errors["status"] = new[] { "O estado tem de ser ACTIVE (Ativa) ou INACTIVE (Desativada)." };
             }
         }
 
@@ -75,7 +85,7 @@ public class AccountService(LocalHubDbContext db, ICurrentUser currentUser, Time
             throw new ValidationException(errors);
         }
 
-        var query = db.Users.AsNoTracking().Where(u => u.Role != UserRole.Admin);
+        var query = _db.Users.AsNoTracking().Where(u => u.Role != UserRole.Admin);
         if (roleFilter is not null)
         {
             query = query.Where(u => u.Role == roleFilter);
@@ -102,17 +112,16 @@ public class AccountService(LocalHubDbContext db, ICurrentUser currentUser, Time
     public async Task<AccountResponse> DeactivateAsync(int userId, CancellationToken cancellationToken)
     {
         // Only the sessions that are still open need to be loaded and revoked.
-        var user = await db.Users
+        var user = await _db.Users
             .Include(u => u.Sessions.Where(s => s.RevokedAt == null))
             .SingleOrDefaultAsync(u => u.UserId == userId, cancellationToken);
-
         if (user is null)
         {
             throw new NotFoundException("Conta não encontrada.");
         }
 
-        user.Deactivate(timeProvider.GetUtcNow());
-        await db.SaveChangesAsync(cancellationToken);
+        user.Deactivate(_timeProvider.GetUtcNow());
+        await _db.SaveChangesAsync(cancellationToken);
 
         return AccountResponse.From(user);
     }
@@ -120,15 +129,14 @@ public class AccountService(LocalHubDbContext db, ICurrentUser currentUser, Time
     // E07: the account becomes ACTIVE and the user can log in again (RF-F002-03).
     public async Task<AccountResponse> ActivateAsync(int userId, CancellationToken cancellationToken)
     {
-        var user = await db.Users.SingleOrDefaultAsync(u => u.UserId == userId, cancellationToken);
-
+        var user = await _db.Users.SingleOrDefaultAsync(u => u.UserId == userId, cancellationToken);
         if (user is null)
         {
             throw new NotFoundException("Conta não encontrada.");
         }
 
         user.Activate();
-        await db.SaveChangesAsync(cancellationToken);
+        await _db.SaveChangesAsync(cancellationToken);
 
         return AccountResponse.From(user);
     }

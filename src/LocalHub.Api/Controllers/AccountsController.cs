@@ -11,8 +11,15 @@ namespace LocalHub.Api.Controllers;
 [ApiController]
 [Route("api/accounts")]
 [Authorize(Roles = "ADMIN")]
-public class AccountsController(AccountService accountService) : ControllerBase
+public class AccountsController : ControllerBase
 {
+    private readonly AccountService _accountService;
+
+    public AccountsController(AccountService accountService)
+    {
+        _accountService = accountService;
+    }
+
     // E05
     [HttpGet]
     public async Task<ActionResult<PagedResult<AccountResponse>>> List(
@@ -22,20 +29,20 @@ public class AccountsController(AccountService accountService) : ControllerBase
         [FromQuery] int page = PageRequest.DefaultPage,
         [FromQuery] int pageSize = PageRequest.DefaultPageSize)
     {
-        return Ok(await accountService.ListAsync(role, status, new PageRequest(page, pageSize), cancellationToken));
+        return Ok(await _accountService.ListAsync(role, status, new PageRequest(page, pageSize), cancellationToken));
     }
 
     // E06
     [HttpPost("{userId:int}/deactivate")]
     public async Task<ActionResult<AccountResponse>> Deactivate(int userId, CancellationToken cancellationToken)
     {
-        return Ok(await accountService.DeactivateAsync(userId, cancellationToken));
+        return Ok(await _accountService.DeactivateAsync(userId, cancellationToken));
     }
 
     // E07
     [HttpPost("{userId:int}/activate")]
     public async Task<ActionResult<AccountResponse>> Activate(int userId, CancellationToken cancellationToken)
     {
-        return Ok(await accountService.ActivateAsync(userId, cancellationToken));
+        return Ok(await _accountService.ActivateAsync(userId, cancellationToken));
     }
 }

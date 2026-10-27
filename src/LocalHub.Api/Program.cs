@@ -64,7 +64,7 @@ builder.Services.AddControllers(o =>
                 if (entry.Key.StartsWith("$.", StringComparison.Ordinal))
                 {
                     // System.Text.Json reports the field as "$.role"; expose it as "role" with a Portuguese message.
-                    errors[entry.Key.Substring(2)] = [InvalidValueMessage];
+                    errors[entry.Key.Substring(2)] = new[] { InvalidValueMessage };
                 }
                 else if (entry.Key.Length > 0 && entry.Key != "$" && !bodyParameters.Contains(entry.Key))
                 {

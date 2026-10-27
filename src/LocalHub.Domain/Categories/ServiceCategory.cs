@@ -19,9 +19,9 @@ public class ServiceCategory
     public ActivationStatus Status { get; private set; }
 
     // Navigations (they are not columns): the profiles and the services that use this category.
-    private readonly List<ServiceArea> _serviceAreas = [];
+    private readonly List<ServiceArea> _serviceAreas = new List<ServiceArea>();
     public IReadOnlyCollection<ServiceArea> ServiceAreas => _serviceAreas;
-    private readonly List<Service> _services = [];
+    private readonly List<Service> _services = new List<Service>();
     public IReadOnlyCollection<Service> Services => _services;
 
     // Private: a category is created with Create. Entity Framework uses this constructor when it reads a category.
@@ -29,11 +29,14 @@ public class ServiceCategory
 
     // RF-F003-01: the new category is always active. The name is validated by the DTO and its uniqueness depends on
     // the other categories, so it is checked by the CategoryService (rule R17).
-    public static ServiceCategory Create(string name) => new()
+    public static ServiceCategory Create(string name)
     {
-        Name = name.Trim(),
-        Status = ActivationStatus.Active,
-    };
+        return new ServiceCategory
+        {
+            Name = name.Trim(),
+            Status = ActivationStatus.Active,
+        };
+    }
 
     // RF-F003-02: only the name changes, so the associations to profiles and services are kept.
     public void Rename(string name)

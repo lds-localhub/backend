@@ -12,8 +12,13 @@ namespace LocalHub.Infrastructure;
 // The relationships with ON DELETE CASCADE and the foreign keys are found by the conventions of Entity Framework,
 // from the navigations of the classes of the domain. There are no CHECK constraints: each rule is checked by the
 // DTOs, the services or the domain (rule R17).
-public class LocalHubDbContext(DbContextOptions<LocalHubDbContext> options) : DbContext(options)
+public class LocalHubDbContext : DbContext
 {
+    public LocalHubDbContext(DbContextOptions<LocalHubDbContext> options)
+        : base(options)
+    {
+    }
+
     public DbSet<User> Users => Set<User>();
     public DbSet<UserSession> UserSessions => Set<UserSession>();
     public DbSet<ServiceCategory> ServiceCategories => Set<ServiceCategory>();

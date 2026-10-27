@@ -32,11 +32,11 @@ public class ProfessionalProfile
     // Navigations (they are not columns). "= null!": always set by Create or loaded by Entity Framework with Include.
     // The name ServiceProvider lets Entity Framework find the foreign key ServiceProviderId by convention.
     public User ServiceProvider { get; private set; } = null!;
-    private readonly List<ServiceArea> _serviceAreas = [];
+    private readonly List<ServiceArea> _serviceAreas = new List<ServiceArea>();
     public IReadOnlyCollection<ServiceArea> ServiceAreas => _serviceAreas;
-    private readonly List<Proposal> _proposals = [];
+    private readonly List<Proposal> _proposals = new List<Proposal>();
     public IReadOnlyCollection<Proposal> Proposals => _proposals;
-    private readonly List<DirectRequest> _directRequests = [];
+    private readonly List<DirectRequest> _directRequests = new List<DirectRequest>();
     public IReadOnlyCollection<DirectRequest> DirectRequests => _directRequests;
 
     // Private: a profile is created with Create. Entity Framework uses this constructor when it reads a profile.

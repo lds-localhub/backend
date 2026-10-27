@@ -15,24 +15,40 @@ using Npgsql;
 
 namespace LocalHub.Application.Profiles;
 
-public class ProfileService(LocalHubDbContext db, LocationResolver locationResolver, ICurrentUser currentUser)
+public class ProfileService
 {
     private const string CategoriesField = "serviceCategoryIds";
     private const string ProfileExistsMessage = "Já tem um perfil profissional.";
     public const string MissingProfileMessage = "Crie primeiro o seu perfil profissional.";
 
+    private readonly LocalHubDbContext _db;
+    private readonly LocationResolver _locationResolver;
+    private readonly ICurrentUser _currentUser;
+
+    public ProfileService(LocalHubDbContext db, LocationResolver locationResolver, ICurrentUser currentUser)
+    {
+        _db = db;
+        _locationResolver = locationResolver;
+        _currentUser = currentUser;
+    }
+
     // Used by the filter of the endpoints that need a profile (API documentation, section 7).
-    public Task<int?> GetMyProfileIdAsync(CancellationToken cancellationToken) =>
-        db.FindProfileIdAsync(currentUser.UserId, cancellationToken);
+    public Task<int?> GetMyProfileIdAsync(CancellationToken cancellationToken)
+    {
+        return _db.FindProfileIdAsync(_currentUser.UserId, cancellationToken);
+    }
 
     // E12 (RF-F004-01, RF-F015-01): the profile and the first location of the provider are saved together.
     // The fields were validated by the DTO; here are the rules that need the database or the Nominatim (rule R17).
     public async Task<ProfileResponse> CreateAsync(CreateProfileRequest request, CancellationToken cancellationToken)
     {
-        var provider = await db.Users.SingleOrDefaultAsync(u => u.UserId == currentUser.UserId, cancellationToken)
-                       ?? throw new NotFoundException("Utilizador não encontrado.");
+        var provider = await _db.Users.SingleOrDefaultAsync(u => u.UserId == _currentUser.UserId, cancellationToken);
+        if (provider is null)
+        {
+            throw new NotFoundException("Utilizador não encontrado.");
+        }
 
-        if (await db.ProfessionalProfiles.AnyAsync(p => p.ServiceProviderId == provider.UserId, cancellationToken))
+        if (await _db.ProfessionalProfiles.AnyAsync(p => p.ServiceProviderId == provider.UserId, cancellationToken))
         {
             throw new DomainException(DomainErrorKind.Conflict, ProfileExistsMessage);
         }
@@ -44,11 +60,11 @@ public class ProfileService(LocalHubDbContext db, LocationResolver locationResol
 
         // Last, because it calls the Nominatim: an address that is not found (400) or a Nominatim that is down (503)
         // leaves nothing saved.
-        var location = await locationResolver.ResolveAsync(
+        var location = await _locationResolver.ResolveAsync(
             new SetLocationRequest(request.Address, null, null), cancellationToken);
         provider.SetLocation(location.Address, location.Coordinates.Latitude, location.Coordinates.Longitude);
 
-        db.ProfessionalProfiles.Add(profile);
+        _db.ProfessionalProfiles.Add(profile);
         await SaveNewProfileAsync(cancellationToken);
 
         return ProfileResponse.From(profile);
@@ -58,17 +74,17 @@ public class ProfileService(LocalHubDbContext db, LocationResolver locationResol
     // A provider without a profile is stopped before, by the filter (403 perfil-em-falta).
     public async Task<ProfileResponse> GetAsync(int professionalProfileId, CancellationToken cancellationToken)
     {
-        var profile = await WithDetails(db.ProfessionalProfiles.AsNoTracking())
+        var profile = await WithDetails(_db.ProfessionalProfiles.AsNoTracking())
             .SingleOrDefaultAsync(p => p.ProfessionalProfileId == professionalProfileId, cancellationToken);
 
-        if (currentUser.Role == UserRole.Provider)
+        if (_currentUser.Role == UserRole.Provider)
         {
             if (profile is null)
             {
                 throw new NotFoundException("Perfil não encontrado.");
             }
 
-            if (profile.ServiceProviderId != currentUser.UserId)
+            if (profile.ServiceProviderId != _currentUser.UserId)
             {
                 throw new ForbiddenException("Só pode consultar o seu próprio perfil.");
             }
@@ -94,7 +110,7 @@ public class ProfileService(LocalHubDbContext db, LocationResolver locationResol
 
         profile.UpdateDetails(request.Introduction!, request.ContactDetails!, request.Experience!);
         profile.ReplaceCategories(categories);
-        await db.SaveChangesAsync(cancellationToken);
+        await _db.SaveChangesAsync(cancellationToken);
 
         return ProfileResponse.From(profile);
     }
@@ -103,27 +119,37 @@ public class ProfileService(LocalHubDbContext db, LocationResolver locationResol
     public async Task<ServiceRadiusResponse> SetMyServiceRadiusAsync(
         ServiceRadiusRequest request, CancellationToken cancellationToken)
     {
-        var profile = await db.ProfessionalProfiles
-            .SingleOrDefaultAsync(p => p.ServiceProviderId == currentUser.UserId, cancellationToken)
-            ?? throw new ForbiddenException(MissingProfileMessage, ErrorTypes.MissingProfile);
+        var profile = await _db.ProfessionalProfiles
+            .SingleOrDefaultAsync(p => p.ServiceProviderId == _currentUser.UserId, cancellationToken);
+        if (profile is null)
+        {
+            throw new ForbiddenException(MissingProfileMessage, ErrorTypes.MissingProfile);
+        }
 
         profile.SetServiceRadius(request.ServiceRadiusKm!.Value);
-        await db.SaveChangesAsync(cancellationToken);
+        await _db.SaveChangesAsync(cancellationToken);
 
         return new ServiceRadiusResponse(profile.ServiceRadiusKm);
     }
 
-    private static IQueryable<ProfessionalProfile> WithDetails(IQueryable<ProfessionalProfile> query) =>
-        query
+    private static IQueryable<ProfessionalProfile> WithDetails(IQueryable<ProfessionalProfile> query)
+    {
+        return query
             .Include(p => p.ServiceProvider)
             .Include(p => p.ServiceAreas)
             .ThenInclude(a => a.ServiceCategory);
+    }
 
     private async Task<ProfessionalProfile> FindMineAsync(CancellationToken cancellationToken)
     {
-        return await WithDetails(db.ProfessionalProfiles)
-                   .SingleOrDefaultAsync(p => p.ServiceProviderId == currentUser.UserId, cancellationToken)
-               ?? throw new ForbiddenException(MissingProfileMessage, ErrorTypes.MissingProfile);
+        var profile = await WithDetails(_db.ProfessionalProfiles)
+            .SingleOrDefaultAsync(p => p.ServiceProviderId == _currentUser.UserId, cancellationToken);
+        if (profile is null)
+        {
+            throw new ForbiddenException(MissingProfileMessage, ErrorTypes.MissingProfile);
+        }
+
+        return profile;
     }
 
     // RF-F004-04: every requested category must exist and only active categories can be added. A category that was
@@ -132,7 +158,7 @@ public class ProfileService(LocalHubDbContext db, LocationResolver locationResol
         IReadOnlyList<int> serviceCategoryIds, HashSet<int> currentIds, CancellationToken cancellationToken)
     {
         var ids = serviceCategoryIds.Distinct().ToList();
-        var categories = await db.ServiceCategories
+        var categories = await _db.ServiceCategories
             .Where(c => ids.Contains(c.ServiceCategoryId))
             .ToListAsync(cancellationToken);
 
@@ -159,16 +185,20 @@ public class ProfileService(LocalHubDbContext db, LocationResolver locationResol
     {
         try
         {
-            await db.SaveChangesAsync(cancellationToken);
+            await _db.SaveChangesAsync(cancellationToken);
         }
-        catch (DbUpdateException ex) when (ex.InnerException is PostgresException
-        {
-            SqlState: PostgresErrorCodes.UniqueViolation
-        })
+        catch (DbUpdateException ex)
         {
             // Two E12 requests of the same provider at the same time: the UNIQUE of serviceProviderId (created by the
             // 1:1 relationship with User) rejects the second one.
-            throw new DomainException(DomainErrorKind.Conflict, ProfileExistsMessage);
+            if (ex.InnerException is PostgresException postgres
+                && postgres.SqlState == PostgresErrorCodes.UniqueViolation)
+            {
+                throw new DomainException(DomainErrorKind.Conflict, ProfileExistsMessage);
+            }
+
+            // Any other error of the database is not expected: the request gets 500.
+            throw;
         }
     }
 }

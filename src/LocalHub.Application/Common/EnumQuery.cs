@@ -22,7 +22,7 @@ public static class EnumQuery
             }
         }
 
-        errors[field] = ["Valor inválido."];
+        errors[field] = new[] { "Valor inválido." };
         return null;
     }
 }

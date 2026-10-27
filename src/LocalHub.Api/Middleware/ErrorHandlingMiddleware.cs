@@ -5,8 +5,15 @@ using LocalHub.Infrastructure.Geocoding;
 namespace LocalHub.Api.Middleware;
 
 // Converts the exceptions thrown by the application and domain layers into Problem Details responses.
-public class ErrorHandlingMiddleware(ILogger<ErrorHandlingMiddleware> logger) : IMiddleware
+public class ErrorHandlingMiddleware : IMiddleware
 {
+    private readonly ILogger<ErrorHandlingMiddleware> _logger;
+
+    public ErrorHandlingMiddleware(ILogger<ErrorHandlingMiddleware> logger)
+    {
+        _logger = logger;
+    }
+
     public async Task InvokeAsync(HttpContext context, RequestDelegate next)
     {
         try
@@ -79,7 +86,7 @@ public class ErrorHandlingMiddleware(ILogger<ErrorHandlingMiddleware> logger) : 
                     GeocodingUnavailableException.UserMessage);
 
             default:
-                logger.LogError(exception, "Unexpected error while processing the request.");
+                _logger.LogError(exception, "Unexpected error while processing the request.");
                 return ProblemResponses.WriteAsync(
                     context,
                     StatusCodes.Status500InternalServerError,
