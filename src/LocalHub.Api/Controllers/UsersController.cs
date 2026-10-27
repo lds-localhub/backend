@@ -39,6 +39,7 @@ public class UsersController : ControllerBase
         Ok(await _locationService.SetMineAsync(request, cancellationToken));
 
     // E40. Any authenticated user (the fallback policy of Program.cs requires a session).
+    [Authorize]
     [HttpPut("me/password")]
     public async Task<IActionResult> ChangePassword(ChangePasswordRequest request, CancellationToken cancellationToken)
     {
