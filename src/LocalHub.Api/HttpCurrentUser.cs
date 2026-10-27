@@ -7,13 +7,20 @@ using LocalHub.Domain.Accounts;
 namespace LocalHub.Api;
 
 // Reads the authenticated user from the claims of the JWT (sub, role, sid).
-public class HttpCurrentUser(IHttpContextAccessor httpContextAccessor) : ICurrentUser
+public class HttpCurrentUser : ICurrentUser
 {
+    private readonly IHttpContextAccessor _httpContextAccessor;
+
+    public HttpCurrentUser(IHttpContextAccessor httpContextAccessor)
+    {
+        _httpContextAccessor = httpContextAccessor;
+    }
+
     public bool IsAuthenticated
     {
         get
         {
-            ClaimsPrincipal? user = httpContextAccessor.HttpContext?.User;
+            ClaimsPrincipal? user = _httpContextAccessor.HttpContext?.User;
             return user != null && user.Identity != null && user.Identity.IsAuthenticated;
         }
     }
@@ -33,7 +40,7 @@ public class HttpCurrentUser(IHttpContextAccessor httpContextAccessor) : ICurren
 
     private string ReadClaim(string claimType)
     {
-        return httpContextAccessor.HttpContext?.User.FindFirstValue(claimType) ?? string.Empty;
+        return _httpContextAccessor.HttpContext?.User.FindFirstValue(claimType) ?? string.Empty;
     }
 
     private int ReadInt(string claimType)

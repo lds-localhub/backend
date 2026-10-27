@@ -1,5 +1,3 @@
-using System.Text.RegularExpressions;
-
 using LocalHub.Application.Accounts.Dtos;
 using LocalHub.Application.Common;
 using LocalHub.Application.Common.Exceptions;
@@ -11,24 +9,40 @@ using LocalHub.Infrastructure.Security;
 
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 using Npgsql;
 
 namespace LocalHub.Application.Accounts;
 
-public class AuthService(
-    LocalHubDbContext db,
-    IPasswordHasher<User> passwordHasher,
-    ITokenIssuer tokenIssuer,
-    ICurrentUser currentUser,
-    TimeProvider timeProvider)
+public class AuthService
 {
-    private const string EmailPattern = @"^[^@\s]+@[^@\s]+\.[^@\s]+$";
+    private readonly LocalHubDbContext _db;
+    private readonly IPasswordHasher<User> _passwordHasher;
+    private readonly ITokenIssuer _tokenIssuer;
+    private readonly ICurrentUser _currentUser;
+    private readonly TimeProvider _timeProvider;
+    private readonly SupportOptions _support;
 
+    public AuthService(
+        LocalHubDbContext db,
+        IPasswordHasher<User> passwordHasher,
+        ITokenIssuer tokenIssuer,
+        ICurrentUser currentUser,
+        TimeProvider timeProvider,
+        IOptions<SupportOptions> support)
+    {
+        _db = db;
+        _passwordHasher = passwordHasher;
+        _tokenIssuer = tokenIssuer;
+        _currentUser = currentUser;
+        _timeProvider = timeProvider;
+        _support = support.Value;
+    }
+
+    // E01. The fields were validated by the DTO (rule R17); the e-mail already registered depends on the database.
     public async Task<RegisterResponse> RegisterAsync(RegisterRequest request, CancellationToken cancellationToken)
     {
-        ValidateRegister(request);
-
         string email = request.Email!.Trim();
         if (await EmailExistsAsync(email, cancellationToken))
         {
@@ -36,45 +50,35 @@ public class AuthService(
         }
 
         var user = User.Register(request.Name!, email, request.Role!.Value);
-        user.SetPasswordHash(passwordHasher.HashPassword(user, request.Password!));
-        db.Users.Add(user);
+        user.SetPasswordHash(_passwordHasher.HashPassword(user, request.Password!));
+        _db.Users.Add(user);
 
         try
         {
-            await db.SaveChangesAsync(cancellationToken);
+            await _db.SaveChangesAsync(cancellationToken);
         }
-        catch (DbUpdateException ex) when (ex.InnerException is PostgresException
-        {
-            SqlState: PostgresErrorCodes.UniqueViolation,
-            ConstraintName: "UX_User_email"
-        })
+        catch (DbUpdateException ex)
         {
             // Two registrations with the same e-mail at the same time: the unique index UX_User_email
-            // (migration AddAccounts) rejects the second one.
-            throw new DomainException(DomainErrorKind.Conflict, "Já existe uma conta com este e-mail.", "email");
+            // (UserConfiguration) rejects the second one.
+            if (ex.InnerException is PostgresException postgres
+                && postgres.SqlState == PostgresErrorCodes.UniqueViolation
+                && postgres.ConstraintName == "UX_User_email")
+            {
+                throw new DomainException(DomainErrorKind.Conflict, "Já existe uma conta com este e-mail.", "email");
+            }
+
+            // Any other error of the database is not expected: the request gets 500.
+            throw;
         }
 
         return new RegisterResponse(user.UserId, user.Name, user.Email, user.Role, user.Status);
     }
 
+    // E02. The fields were validated by the DTO (rule R17). The checks are made in the order of the API
+    // documentation: credentials (401), deactivated account (403) and administrator in the mobile application (403).
     public async Task<LoginResponse> LoginAsync(LoginRequest request, CancellationToken cancellationToken)
     {
-        var errors = new Dictionary<string, string[]>();
-        if (string.IsNullOrWhiteSpace(request.Email))
-        {
-            errors["email"] = new[] { "O e-mail é obrigatório." };
-        }
-
-        if (string.IsNullOrEmpty(request.Password))
-        {
-            errors["password"] = new[] { "A palavra-passe é obrigatória." };
-        }
-
-        if (errors.Count > 0)
-        {
-            throw new ValidationException(errors);
-        }
-
         var user = await UsersWithEmail(request.Email!).SingleOrDefaultAsync(cancellationToken);
 
         // Unknown e-mail and wrong password get the same response (RF-F001-02).
@@ -83,86 +87,88 @@ public class AuthService(
             throw new InvalidCredentialsException();
         }
 
-        var result = passwordHasher.VerifyHashedPassword(user, user.PasswordHash, request.Password!);
+        var result = _passwordHasher.VerifyHashedPassword(user, user.PasswordHash, request.Password!);
         if (result == PasswordVerificationResult.Failed)
         {
             throw new InvalidCredentialsException();
         }
 
+        // The message tells the user who to contact to know the reason (RF-F002-04).
         if (user.Status != ActivationStatus.Active)
         {
-            throw new ForbiddenException("A sua conta está desativada.", ErrorTypes.AccountDeactivated);
+            throw new ForbiddenException(
+                $"A sua conta foi desativada. Para saber o motivo, contacte {_support.Email}.",
+                ErrorTypes.AccountDeactivated);
         }
 
-        var session = UserSession.Start(user, timeProvider.GetUtcNow());
-        db.UserSessions.Add(session);
-        await db.SaveChangesAsync(cancellationToken); // generates the SessionId used in the token
+        // The administration is only available in the web application: no session is created (RF-F001-06).
+        if (user.Role == UserRole.Admin && request.Client == LoginClient.Mobile)
+        {
+            throw new ForbiddenException(
+                "A administração está disponível apenas na aplicação web.", ErrorTypes.AdministrationWebOnly);
+        }
 
-        string token = tokenIssuer.Issue(user, session);
-        int? professionalProfileId = await db.FindProfileIdAsync(user.UserId, cancellationToken);
+        var session = UserSession.Start(user, _timeProvider.GetUtcNow());
+        _db.UserSessions.Add(session);
+        await _db.SaveChangesAsync(cancellationToken); // generates the SessionId used in the token
+
+        string token = _tokenIssuer.Issue(user, session);
+        int? professionalProfileId = await _db.FindProfileIdAsync(user.UserId, cancellationToken);
         return new LoginResponse(token, session.ExpiresAt, UserResponse.From(user, professionalProfileId));
     }
 
     public async Task LogoutAsync(CancellationToken cancellationToken)
     {
-        var session = await db.UserSessions.SingleOrDefaultAsync(
-            s => s.SessionId == currentUser.SessionId, cancellationToken);
-
+        var session = await _db.UserSessions.SingleOrDefaultAsync(
+            s => s.SessionId == _currentUser.SessionId, cancellationToken);
         if (session is null)
         {
             return;
         }
 
-        session.Revoke(timeProvider.GetUtcNow());
-        await db.SaveChangesAsync(cancellationToken);
+        session.Revoke(_timeProvider.GetUtcNow());
+        await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    // E40. The fields were validated by the DTO (rule R17); the current password depends on the database.
+    // The other sessions of the user are revoked and the current one stays valid (RF-F001-07, rule R18).
+    public async Task ChangePasswordAsync(ChangePasswordRequest request, CancellationToken cancellationToken)
+    {
+        int currentSessionId = _currentUser.SessionId;
+        var user = await _db.Users
+            .Include(u => u.Sessions.Where(s => s.RevokedAt == null && s.SessionId != currentSessionId))
+            .SingleOrDefaultAsync(u => u.UserId == _currentUser.UserId, cancellationToken);
+        if (user is null)
+        {
+            throw new NotFoundException("Utilizador não encontrado.");
+        }
+
+        var result = _passwordHasher.VerifyHashedPassword(user, user.PasswordHash, request.CurrentPassword!);
+        if (result == PasswordVerificationResult.Failed)
+        {
+            throw new ValidationException("currentPassword", "A palavra-passe atual está incorreta.");
+        }
+
+        user.SetPasswordHash(_passwordHasher.HashPassword(user, request.NewPassword!));
+        var now = _timeProvider.GetUtcNow();
+        foreach (var session in user.Sessions)
+        {
+            session.Revoke(now);
+        }
+
+        await _db.SaveChangesAsync(cancellationToken);
     }
 
     public async Task<bool> ValidateSessionAsync(int sessionId, CancellationToken cancellationToken)
     {
-        var session = await db.UserSessions.AsNoTracking()
+        // A single query: the session with its user, to check the account state too.
+        var session = await _db.UserSessions.AsNoTracking()
+            .Include(s => s.User)
             .SingleOrDefaultAsync(s => s.SessionId == sessionId, cancellationToken);
 
-        if (session is null || !session.IsValid(timeProvider.GetUtcNow()))
-        {
-            return false;
-        }
-
-        return await db.Users.AnyAsync(
-            u => u.UserId == session.UserId && u.Status == ActivationStatus.Active, cancellationToken);
-    }
-
-    private static void ValidateRegister(RegisterRequest request)
-    {
-        var errors = new Dictionary<string, string[]>();
-
-        string name = request.Name?.Trim() ?? string.Empty;
-        if (name.Length < 1 || name.Length > 100)
-        {
-            errors["name"] = new[] { "O nome é obrigatório e tem no máximo 100 caracteres." };
-        }
-
-        string email = request.Email?.Trim() ?? string.Empty;
-        if (email.Length > 254 || !Regex.IsMatch(email, EmailPattern))
-        {
-            errors["email"] = new[] { "Indique um e-mail válido." };
-        }
-
-        string password = request.Password ?? string.Empty;
-        if (password.Length < 8 || !password.Any(char.IsLetter) || !password.Any(char.IsDigit))
-        {
-            errors["password"] =
-                new[] { "A palavra-passe tem de ter, no mínimo, 8 caracteres, com pelo menos uma letra e um algarismo." };
-        }
-
-        if (request.Role != UserRole.Client && request.Role != UserRole.Provider)
-        {
-            errors["role"] = new[] { "O papel tem de ser Cliente ou Prestador de Serviços." };
-        }
-
-        if (errors.Count > 0)
-        {
-            throw new ValidationException(errors);
-        }
+        return session is not null
+               && session.IsValid(_timeProvider.GetUtcNow())
+               && session.User.Status == ActivationStatus.Active;
     }
 
     private Task<bool> EmailExistsAsync(string email, CancellationToken cancellationToken)
@@ -174,6 +180,6 @@ public class AuthService(
     private IQueryable<User> UsersWithEmail(string email)
     {
         string normalized = email.Trim().ToLowerInvariant();
-        return db.Users.Where(u => u.Email == normalized);
+        return _db.Users.Where(u => u.Email == normalized);
     }
 }

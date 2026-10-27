@@ -97,6 +97,9 @@ public class ServicesEndpointsTests(LocalHubApiFactory factory)
 
     [Theory]
     [InlineData("serviceCategoryId", null)]
+    [InlineData("title", null)]
+    [InlineData("title", "   ")]
+    [InlineData("title", "101")]
     [InlineData("description", null)]
     [InlineData("description", "   ")]
     [InlineData("description", "1001")]
@@ -114,8 +117,8 @@ public class ServicesEndpointsTests(LocalHubApiFactory factory)
         var body = PublicBody(categoryId);
         body[field] = field switch
         {
-            // "1001" and "256": a text with that number of characters.
-            "description" or "location" when value is not null && int.TryParse(value, out int length) =>
+            // "101", "1001" and "256": a text with that number of characters.
+            "title" or "description" or "location" when value is not null && int.TryParse(value, out int length) =>
                 new string('a', length),
             // Days from today: the start yesterday, or the end before a start in two days.
             "requestedStartDate" when value is not null => Iso(Today.AddDays(int.Parse(value, CultureInfo.InvariantCulture))),

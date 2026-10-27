@@ -1,5 +1,5 @@
-using LocalHub.Domain.Locations;
+using LocalHub.Infrastructure.Geocoding;
 
 namespace LocalHub.Application.Locations;
 
-public record ResolvedLocation(string Address, GeoPoint Coordinates);
+public record ResolvedLocation(string Address, Coordinates Coordinates);

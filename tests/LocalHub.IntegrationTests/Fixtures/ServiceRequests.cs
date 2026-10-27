@@ -3,8 +3,6 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 
-using LocalHub.Domain.Services;
-
 using static LocalHub.IntegrationTests.Fixtures.AuthRequests;
 using static LocalHub.IntegrationTests.Fixtures.ProfileRequests;
 
@@ -20,7 +18,8 @@ public static class ServiceRequests
     public const string IsoDate = "yyyy-MM-dd";
 
     // The date in Portugal, the one used by E20 to validate the requested dates.
-    public static DateOnly Today => Service.TodayInPortugal(DateTimeOffset.UtcNow);
+    public static DateOnly Today => DateOnly.FromDateTime(
+        TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, TimeZoneInfo.FindSystemTimeZoneById("Europe/Lisbon")).DateTime);
 
     public static async Task<TestClient> RegisterClientAsync(HttpClient client, bool withLocation = true)
     {
@@ -46,6 +45,7 @@ public static class ServiceRequests
         {
             ["proposalModel"] = "DIRECT_REQUEST",
             ["serviceCategoryId"] = serviceCategoryId,
+            ["title"] = "Reparar fuga na torneira",
             ["description"] = "Torneira da casa de banho com fuga de água.",
             ["requestedStartDate"] = Today.AddDays(1).ToString(IsoDate, CultureInfo.InvariantCulture),
             ["requestedEndDate"] = Today.AddDays(3).ToString(IsoDate, CultureInfo.InvariantCulture),
@@ -57,6 +57,7 @@ public static class ServiceRequests
     {
         ["proposalModel"] = "PUBLIC",
         ["serviceCategoryId"] = serviceCategoryId,
+        ["title"] = "Substituir torneira",
         ["description"] = "Substituir a torneira da cozinha que pinga.",
         ["requestedStartDate"] = Today.AddDays(1).ToString(IsoDate, CultureInfo.InvariantCulture),
     };

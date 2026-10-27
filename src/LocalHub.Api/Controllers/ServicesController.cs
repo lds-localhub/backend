@@ -10,15 +10,22 @@ namespace LocalHub.Api.Controllers;
 // F007 to F011: the services with direct requests and the published jobs.
 [ApiController]
 [Route("api/services")]
-public class ServicesController(ServiceWorkflowService serviceWorkflowService) : ControllerBase
+public class ServicesController : ControllerBase
 {
+    private readonly ServiceWorkflowService _serviceWorkflowService;
+
+    public ServicesController(ServiceWorkflowService serviceWorkflowService)
+    {
+        _serviceWorkflowService = serviceWorkflowService;
+    }
+
     // E20: only clients (providers and administrators get 403).
     [HttpPost]
     [Authorize(Roles = "CLIENT")]
     public async Task<ActionResult<ServiceResponse>> Create(
         CreateServiceRequest request, CancellationToken cancellationToken)
     {
-        var service = await serviceWorkflowService.CreateAsync(request, cancellationToken);
+        var service = await _serviceWorkflowService.CreateAsync(request, cancellationToken);
         return Created($"/api/services/{service.ServiceId}", service);
     }
 
@@ -28,7 +35,7 @@ public class ServicesController(ServiceWorkflowService serviceWorkflowService) :
     [RequiresProfessionalProfile]
     public async Task<ActionResult<ProviderServiceResponse>> Get(int serviceId, CancellationToken cancellationToken)
     {
-        return Ok(await serviceWorkflowService.GetForProviderAsync(serviceId, cancellationToken));
+        return Ok(await _serviceWorkflowService.GetForProviderAsync(serviceId, cancellationToken));
     }
 
     // E25: only providers with a profile (clients and administrators get 403).
@@ -38,7 +45,7 @@ public class ServicesController(ServiceWorkflowService serviceWorkflowService) :
     public async Task<ActionResult<ProposalResponse>> SubmitProposal(
         int serviceId, SubmitProposalRequest request, CancellationToken cancellationToken)
     {
-        var proposal = await serviceWorkflowService.SubmitProposalAsync(serviceId, request, cancellationToken);
+        var proposal = await _serviceWorkflowService.SubmitProposalAsync(serviceId, request, cancellationToken);
         return Created($"/api/services/{serviceId}/proposals/{proposal.ProposalId}", proposal);
     }
 }

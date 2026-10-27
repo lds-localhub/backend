@@ -9,21 +9,24 @@ using Microsoft.IdentityModel.Tokens;
 
 namespace LocalHub.Infrastructure.Security;
 
-public class JwtTokenIssuer(IOptions<JwtOptions> options) : ITokenIssuer
+public class JwtTokenIssuer : ITokenIssuer
 {
     private readonly JsonWebTokenHandler _handler = new();
-    private readonly JwtOptions _options = options.Value;
+    private readonly JwtOptions _options;
+
+    public JwtTokenIssuer(IOptions<JwtOptions> options)
+    {
+        _options = options.Value;
+    }
 
     public string Issue(User user, UserSession session)
     {
         SymmetricSecurityKey key = new(Encoding.UTF8.GetBytes(_options.SigningKey));
 
+        // Only this API issues and validates the tokens, so they have no issuer nor audience. The session (sid) is
+        // checked in the database on every request (SessionValidationMiddleware), so it can be revoked.
         SecurityTokenDescriptor descriptor = new()
         {
-            Issuer = _options.Issuer,
-            Audience = _options.Audience,
-            IssuedAt = session.CreatedAt.UtcDateTime,
-            NotBefore = session.CreatedAt.UtcDateTime,
             Expires = session.ExpiresAt.UtcDateTime,
             Claims = new Dictionary<string, object>
             {

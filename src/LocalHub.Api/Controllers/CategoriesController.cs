@@ -13,8 +13,17 @@ namespace LocalHub.Api.Controllers;
 [ApiController]
 [Route("api/categories")]
 [Authorize(Roles = "ADMIN")]
-public class CategoriesController(CategoryService categoryService, ICurrentUser currentUser) : ControllerBase
+public class CategoriesController : ControllerBase
 {
+    private readonly CategoryService _categoryService;
+    private readonly ICurrentUser _currentUser;
+
+    public CategoriesController(CategoryService categoryService, ICurrentUser currentUser)
+    {
+        _categoryService = categoryService;
+        _currentUser = currentUser;
+    }
+
     // E08: without includeInactive, anyone gets the active categories. With includeInactive=true, a request
     // without a session gets 401 and a request of another role gets 403 (API documentation, E08).
     [HttpGet]
@@ -25,25 +34,25 @@ public class CategoriesController(CategoryService categoryService, ICurrentUser 
     {
         if (includeInactive)
         {
-            if (!currentUser.IsAuthenticated)
+            if (!_currentUser.IsAuthenticated)
             {
                 return Challenge();
             }
 
-            if (currentUser.Role != UserRole.Admin)
+            if (_currentUser.Role != UserRole.Admin)
             {
                 return Forbid();
             }
         }
 
-        return Ok(await categoryService.ListAsync(includeInactive, cancellationToken));
+        return Ok(await _categoryService.ListAsync(includeInactive, cancellationToken));
     }
 
     // E09
     [HttpPost]
     public async Task<ActionResult<CategoryResponse>> Create(CategoryRequest request, CancellationToken cancellationToken)
     {
-        var category = await categoryService.CreateAsync(request, cancellationToken);
+        var category = await _categoryService.CreateAsync(request, cancellationToken);
         return Created($"/api/categories/{category.ServiceCategoryId}", category);
     }
 
@@ -52,13 +61,13 @@ public class CategoriesController(CategoryService categoryService, ICurrentUser 
     public async Task<ActionResult<CategoryResponse>> Rename(
         int serviceCategoryId, CategoryRequest request, CancellationToken cancellationToken)
     {
-        return Ok(await categoryService.RenameAsync(serviceCategoryId, request, cancellationToken));
+        return Ok(await _categoryService.RenameAsync(serviceCategoryId, request, cancellationToken));
     }
 
     // E11
     [HttpPost("{serviceCategoryId:int}/deactivate")]
     public async Task<ActionResult<CategoryResponse>> Deactivate(int serviceCategoryId, CancellationToken cancellationToken)
     {
-        return Ok(await categoryService.DeactivateAsync(serviceCategoryId, cancellationToken));
+        return Ok(await _categoryService.DeactivateAsync(serviceCategoryId, cancellationToken));
     }
 }
