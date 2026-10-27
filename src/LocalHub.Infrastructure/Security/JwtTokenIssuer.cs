@@ -23,12 +23,10 @@ public class JwtTokenIssuer : ITokenIssuer
     {
         SymmetricSecurityKey key = new(Encoding.UTF8.GetBytes(_options.SigningKey));
 
+        // Only this API issues and validates the tokens, so they have no issuer nor audience. The session (sid) is
+        // checked in the database on every request (SessionValidationMiddleware), so it can be revoked.
         SecurityTokenDescriptor descriptor = new()
         {
-            Issuer = _options.Issuer,
-            Audience = _options.Audience,
-            IssuedAt = session.CreatedAt.UtcDateTime,
-            NotBefore = session.CreatedAt.UtcDateTime,
             Expires = session.ExpiresAt.UtcDateTime,
             Claims = new Dictionary<string, object>
             {

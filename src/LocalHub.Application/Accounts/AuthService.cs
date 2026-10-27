@@ -117,16 +117,14 @@ public class AuthService
 
     public async Task<bool> ValidateSessionAsync(int sessionId, CancellationToken cancellationToken)
     {
+        // A single query: the session with its user, to check the account state too.
         var session = await _db.UserSessions.AsNoTracking()
+            .Include(s => s.User)
             .SingleOrDefaultAsync(s => s.SessionId == sessionId, cancellationToken);
 
-        if (session is null || !session.IsValid(_timeProvider.GetUtcNow()))
-        {
-            return false;
-        }
-
-        return await _db.Users.AnyAsync(
-            u => u.UserId == session.UserId && u.Status == ActivationStatus.Active, cancellationToken);
+        return session is not null
+               && session.IsValid(_timeProvider.GetUtcNow())
+               && session.User.Status == ActivationStatus.Active;
     }
 
     private Task<bool> EmailExistsAsync(string email, CancellationToken cancellationToken)
