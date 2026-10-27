@@ -1,7 +1,6 @@
 ﻿using System.Net;
 using System.Text;
 
-using LocalHub.Domain.Locations;
 using LocalHub.Infrastructure.Geocoding;
 
 using Microsoft.Extensions.Logging.Abstractions;
@@ -22,11 +21,11 @@ public class NominatimGeocodingServiceTests
         using StubHandler handler = new(HttpStatusCode.OK, """[{"lat":"41.1579000","lon":"-8.6291000","display_name":"Praça da Liberdade, Porto"}]""");
         NominatimGeocodingService service = CreateService(handler);
 
-        GeoPoint? result = await service.GeocodeAsync("Praça da Liberdade, Porto");
+        Coordinates? result = await service.GeocodeAsync("Praça da Liberdade, Porto");
 
         Assert.NotNull(result);
-        Assert.Equal(41.1579m, result.Value.Latitude);
-        Assert.Equal(-8.6291m, result.Value.Longitude);
+        Assert.Equal(41.1579m, result.Latitude);
+        Assert.Equal(-8.6291m, result.Longitude);
     }
 
     [Fact]
@@ -36,7 +35,7 @@ public class NominatimGeocodingServiceTests
         using StubHandler handler = new(HttpStatusCode.OK, "[]");
         NominatimGeocodingService service = CreateService(handler);
 
-        GeoPoint? result = await service.GeocodeAsync("Rua Inexistente 99999");
+        Coordinates? result = await service.GeocodeAsync("Rua Inexistente 99999");
 
         Assert.Null(result);
     }
@@ -98,7 +97,7 @@ public class NominatimGeocodingServiceTests
         using StubHandler handler = new(HttpStatusCode.OK, """{"lat":"41.1579","lon":"-8.6291","display_name":"Praça da Liberdade, Porto"}""");
         NominatimGeocodingService service = CreateService(handler);
 
-        string? address = await service.ReverseGeocodeAsync(GeoPoint.Create(41.1579m, -8.6291m));
+        string? address = await service.ReverseGeocodeAsync(Coordinates.Rounded(41.1579m, -8.6291m));
 
         Assert.Equal("Praça da Liberdade, Porto", address);
         Uri requestUri = Assert.Single(handler.RequestUris);
@@ -114,7 +113,7 @@ public class NominatimGeocodingServiceTests
         using StubHandler handler = new(HttpStatusCode.OK, """{"error":"Unable to geocode"}""");
         NominatimGeocodingService service = CreateService(handler);
 
-        string? address = await service.ReverseGeocodeAsync(GeoPoint.Create(0m, 0m));
+        string? address = await service.ReverseGeocodeAsync(Coordinates.Rounded(0m, 0m));
 
         Assert.Null(address);
     }

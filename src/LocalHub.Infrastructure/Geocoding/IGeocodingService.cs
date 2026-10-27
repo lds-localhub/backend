@@ -1,10 +1,10 @@
-﻿using LocalHub.Domain.Locations;
+﻿using LocalHub.Infrastructure.Geocoding;
 
 namespace LocalHub.Infrastructure.Geocoding;
 
 public interface IGeocodingService
 {
-    Task<GeoPoint?> GeocodeAsync(string address, CancellationToken cancellationToken = default);
+    Task<Coordinates?> GeocodeAsync(string address, CancellationToken cancellationToken = default);
 
-    Task<string?> ReverseGeocodeAsync(GeoPoint coordinates, CancellationToken cancellationToken = default);
+    Task<string?> ReverseGeocodeAsync(Coordinates coordinates, CancellationToken cancellationToken = default);
 }

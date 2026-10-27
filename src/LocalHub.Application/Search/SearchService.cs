@@ -5,6 +5,7 @@ using LocalHub.Application.Profiles.Dtos;
 using LocalHub.Application.Search.Dtos;
 using LocalHub.Domain.Accounts;
 using LocalHub.Domain.Locations;
+using LocalHub.Infrastructure.Geocoding;
 using LocalHub.Infrastructure;
 
 using Microsoft.EntityFrameworkCore;
@@ -33,7 +34,7 @@ public class SearchService(LocalHubDbContext db, LocationResolver locationResolv
         await EnsureCategoryIsActiveAsync(serviceCategoryId, cancellationToken);
 
         // Last, because an address is sent to the Nominatim: not found → 400, Nominatim down → 503.
-        GeoPoint reference = await locationResolver.ResolveReferenceAsync(
+        Coordinates reference = await locationResolver.ResolveReferenceAsync(
             request.Address, request.Latitude, request.Longitude, await FindClientLocationAsync(cancellationToken),
             cancellationToken);
 
@@ -109,7 +110,7 @@ public class SearchService(LocalHubDbContext db, LocationResolver locationResolv
 
     // RF-F005-02, rule 1: the registered location of a client is used when the search has no other location.
     // Visitors and the other roles always indicate it.
-    private async Task<GeoPoint?> FindClientLocationAsync(CancellationToken cancellationToken)
+    private async Task<Coordinates?> FindClientLocationAsync(CancellationToken cancellationToken)
     {
         if (!currentUser.IsAuthenticated || currentUser.Role != UserRole.Client)
         {
@@ -121,6 +122,6 @@ public class SearchService(LocalHubDbContext db, LocationResolver locationResolv
             .Select(u => new { Latitude = u.Latitude!.Value, Longitude = u.Longitude!.Value })
             .SingleOrDefaultAsync(cancellationToken);
 
-        return location is null ? null : GeoPoint.Create(location.Latitude, location.Longitude);
+        return location is null ? null : Coordinates.Rounded(location.Latitude, location.Longitude);
     }
 }

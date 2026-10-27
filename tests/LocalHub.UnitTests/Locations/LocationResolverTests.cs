@@ -1,7 +1,6 @@
 using LocalHub.Application.Common.Exceptions;
 using LocalHub.Application.Locations;
 using LocalHub.Application.Locations.Dtos;
-using LocalHub.Domain.Locations;
 using LocalHub.Infrastructure.Geocoding;
 
 namespace LocalHub.UnitTests.Locations;
@@ -10,12 +9,12 @@ namespace LocalHub.UnitTests.Locations;
 public class LocationResolverTests
 {
     private const string KnownAddress = "Rua do Almada 10, Porto";
-    private static readonly GeoPoint Porto = GeoPoint.Create(41.1579m, -8.6291m);
+    private static readonly Coordinates Porto = Coordinates.Rounded(41.1579m, -8.6291m);
 
     // Registered location of a client and coordinates given in a search (ResolveReferenceAsync), both different from
     // Porto, so the tests can tell which one was used.
-    private static readonly GeoPoint Braga = GeoPoint.Create(41.5454m, -8.4265m);
-    private static readonly GeoPoint Coimbra = GeoPoint.Create(40.2033m, -8.4103m);
+    private static readonly Coordinates Braga = Coordinates.Rounded(41.5454m, -8.4265m);
+    private static readonly Coordinates Coimbra = Coordinates.Rounded(40.2033m, -8.4103m);
 
     private readonly FakeGeocoding _geocoding = new();
     private readonly LocationResolver _resolver;
@@ -122,7 +121,7 @@ public class LocationResolverTests
     [Trait("Requisito", "RF-F005-02")]
     public async Task ResolveReferenceAsync_Coordenadas_UsaAsCoordenadasSemChamarOGeocodificador()
     {
-        GeoPoint reference = await _resolver.ResolveReferenceAsync(
+        Coordinates reference = await _resolver.ResolveReferenceAsync(
             KnownAddress, Coimbra.Latitude, Coimbra.Longitude, Braga, default);
 
         Assert.Equal(Coimbra, reference);
@@ -134,7 +133,7 @@ public class LocationResolverTests
     [Trait("Requisito", "RF-F005-02")]
     public async Task ResolveReferenceAsync_Morada_UsaAMoradaConvertidaEmVezDaLocalizacaoRegistada()
     {
-        GeoPoint reference = await _resolver.ResolveReferenceAsync($"  {KnownAddress} ", null, null, Braga, default);
+        Coordinates reference = await _resolver.ResolveReferenceAsync($"  {KnownAddress} ", null, null, Braga, default);
 
         Assert.Equal(Porto, reference);
         Assert.Equal(KnownAddress, _geocoding.LastAddress);
@@ -147,7 +146,7 @@ public class LocationResolverTests
     [InlineData("   ")]
     public async Task ResolveReferenceAsync_SemMoradaNemCoordenadas_UsaALocalizacaoRegistada(string? address)
     {
-        GeoPoint reference = await _resolver.ResolveReferenceAsync(address, null, null, Braga, default);
+        Coordinates reference = await _resolver.ResolveReferenceAsync(address, null, null, Braga, default);
 
         Assert.Equal(Braga, reference);
         Assert.Equal(0, _geocoding.Calls);
@@ -208,7 +207,7 @@ public class LocationResolverTests
 
         public string? LastAddress { get; private set; }
 
-        public Task<GeoPoint?> GeocodeAsync(string address, CancellationToken cancellationToken = default)
+        public Task<Coordinates?> GeocodeAsync(string address, CancellationToken cancellationToken = default)
         {
             Calls++;
             LastAddress = address;
@@ -217,10 +216,10 @@ public class LocationResolverTests
                 throw new GeocodingUnavailableException();
             }
 
-            return Task.FromResult<GeoPoint?>(address == KnownAddress ? Porto : null);
+            return Task.FromResult<Coordinates?>(address == KnownAddress ? Porto : null);
         }
 
-        public Task<string?> ReverseGeocodeAsync(GeoPoint coordinates, CancellationToken cancellationToken = default)
+        public Task<string?> ReverseGeocodeAsync(Coordinates coordinates, CancellationToken cancellationToken = default)
         {
             Calls++;
             return Task.FromResult(coordinates == Porto ? KnownAddress : null);

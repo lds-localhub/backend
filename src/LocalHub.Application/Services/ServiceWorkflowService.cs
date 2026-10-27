@@ -8,6 +8,7 @@ using LocalHub.Domain.Common;
 using LocalHub.Domain.Locations;
 using LocalHub.Domain.Profiles;
 using LocalHub.Domain.Services;
+using LocalHub.Infrastructure.Geocoding;
 using LocalHub.Infrastructure;
 
 using Microsoft.EntityFrameworkCore;
@@ -87,7 +88,7 @@ public class ServiceWorkflowService(
         // without changing the registered location (RF-F009-01, rule 3; RF-F010-01, rule 6).
         var location = hasAddress
             ? await locationResolver.ResolveAddressAsync(request.Location!, LocationField, cancellationToken)
-            : new ResolvedLocation(client.Address!, GeoPoint.Create(client.Latitude!.Value, client.Longitude!.Value));
+            : new ResolvedLocation(client.Address!, Coordinates.Rounded(client.Latitude!.Value, client.Longitude!.Value));
 
         var service = Service.Create(
             client,

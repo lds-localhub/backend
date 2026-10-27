@@ -1,6 +1,5 @@
 using LocalHub.Application.Common.Exceptions;
 using LocalHub.Application.Locations.Dtos;
-using LocalHub.Domain.Locations;
 using LocalHub.Infrastructure.Geocoding;
 
 namespace LocalHub.Application.Locations;
@@ -41,11 +40,11 @@ public class LocationResolver(IGeocodingService geocodingService)
     // E18 (RF-F005-02): the reference location of a search, in this order: the coordinates, the address or the
     // registered location of the client. Nothing is saved. Unlike E16, the coordinates do not need an address, so
     // they are not sent to the geocoding service.
-    public async Task<GeoPoint> ResolveReferenceAsync(
+    public async Task<Coordinates> ResolveReferenceAsync(
         string? address,
         decimal? latitude,
         decimal? longitude,
-        GeoPoint? registeredLocation,
+        Coordinates? registeredLocation,
         CancellationToken cancellationToken)
     {
         if (latitude is not null || longitude is not null)
@@ -68,19 +67,19 @@ public class LocationResolver(IGeocodingService geocodingService)
         string address, string field, string notFoundMessage, CancellationToken cancellationToken)
     {
         string trimmed = address.Trim();
-        GeoPoint? coordinates = await geocodingService.GeocodeAsync(trimmed, cancellationToken);
+        Coordinates? coordinates = await geocodingService.GeocodeAsync(trimmed, cancellationToken);
         if (coordinates is null)
         {
             throw new ValidationException(field, notFoundMessage);
         }
 
-        return new ResolvedLocation(trimmed, coordinates.Value);
+        return new ResolvedLocation(trimmed, coordinates);
     }
 
     private async Task<ResolvedLocation> FromCoordinatesAsync(
         decimal? latitude, decimal? longitude, CancellationToken cancellationToken)
     {
-        GeoPoint coordinates = ToPoint(latitude, longitude);
+        Coordinates coordinates = ToPoint(latitude, longitude);
 
         // The address is always saved with the coordinates, so a point without an address is rejected.
         string? address = await geocodingService.ReverseGeocodeAsync(coordinates, cancellationToken);
@@ -93,7 +92,7 @@ public class LocationResolver(IGeocodingService geocodingService)
     }
 
     // Both coordinates are required (RF-F015-04); their ranges were validated by the DTO.
-    private static GeoPoint ToPoint(decimal? latitude, decimal? longitude)
+    private static Coordinates ToPoint(decimal? latitude, decimal? longitude)
     {
         if (latitude is null)
         {
@@ -105,6 +104,6 @@ public class LocationResolver(IGeocodingService geocodingService)
             throw new ValidationException("longitude", "Indique a longitude.");
         }
 
-        return GeoPoint.Create(latitude.Value, longitude.Value);
+        return Coordinates.Rounded(latitude.Value, longitude.Value);
     }
 }

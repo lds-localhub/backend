@@ -1,4 +1,3 @@
-using LocalHub.Domain.Locations;
 using LocalHub.Infrastructure.Geocoding;
 
 namespace LocalHub.IntegrationTests.Fixtures;
@@ -21,27 +20,27 @@ public class FakeGeocodingService : IGeocodingService
     // Any address with this text simulates Nominatim being down (503).
     public const string UnavailableMarker = "[indisponivel]";
 
-    private static readonly GeoPoint Known = GeoPoint.Create(KnownLatitude, KnownLongitude);
+    private static readonly Coordinates Known = Coordinates.Rounded(KnownLatitude, KnownLongitude);
 
-    private static readonly Dictionary<string, GeoPoint> Addresses = new()
+    private static readonly Dictionary<string, Coordinates> Addresses = new()
     {
         [KnownAddress] = Known,
-        [AddressAt2Km] = GeoPoint.Create(41.175886m, KnownLongitude),
-        [AddressAt10Km] = GeoPoint.Create(41.247832m, KnownLongitude),
-        [AddressAt30Km] = GeoPoint.Create(41.427696m, KnownLongitude),
+        [AddressAt2Km] = Coordinates.Rounded(41.175886m, KnownLongitude),
+        [AddressAt10Km] = Coordinates.Rounded(41.247832m, KnownLongitude),
+        [AddressAt30Km] = Coordinates.Rounded(41.427696m, KnownLongitude),
     };
 
-    public Task<GeoPoint?> GeocodeAsync(string address, CancellationToken cancellationToken = default)
+    public Task<Coordinates?> GeocodeAsync(string address, CancellationToken cancellationToken = default)
     {
         if (address.Contains(UnavailableMarker, StringComparison.Ordinal))
         {
             throw new GeocodingUnavailableException();
         }
 
-        return Task.FromResult<GeoPoint?>(Addresses.TryGetValue(address, out var point) ? point : null);
+        return Task.FromResult<Coordinates?>(Addresses.TryGetValue(address, out var point) ? point : null);
     }
 
-    public Task<string?> ReverseGeocodeAsync(GeoPoint coordinates, CancellationToken cancellationToken = default)
+    public Task<string?> ReverseGeocodeAsync(Coordinates coordinates, CancellationToken cancellationToken = default)
     {
         return Task.FromResult(coordinates == Known ? ReverseAddress : null);
     }

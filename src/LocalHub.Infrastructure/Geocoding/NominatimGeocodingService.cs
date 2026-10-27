@@ -2,7 +2,7 @@
 using System.Text;
 using System.Text.Json;
 
-using LocalHub.Domain.Locations;
+using LocalHub.Infrastructure.Geocoding;
 
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -25,7 +25,7 @@ public sealed partial class NominatimGeocodingService(
 
     private readonly NominatimOptions _options = options.Value;
 
-    public async Task<GeoPoint?> GeocodeAsync(string address, CancellationToken cancellationToken = default)
+    public async Task<Coordinates?> GeocodeAsync(string address, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(address);
 
@@ -53,10 +53,10 @@ public sealed partial class NominatimGeocodingService(
             throw new GeocodingUnavailableException("O Nominatim devolveu coordenadas num formato inesperado.");
         }
 
-        return GeoPoint.Create(latitude, longitude);
+        return Coordinates.Rounded(latitude, longitude);
     }
 
-    public async Task<string?> ReverseGeocodeAsync(GeoPoint coordinates, CancellationToken cancellationToken = default)
+    public async Task<string?> ReverseGeocodeAsync(Coordinates coordinates, CancellationToken cancellationToken = default)
     {
         Dictionary<string, string?> query = new()
         {
