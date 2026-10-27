@@ -45,4 +45,11 @@ public class AccountsController : ControllerBase
     {
         return Ok(await _accountService.ActivateAsync(userId, cancellationToken));
     }
+
+    // E41
+    [HttpPost("{userId:int}/reset-password")]
+    public async Task<ActionResult<ResetPasswordResponse>> ResetPassword(int userId, CancellationToken cancellationToken)
+    {
+        return Ok(await _accountService.ResetPasswordAsync(userId, cancellationToken));
+    }
 }

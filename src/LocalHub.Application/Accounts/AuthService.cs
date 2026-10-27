@@ -115,6 +115,35 @@ public class AuthService
         await _db.SaveChangesAsync(cancellationToken);
     }
 
+    // E40. The fields were validated by the DTO (rule R17); the current password depends on the database.
+    // The other sessions of the user are revoked and the current one stays valid (RF-F001-07, rule R18).
+    public async Task ChangePasswordAsync(ChangePasswordRequest request, CancellationToken cancellationToken)
+    {
+        int currentSessionId = _currentUser.SessionId;
+        var user = await _db.Users
+            .Include(u => u.Sessions.Where(s => s.RevokedAt == null && s.SessionId != currentSessionId))
+            .SingleOrDefaultAsync(u => u.UserId == _currentUser.UserId, cancellationToken);
+        if (user is null)
+        {
+            throw new NotFoundException("Utilizador não encontrado.");
+        }
+
+        var result = _passwordHasher.VerifyHashedPassword(user, user.PasswordHash, request.CurrentPassword!);
+        if (result == PasswordVerificationResult.Failed)
+        {
+            throw new ValidationException("currentPassword", "A palavra-passe atual está incorreta.");
+        }
+
+        user.SetPasswordHash(_passwordHasher.HashPassword(user, request.NewPassword!));
+        var now = _timeProvider.GetUtcNow();
+        foreach (var session in user.Sessions)
+        {
+            session.Revoke(now);
+        }
+
+        await _db.SaveChangesAsync(cancellationToken);
+    }
+
     public async Task<bool> ValidateSessionAsync(int sessionId, CancellationToken cancellationToken)
     {
         // A single query: the session with its user, to check the account state too.

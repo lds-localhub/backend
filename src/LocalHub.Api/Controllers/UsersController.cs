@@ -14,11 +14,13 @@ namespace LocalHub.Api.Controllers;
 public class UsersController : ControllerBase
 {
     private readonly AccountService _accountService;
+    private readonly AuthService _authService;
     private readonly LocationService _locationService;
 
-    public UsersController(AccountService accountService, LocationService locationService)
+    public UsersController(AccountService accountService, AuthService authService, LocationService locationService)
     {
         _accountService = accountService;
+        _authService = authService;
         _locationService = locationService;
     }
 
@@ -35,4 +37,12 @@ public class UsersController : ControllerBase
     public async Task<ActionResult<UserResponse>> SetLocation(
         SetLocationRequest request, CancellationToken cancellationToken) =>
         Ok(await _locationService.SetMineAsync(request, cancellationToken));
+
+    // E40. Any authenticated user (the fallback policy of Program.cs requires a session).
+    [HttpPut("me/password")]
+    public async Task<IActionResult> ChangePassword(ChangePasswordRequest request, CancellationToken cancellationToken)
+    {
+        await _authService.ChangePasswordAsync(request, cancellationToken);
+        return NoContent();
+    }
 }

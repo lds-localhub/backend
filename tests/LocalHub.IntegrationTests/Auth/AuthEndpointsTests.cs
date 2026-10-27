@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 
@@ -12,11 +13,14 @@ using static LocalHub.IntegrationTests.Fixtures.AuthRequests;
 
 namespace LocalHub.IntegrationTests.Auth;
 
-// F001: E01 (register), E02 (login), E03 (logout) and E04 (current user).
+// F001: E01 (register), E02 (login), E03 (logout), E04 (current user) and E40 (change password).
 [Collection(ApiTestGroup.Name)]
 [Trait("Category", "Integration")]
 public class AuthEndpointsTests(LocalHubApiFactory factory)
 {
+    private const string PasswordUrl = "/api/users/me/password";
+    private const string BadRequestType = "https://tools.ietf.org/html/rfc9110#section-15.5.1";
+
     private readonly HttpClient _client = factory.CreateClient();
 
     [Fact]
@@ -217,6 +221,87 @@ public class AuthEndpointsTests(LocalHubApiFactory factory)
         using var response = await SendWithTokenAsync(_client, HttpMethod.Post, "/api/auth/logout", token);
 
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+    }
+
+    [Fact]
+    [Trait("Requisito", "RF-F001-07")]
+    public async Task ChangePassword_PalavraPasseAtualErrada_Devolve400ComErroNoCampo()
+    {
+        string email = NewEmail();
+        string token = await RegisterAndLoginAsync(_client, email, "CLIENT");
+
+        using var response = await ChangePasswordAsync(token, "errada2026", "jardim2027");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var body = await AssertProblemAsync(response, BadRequestType, PasswordUrl);
+        Assert.True(body.GetProperty("errors").TryGetProperty("currentPassword", out _));
+        using var login = await LoginAsync(_client, email, ValidPassword);
+        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("abcdefgh")]
+    [InlineData("1234567")]
+    [Trait("Requisito", "RF-F001-07")]
+    public async Task ChangePassword_NovaPalavraPasseFraca_Devolve400ComErroNoCampo(string newPassword)
+    {
+        string email = NewEmail();
+        string token = await RegisterAndLoginAsync(_client, email, "PROVIDER");
+
+        using var response = await ChangePasswordAsync(token, ValidPassword, newPassword);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var body = await AssertProblemAsync(response, BadRequestType, PasswordUrl);
+        Assert.True(body.GetProperty("errors").TryGetProperty("newPassword", out _));
+        using var login = await LoginAsync(_client, email, ValidPassword);
+        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
+    }
+
+    [Fact]
+    [Trait("Requisito", "RF-F001-07")]
+    [Trait("Requisito", "RNF-01")]
+    public async Task ChangePassword_DadosValidos_NovaPalavraPasseSubstituiAnterior()
+    {
+        string email = NewEmail();
+        string token = await RegisterAndLoginAsync(_client, email, "CLIENT");
+        string oldHash = await GetPasswordHashAsync(email);
+
+        using var response = await ChangePasswordAsync(token, ValidPassword, "jardim2027");
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        using var newLogin = await LoginAsync(_client, email, "jardim2027");
+        Assert.Equal(HttpStatusCode.OK, newLogin.StatusCode);
+        using var oldLogin = await LoginAsync(_client, email, ValidPassword);
+        Assert.Equal(HttpStatusCode.Unauthorized, oldLogin.StatusCode);
+        string newHash = await GetPasswordHashAsync(email);
+        Assert.NotEqual(oldHash, newHash);
+        Assert.NotEqual("jardim2027", newHash);
+    }
+
+    [Fact]
+    [Trait("Requisito", "RF-F001-07")]
+    public async Task ChangePassword_DadosValidos_RevogaOutrasSessoesEMantemAtual()
+    {
+        string email = NewEmail();
+        string tokenA = await RegisterAndLoginAsync(_client, email, "CLIENT");
+        string tokenB = await LoginAndGetTokenAsync(_client, email, ValidPassword);
+
+        using var response = await ChangePasswordAsync(tokenA, ValidPassword, "jardim2027");
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        using var meB = await SendWithTokenAsync(_client, HttpMethod.Get, "/api/users/me", tokenB);
+        Assert.Equal(HttpStatusCode.Unauthorized, meB.StatusCode);
+        using var meA = await SendWithTokenAsync(_client, HttpMethod.Get, "/api/users/me", tokenA);
+        Assert.Equal(HttpStatusCode.OK, meA.StatusCode);
+    }
+
+    // E40 with a body; SendWithTokenAsync only sends requests without a body.
+    private async Task<HttpResponseMessage> ChangePasswordAsync(string token, string currentPassword, string newPassword)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Put, PasswordUrl);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        request.Content = JsonContent.Create(new { currentPassword, newPassword });
+        return await _client.SendAsync(request);
     }
 
     private async Task<int> CountUsersAsync(string email)
