@@ -221,7 +221,10 @@ public class AccountsEndpointsTests(LocalHubApiFactory factory)
         using var response = await LoginAsync(_client, account.Email, ValidPassword);
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-        await AssertProblemAsync(response, "https://localhub.local/erros/conta-desativada", "/api/auth/login");
+        var body = await AssertProblemAsync(response, "https://localhub.local/erros/conta-desativada", "/api/auth/login");
+        Assert.Equal(
+            "A sua conta foi desativada. Para saber o motivo, contacte suporte@localhub.test.",
+            body.GetProperty("detail").GetString());
         Assert.Empty(await GetSessionsAsync(account.UserId));
     }
 

@@ -33,7 +33,8 @@ Content-Type: application/json
 
 {
   "email": "ana.almeida@localhub.test",
-  "password": "{{seedPassword}}"
+  "password": "{{seedPassword}}",
+  "client": "WEB"
 }
 
 ### E02 - Wrong password (expect 401 credenciais-invalidas)
@@ -42,7 +43,8 @@ Content-Type: application/json
 
 {
   "email": "ana.almeida@localhub.test",
-  "password": "errada123"
+  "password": "errada123",
+  "client": "WEB"
 }
 
 ### E04 - Authenticated user
@@ -74,7 +76,8 @@ Content-Type: application/json
 
 {
   "email": "teste.registo@localhub.test",
-  "password": "casa2026"
+  "password": "casa2026",
+  "client": "WEB"
 }
 
 ### E07 - Activate the account again (expect 200; a second time gets 409)
@@ -92,7 +95,8 @@ Content-Type: application/json
 
 {
   "email": "carla.costa@localhub.test",
-  "password": "{{seedPassword}}"
+  "password": "{{seedPassword}}",
+  "client": "WEB"
 }
 
 ### E16 - Set the location by address (geocoded by Nominatim, needs Internet access)
@@ -133,7 +137,8 @@ Content-Type: application/json
 
 {
   "email": "olga.oliveira@localhub.test",
-  "password": "Demo2026"
+  "password": "Demo2026",
+  "client": "WEB"
 }
 
 ### E14 - Provider without a profile (expect 403 perfil-em-falta)

@@ -223,6 +223,60 @@ public class AuthEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
     }
 
+    [Theory]
+    [InlineData(null)]
+    [InlineData("DESKTOP")]
+    [Trait("Requisito", "RF-F001-06")]
+    public async Task Login_AplicacaoEmFaltaOuDesconhecida_Devolve400(string? app)
+    {
+        string email = NewEmail();
+        await RegisterAndLoginAsync(_client, email, "CLIENT");
+
+        using var response = await _client.PostAsJsonAsync(
+            "/api/auth/login", new { email, password = ValidPassword, client = app });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    [Trait("Requisito", "RF-F001-06")]
+    public async Task Login_AdministradorNaAplicacaoMobile_Devolve403AdministracaoSoWebSemCriarSessao()
+    {
+        int sessionsBefore = await CountSessionsAsync(AdminEmail);
+
+        using var response = await LoginAsync(_client, AdminEmail, LocalHubApiFactory.SeedPassword, "MOBILE");
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        var body = await AssertProblemAsync(response, "https://localhub.local/erros/administracao-so-web", "/api/auth/login");
+        Assert.Equal("A administração está disponível apenas na aplicação web.", body.GetProperty("detail").GetString());
+        Assert.False(body.TryGetProperty("token", out _));
+        Assert.Equal(sessionsBefore, await CountSessionsAsync(AdminEmail));
+    }
+
+    [Fact]
+    [Trait("Requisito", "RF-F001-06")]
+    public async Task Login_AdministradorNaAplicacaoWeb_Devolve200()
+    {
+        using var response = await LoginAsync(_client, AdminEmail, LocalHubApiFactory.SeedPassword, "WEB");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("CLIENT")]
+    [InlineData("PROVIDER")]
+    [Trait("Requisito", "RF-F001-02")]
+    [Trait("Requisito", "RF-F001-06")]
+    public async Task Login_ClienteOuPrestadorNaAplicacaoMobile_Devolve200(string role)
+    {
+        string email = NewEmail();
+        await RegisterAndLoginAsync(_client, email, role);
+
+        using var response = await LoginAsync(_client, email, ValidPassword, "MOBILE");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
     [Fact]
     [Trait("Requisito", "RF-F001-07")]
     public async Task ChangePassword_PalavraPasseAtualErrada_Devolve400ComErroNoCampo()
@@ -302,6 +356,13 @@ public class AuthEndpointsTests(LocalHubApiFactory factory)
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         request.Content = JsonContent.Create(new { currentPassword, newPassword });
         return await _client.SendAsync(request);
+    }
+
+    private async Task<int> CountSessionsAsync(string email)
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<LocalHubDbContext>();
+        return await db.UserSessions.CountAsync(s => s.User.Email == email);
     }
 
     private async Task<int> CountUsersAsync(string email)

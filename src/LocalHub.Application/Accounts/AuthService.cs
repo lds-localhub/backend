@@ -9,6 +9,7 @@ using LocalHub.Infrastructure.Security;
 
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 using Npgsql;
 
@@ -21,19 +22,22 @@ public class AuthService
     private readonly ITokenIssuer _tokenIssuer;
     private readonly ICurrentUser _currentUser;
     private readonly TimeProvider _timeProvider;
+    private readonly SupportOptions _support;
 
     public AuthService(
         LocalHubDbContext db,
         IPasswordHasher<User> passwordHasher,
         ITokenIssuer tokenIssuer,
         ICurrentUser currentUser,
-        TimeProvider timeProvider)
+        TimeProvider timeProvider,
+        IOptions<SupportOptions> support)
     {
         _db = db;
         _passwordHasher = passwordHasher;
         _tokenIssuer = tokenIssuer;
         _currentUser = currentUser;
         _timeProvider = timeProvider;
+        _support = support.Value;
     }
 
     // E01. The fields were validated by the DTO (rule R17); the e-mail already registered depends on the database.
@@ -71,7 +75,8 @@ public class AuthService
         return new RegisterResponse(user.UserId, user.Name, user.Email, user.Role, user.Status);
     }
 
-    // E02. The fields were validated by the DTO (rule R17).
+    // E02. The fields were validated by the DTO (rule R17). The checks are made in the order of the API
+    // documentation: credentials (401), deactivated account (403) and administrator in the mobile application (403).
     public async Task<LoginResponse> LoginAsync(LoginRequest request, CancellationToken cancellationToken)
     {
         var user = await UsersWithEmail(request.Email!).SingleOrDefaultAsync(cancellationToken);
@@ -88,9 +93,19 @@ public class AuthService
             throw new InvalidCredentialsException();
         }
 
+        // The message tells the user who to contact to know the reason (RF-F002-04).
         if (user.Status != ActivationStatus.Active)
         {
-            throw new ForbiddenException("A sua conta está desativada.", ErrorTypes.AccountDeactivated);
+            throw new ForbiddenException(
+                $"A sua conta foi desativada. Para saber o motivo, contacte {_support.Email}.",
+                ErrorTypes.AccountDeactivated);
+        }
+
+        // The administration is only available in the web application: no session is created (RF-F001-06).
+        if (user.Role == UserRole.Admin && request.Client == LoginClient.Mobile)
+        {
+            throw new ForbiddenException(
+                "A administração está disponível apenas na aplicação web.", ErrorTypes.AdministrationWebOnly);
         }
 
         var session = UserSession.Start(user, _timeProvider.GetUtcNow());

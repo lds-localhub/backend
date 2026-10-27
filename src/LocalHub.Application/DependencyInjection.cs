@@ -19,6 +19,10 @@ public static class DependencyInjection
         services.AddInfrastructure(configuration);
 
         services.TryAddSingleton(TimeProvider.System);
+        services.AddOptions<SupportOptions>()
+            .Bind(configuration.GetSection(SupportOptions.SectionName))
+            .Validate(o => !string.IsNullOrWhiteSpace(o.Email), "Indique o contacto de suporte em Support:Email.")
+            .ValidateOnStart();
         services.AddScoped<AuthService>();
         services.AddScoped<AccountService>();
         services.AddScoped<CategoryService>();
