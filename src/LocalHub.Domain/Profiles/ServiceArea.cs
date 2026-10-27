@@ -1,5 +1,3 @@
-using System.ComponentModel.DataAnnotations.Schema;
-
 using LocalHub.Domain.Categories;
 
 namespace LocalHub.Domain.Profiles;
@@ -7,10 +5,9 @@ namespace LocalHub.Domain.Profiles;
 /// <summary>
 /// Represents a category of services in which a provider works (table "ServiceArea" of the data model).
 /// </summary>
-[Table("ServiceArea")]
 public class ServiceArea
 {
-    // Composite primary key (ServiceCategoryId, ProfessionalProfileId), configured in LocalHubDbContext.
+    // Composite primary key (ServiceCategoryId, ProfessionalProfileId), configured in ServiceAreaConfiguration.
     public int ServiceCategoryId { get; private set; }
     public int ProfessionalProfileId { get; private set; }
 

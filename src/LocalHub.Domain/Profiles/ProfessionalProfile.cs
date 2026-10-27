@@ -1,6 +1,3 @@
-using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
-
 using LocalHub.Domain.Accounts;
 using LocalHub.Domain.Categories;
 using LocalHub.Domain.Common;
@@ -12,7 +9,6 @@ namespace LocalHub.Domain.Profiles;
 /// Represents the professional profile of a service provider (F004): presentation, contacts, experience,
 /// categories in which the provider works and service radius.
 /// </summary>
-[Table("ProfessionalProfile")]
 public class ProfessionalProfile
 {
     // Limits of the API documentation (E12), the same as the columns of the data model. The DTOs use the same
@@ -25,12 +21,12 @@ public class ProfessionalProfile
 
     public int ProfessionalProfileId { get; private set; }
     public int ServiceProviderId { get; private set; }
-    [MaxLength(IntroductionMaxLength)] public string Introduction { get; private set; } = null!;
-    [MaxLength(ContactDetailsMaxLength)] public string ContactDetails { get; private set; } = null!;
-    [MaxLength(ExperienceMaxLength)] public string Experience { get; private set; } = null!;
+    public string Introduction { get; private set; } = null!;
+    public string ContactDetails { get; private set; } = null!;
+    public string Experience { get; private set; } = null!;
     // Derived from the reviews (F012); null while the provider has no reviews. Never changed by the provider
     // (RF-F004-02, rule 3).
-    [Column(TypeName = "numeric(2,1)")] public decimal? AverageRating { get; private set; }
+    public decimal? AverageRating { get; private set; }
     public short ServiceRadiusKm { get; private set; }
 
     // Navigations (they are not columns). "= null!": always set by Create or loaded by Entity Framework with Include.

@@ -1,6 +1,3 @@
-using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
-
 using LocalHub.Domain.Profiles;
 
 namespace LocalHub.Domain.Services;
@@ -9,7 +6,6 @@ namespace LocalHub.Domain.Services;
 /// Represents the proposal of a provider for a service, with direct requests or published (F007, F011).
 /// A proposal cannot be changed after it is submitted (RF-F007-01, rule 4).
 /// </summary>
-[Table("Proposal")]
 public class Proposal
 {
     // Limits of the API documentation (E25), the same as the columns of the data model. The DTOs use the same
@@ -22,9 +18,9 @@ public class Proposal
     public int ProposalId { get; private set; }
     public int ServiceId { get; private set; }
     public int ProfessionalProfileId { get; private set; }
-    [MaxLength(ConditionsMaxLength)] public string Conditions { get; private set; } = null!;
-    [MaxLength(ObsMaxLength)] public string? Obs { get; private set; }
-    [Column(TypeName = "numeric(8,2)")] public decimal Amount { get; private set; }
+    public string Conditions { get; private set; } = null!;
+    public string? Obs { get; private set; }
+    public decimal Amount { get; private set; }
     public ProposalStatus Status { get; private set; }
     // Set when the proposal is accepted, declined or voided; null while PENDING.
     public DateTimeOffset? DecisionDate { get; private set; }

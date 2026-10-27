@@ -1,5 +1,3 @@
-using System.ComponentModel.DataAnnotations.Schema;
-
 using LocalHub.Domain.Common;
 using LocalHub.Domain.Profiles;
 
@@ -8,7 +6,6 @@ namespace LocalHub.Domain.Services;
 /// <summary>
 /// Represents a request for a proposal sent to a provider chosen by the client (F009).
 /// </summary>
-[Table("DirectRequest")]
 public class DirectRequest
 {
     public int DirectRequestId { get; private set; }

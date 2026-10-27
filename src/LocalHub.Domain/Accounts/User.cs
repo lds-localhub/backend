@@ -1,7 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
-
-using LocalHub.Domain.Common;
+﻿using LocalHub.Domain.Common;
 using LocalHub.Domain.Profiles;
 using LocalHub.Domain.Services;
 
@@ -10,7 +7,6 @@ namespace LocalHub.Domain.Accounts;
 /// <summary>
 /// Represents a user of the system: a client, a service provider or an administrator.
 /// </summary>
-[Table("User")]
 public class User
 {
     // Sizes of the columns of the data model (varchar(n)). The DTOs use the same constants (rule R17).
@@ -23,14 +19,14 @@ public class User
     // so the rules below are always applied. Entity Framework can still fill them when it reads from the database.
     public int UserId { get; private set; }
     // "= null!" tells the compiler that these are never null: they are always set by Register or by Entity Framework.
-    [MaxLength(NameMaxLength)] public string Name { get; private set; } = null!;
-    [MaxLength(EmailMaxLength)] public string Email { get; private set; } = null!;
-    [MaxLength(PasswordHashMaxLength)] public string PasswordHash { get; private set; } = null!;
+    public string Name { get; private set; } = null!;
+    public string Email { get; private set; } = null!;
+    public string PasswordHash { get; private set; } = null!;
     public UserRole Role { get; private set; }
     public ActivationStatus Status { get; private set; }
-    [MaxLength(AddressMaxLength)] public string? Address { get; private set; }
-    [Column(TypeName = "numeric(8,6)")] public decimal? Latitude { get; private set; }
-    [Column(TypeName = "numeric(9,6)")] public decimal? Longitude { get; private set; }
+    public string? Address { get; private set; }
+    public decimal? Latitude { get; private set; }
+    public decimal? Longitude { get; private set; }
 
     // Navigations (they are not columns). The lists are private so that other classes can read them but cannot add
     // or remove items.

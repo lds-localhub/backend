@@ -48,8 +48,8 @@ namespace LocalHub.Infrastructure.Migrations
                     role = table.Column<UserRole>(type: "user_role", nullable: false),
                     status = table.Column<ActivationStatus>(type: "activation_status", nullable: false),
                     address = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: true),
-                    latitude = table.Column<decimal>(type: "numeric(8,6)", nullable: true),
-                    longitude = table.Column<decimal>(type: "numeric(9,6)", nullable: true)
+                    latitude = table.Column<decimal>(type: "numeric(8,6)", precision: 8, scale: 6, nullable: true),
+                    longitude = table.Column<decimal>(type: "numeric(9,6)", precision: 9, scale: 6, nullable: true)
                 },
                 constraints: table =>
                 {
@@ -66,14 +66,14 @@ namespace LocalHub.Infrastructure.Migrations
                     introduction = table.Column<string>(type: "character varying(1000)", maxLength: 1000, nullable: false),
                     contactDetails = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false),
                     experience = table.Column<string>(type: "character varying(2000)", maxLength: 2000, nullable: false),
-                    averageRating = table.Column<decimal>(type: "numeric(2,1)", nullable: true),
+                    averageRating = table.Column<decimal>(type: "numeric(2,1)", precision: 2, scale: 1, nullable: true),
                     serviceRadiusKm = table.Column<short>(type: "smallint", nullable: false)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("pK_ProfessionalProfile", x => x.professionalProfileId);
                     table.ForeignKey(
-                        name: "fK_ProfessionalProfile_User_serviceProviderId",
+                        name: "fK_ProfessionalProfile_users_serviceProviderId",
                         column: x => x.serviceProviderId,
                         principalTable: "User",
                         principalColumn: "userId",
@@ -95,8 +95,8 @@ namespace LocalHub.Infrastructure.Migrations
                     requestedEndDate = table.Column<DateOnly>(type: "date", nullable: true),
                     status = table.Column<ServiceStatus>(type: "service_status", nullable: false),
                     location = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: false),
-                    latitude = table.Column<decimal>(type: "numeric(8,6)", nullable: false),
-                    longitude = table.Column<decimal>(type: "numeric(9,6)", nullable: false),
+                    latitude = table.Column<decimal>(type: "numeric(8,6)", precision: 8, scale: 6, nullable: false),
+                    longitude = table.Column<decimal>(type: "numeric(9,6)", precision: 9, scale: 6, nullable: false),
                     creationDate = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     actualCompletionDate = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true)
                 },
@@ -110,7 +110,7 @@ namespace LocalHub.Infrastructure.Migrations
                         principalColumn: "serviceCategoryId",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
-                        name: "fK_Service_User_clientId",
+                        name: "fK_Service_users_clientId",
                         column: x => x.clientId,
                         principalTable: "User",
                         principalColumn: "userId",
@@ -156,7 +156,7 @@ namespace LocalHub.Infrastructure.Migrations
                         principalColumn: "professionalProfileId",
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
-                        name: "fK_ServiceArea_ServiceCategory_serviceCategoryId",
+                        name: "fK_ServiceArea_serviceCategories_serviceCategoryId",
                         column: x => x.serviceCategoryId,
                         principalTable: "ServiceCategory",
                         principalColumn: "serviceCategoryId",
@@ -179,13 +179,13 @@ namespace LocalHub.Infrastructure.Migrations
                 {
                     table.PrimaryKey("pK_DirectRequest", x => x.directRequestId);
                     table.ForeignKey(
-                        name: "fK_DirectRequest_ProfessionalProfile_professionalProfileId",
+                        name: "fK_DirectRequest_professionalProfiles_professionalProfileId",
                         column: x => x.professionalProfileId,
                         principalTable: "ProfessionalProfile",
                         principalColumn: "professionalProfileId",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
-                        name: "fK_DirectRequest_Service_serviceId",
+                        name: "fK_DirectRequest_services_serviceId",
                         column: x => x.serviceId,
                         principalTable: "Service",
                         principalColumn: "serviceId",
@@ -202,7 +202,7 @@ namespace LocalHub.Infrastructure.Migrations
                     professionalProfileId = table.Column<int>(type: "integer", nullable: false),
                     conditions = table.Column<string>(type: "character varying(1000)", maxLength: 1000, nullable: false),
                     obs = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
-                    amount = table.Column<decimal>(type: "numeric(8,2)", nullable: false),
+                    amount = table.Column<decimal>(type: "numeric(8,2)", precision: 8, scale: 2, nullable: false),
                     status = table.Column<ProposalStatus>(type: "proposal_status", nullable: false),
                     decisionDate = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
                     creationDate = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false)
@@ -217,7 +217,7 @@ namespace LocalHub.Infrastructure.Migrations
                         principalColumn: "professionalProfileId",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
-                        name: "fK_Proposal_Service_serviceId",
+                        name: "fK_Proposal_services_serviceId",
                         column: x => x.serviceId,
                         principalTable: "Service",
                         principalColumn: "serviceId",
@@ -239,7 +239,7 @@ namespace LocalHub.Infrastructure.Migrations
                 {
                     table.PrimaryKey("pK_Review", x => x.reviewId);
                     table.ForeignKey(
-                        name: "fK_Review_Service_serviceId",
+                        name: "fK_Review_services_serviceId",
                         column: x => x.serviceId,
                         principalTable: "Service",
                         principalColumn: "serviceId",
@@ -268,7 +268,7 @@ namespace LocalHub.Infrastructure.Migrations
                         principalColumn: "serviceId",
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
-                        name: "fK_ServiceStatusHistory_User_changedByUserId",
+                        name: "fK_ServiceStatusHistory_users_changedByUserId",
                         column: x => x.changedByUserId,
                         principalTable: "User",
                         principalColumn: "userId",

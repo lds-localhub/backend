@@ -1,6 +1,3 @@
-using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
-
 using LocalHub.Domain.Accounts;
 using LocalHub.Domain.Categories;
 using LocalHub.Domain.Common;
@@ -12,7 +9,6 @@ namespace LocalHub.Domain.Services;
 /// Represents a service requested by a client, with direct requests to chosen providers (F009) or published as a job
 /// without recipients (F010). Both modalities share the same life cycle (Requirements Specification v04, section 10).
 /// </summary>
-[Table("Service")]
 public class Service
 {
     // Limits of the API documentation (E20), the same as the columns of the data model. The DTOs use the same
@@ -25,14 +21,14 @@ public class Service
     public int ClientId { get; private set; }
     public int ServiceCategoryId { get; private set; }
     public ProposalModel ProposalModel { get; private set; }
-    [MaxLength(TitleMaxLength)] public string Title { get; private set; } = null!;
-    [MaxLength(DescriptionMaxLength)] public string Description { get; private set; } = null!;
+    public string Title { get; private set; } = null!;
+    public string Description { get; private set; } = null!;
     public DateOnly RequestedStartDate { get; private set; }
     public DateOnly? RequestedEndDate { get; private set; }
     public ServiceStatus Status { get; private set; }
-    [MaxLength(LocationMaxLength)] public string Location { get; private set; } = null!;
-    [Column(TypeName = "numeric(8,6)")] public decimal Latitude { get; private set; }
-    [Column(TypeName = "numeric(9,6)")] public decimal Longitude { get; private set; }
+    public string Location { get; private set; } = null!;
+    public decimal Latitude { get; private set; }
+    public decimal Longitude { get; private set; }
     public DateTimeOffset CreationDate { get; private set; }
     public DateTimeOffset? ActualCompletionDate { get; private set; }
 

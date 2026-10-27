@@ -1,6 +1,3 @@
-using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
-
 using LocalHub.Domain.Accounts;
 using LocalHub.Domain.Common;
 using LocalHub.Domain.Profiles;
@@ -11,7 +8,6 @@ namespace LocalHub.Domain.Categories;
 /// <summary>
 /// Represents a category of services (for example, plumbing), managed by the administrator (F003).
 /// </summary>
-[Table("ServiceCategory")]
 public class ServiceCategory
 {
     // Limit of the name (RF-F003-01, rule 1), the same as the column "name" varchar(60) of the data model.
@@ -19,7 +15,7 @@ public class ServiceCategory
 
     public int ServiceCategoryId { get; private set; }
     // "= null!" tells the compiler that the name is never null: it is always set by Create or by Entity Framework.
-    [MaxLength(NameMaxLength)] public string Name { get; private set; } = null!;
+    public string Name { get; private set; } = null!;
     public ActivationStatus Status { get; private set; }
 
     // Navigations (they are not columns): the profiles and the services that use this category.

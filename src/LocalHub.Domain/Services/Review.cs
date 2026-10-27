@@ -1,12 +1,8 @@
-using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
-
 namespace LocalHub.Domain.Services;
 
 /// <summary>
 /// Represents the review of a completed service, made by its client (F012). A service has at most one review.
 /// </summary>
-[Table("Review")]
 public class Review
 {
     // Limits of the API documentation (E32), the same as the columns of the data model. The DTOs use the same
@@ -18,7 +14,7 @@ public class Review
     public int ReviewId { get; private set; }
     public int ServiceId { get; private set; }
     public short Rating { get; private set; }
-    [MaxLength(CommentMaxLength)] public string? Comment { get; private set; }
+    public string? Comment { get; private set; }
     public DateTimeOffset CreationDate { get; private set; }
 
     // Navigation (not a column). "= null!": always set by the Service or loaded by Entity Framework with Include.

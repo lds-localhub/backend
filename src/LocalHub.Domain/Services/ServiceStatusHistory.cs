@@ -1,5 +1,3 @@
-using System.ComponentModel.DataAnnotations.Schema;
-
 using LocalHub.Domain.Accounts;
 
 namespace LocalHub.Domain.Services;
@@ -8,7 +6,6 @@ namespace LocalHub.Domain.Services;
 /// Represents a change of state of a service, with the date and the user that made it (Requirements Specification
 /// v04, sections 10.1 and 10.2).
 /// </summary>
-[Table("ServiceStatusHistory")]
 public class ServiceStatusHistory
 {
     public int ServiceStatusHistoryId { get; private set; }

@@ -51,10 +51,12 @@ namespace LocalHub.Infrastructure.Migrations
                         .HasColumnName("email");
 
                     b.Property<decimal?>("Latitude")
+                        .HasPrecision(8, 6)
                         .HasColumnType("numeric(8,6)")
                         .HasColumnName("latitude");
 
                     b.Property<decimal?>("Longitude")
+                        .HasPrecision(9, 6)
                         .HasColumnType("numeric(9,6)")
                         .HasColumnName("longitude");
 
@@ -85,7 +87,7 @@ namespace LocalHub.Infrastructure.Migrations
                         .IsUnique()
                         .HasDatabaseName("UX_User_email");
 
-                    b.ToTable("User");
+                    b.ToTable("User", (string)null);
                 });
 
             modelBuilder.Entity("LocalHub.Domain.Accounts.UserSession", b =>
@@ -119,7 +121,7 @@ namespace LocalHub.Infrastructure.Migrations
                     b.HasIndex("UserId")
                         .HasDatabaseName("iX_UserSession_userId");
 
-                    b.ToTable("UserSession");
+                    b.ToTable("UserSession", (string)null);
                 });
 
             modelBuilder.Entity("LocalHub.Domain.Categories.ServiceCategory", b =>
@@ -148,7 +150,7 @@ namespace LocalHub.Infrastructure.Migrations
                         .IsUnique()
                         .HasDatabaseName("UX_ServiceCategory_name");
 
-                    b.ToTable("ServiceCategory");
+                    b.ToTable("ServiceCategory", (string)null);
                 });
 
             modelBuilder.Entity("LocalHub.Domain.Profiles.ProfessionalProfile", b =>
@@ -161,6 +163,7 @@ namespace LocalHub.Infrastructure.Migrations
                     NpgsqlPropertyBuilderExtensions.UseIdentityAlwaysColumn(b.Property<int>("ProfessionalProfileId"));
 
                     b.Property<decimal?>("AverageRating")
+                        .HasPrecision(2, 1)
                         .HasColumnType("numeric(2,1)")
                         .HasColumnName("averageRating");
 
@@ -197,7 +200,7 @@ namespace LocalHub.Infrastructure.Migrations
                         .IsUnique()
                         .HasDatabaseName("iX_ProfessionalProfile_serviceProviderId");
 
-                    b.ToTable("ProfessionalProfile");
+                    b.ToTable("ProfessionalProfile", (string)null);
                 });
 
             modelBuilder.Entity("LocalHub.Domain.Profiles.ServiceArea", b =>
@@ -216,7 +219,7 @@ namespace LocalHub.Infrastructure.Migrations
                     b.HasIndex("ProfessionalProfileId")
                         .HasDatabaseName("iX_ServiceArea_professionalProfileId");
 
-                    b.ToTable("ServiceArea");
+                    b.ToTable("ServiceArea", (string)null);
                 });
 
             modelBuilder.Entity("LocalHub.Domain.Services.DirectRequest", b =>
@@ -258,7 +261,7 @@ namespace LocalHub.Infrastructure.Migrations
                         .IsUnique()
                         .HasDatabaseName("iX_DirectRequest_professionalProfileId_serviceId");
 
-                    b.ToTable("DirectRequest");
+                    b.ToTable("DirectRequest", (string)null);
                 });
 
             modelBuilder.Entity("LocalHub.Domain.Services.Proposal", b =>
@@ -271,6 +274,7 @@ namespace LocalHub.Infrastructure.Migrations
                     NpgsqlPropertyBuilderExtensions.UseIdentityAlwaysColumn(b.Property<int>("ProposalId"));
 
                     b.Property<decimal>("Amount")
+                        .HasPrecision(8, 2)
                         .HasColumnType("numeric(8,2)")
                         .HasColumnName("amount");
 
@@ -317,7 +321,7 @@ namespace LocalHub.Infrastructure.Migrations
                         .IsUnique()
                         .HasDatabaseName("iX_Proposal_professionalProfileId_serviceId");
 
-                    b.ToTable("Proposal");
+                    b.ToTable("Proposal", (string)null);
                 });
 
             modelBuilder.Entity("LocalHub.Domain.Services.Review", b =>
@@ -353,7 +357,7 @@ namespace LocalHub.Infrastructure.Migrations
                         .IsUnique()
                         .HasDatabaseName("iX_Review_serviceId");
 
-                    b.ToTable("Review");
+                    b.ToTable("Review", (string)null);
                 });
 
             modelBuilder.Entity("LocalHub.Domain.Services.Service", b =>
@@ -384,6 +388,7 @@ namespace LocalHub.Infrastructure.Migrations
                         .HasColumnName("description");
 
                     b.Property<decimal>("Latitude")
+                        .HasPrecision(8, 6)
                         .HasColumnType("numeric(8,6)")
                         .HasColumnName("latitude");
 
@@ -394,6 +399,7 @@ namespace LocalHub.Infrastructure.Migrations
                         .HasColumnName("location");
 
                     b.Property<decimal>("Longitude")
+                        .HasPrecision(9, 6)
                         .HasColumnType("numeric(9,6)")
                         .HasColumnName("longitude");
 
@@ -432,7 +438,7 @@ namespace LocalHub.Infrastructure.Migrations
                     b.HasIndex("ServiceCategoryId")
                         .HasDatabaseName("iX_Service_serviceCategoryId");
 
-                    b.ToTable("Service");
+                    b.ToTable("Service", (string)null);
                 });
 
             modelBuilder.Entity("LocalHub.Domain.Services.ServiceStatusHistory", b =>
@@ -473,7 +479,7 @@ namespace LocalHub.Infrastructure.Migrations
                     b.HasIndex("ServiceId")
                         .HasDatabaseName("iX_ServiceStatusHistory_serviceId");
 
-                    b.ToTable("ServiceStatusHistory");
+                    b.ToTable("ServiceStatusHistory", (string)null);
                 });
 
             modelBuilder.Entity("LocalHub.Domain.Accounts.UserSession", b =>
@@ -495,7 +501,7 @@ namespace LocalHub.Infrastructure.Migrations
                         .HasForeignKey("LocalHub.Domain.Profiles.ProfessionalProfile", "ServiceProviderId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
-                        .HasConstraintName("fK_ProfessionalProfile_User_serviceProviderId");
+                        .HasConstraintName("fK_ProfessionalProfile_users_serviceProviderId");
 
                     b.Navigation("ServiceProvider");
                 });
@@ -514,7 +520,7 @@ namespace LocalHub.Infrastructure.Migrations
                         .HasForeignKey("ServiceCategoryId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
-                        .HasConstraintName("fK_ServiceArea_ServiceCategory_serviceCategoryId");
+                        .HasConstraintName("fK_ServiceArea_serviceCategories_serviceCategoryId");
 
                     b.Navigation("ProfessionalProfile");
 
@@ -528,14 +534,14 @@ namespace LocalHub.Infrastructure.Migrations
                         .HasForeignKey("ProfessionalProfileId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
-                        .HasConstraintName("fK_DirectRequest_ProfessionalProfile_professionalProfileId");
+                        .HasConstraintName("fK_DirectRequest_professionalProfiles_professionalProfileId");
 
                     b.HasOne("LocalHub.Domain.Services.Service", "Service")
                         .WithMany("DirectRequests")
                         .HasForeignKey("ServiceId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
-                        .HasConstraintName("fK_DirectRequest_Service_serviceId");
+                        .HasConstraintName("fK_DirectRequest_services_serviceId");
 
                     b.Navigation("ProfessionalProfile");
 
@@ -556,7 +562,7 @@ namespace LocalHub.Infrastructure.Migrations
                         .HasForeignKey("ServiceId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
-                        .HasConstraintName("fK_Proposal_Service_serviceId");
+                        .HasConstraintName("fK_Proposal_services_serviceId");
 
                     b.Navigation("ProfessionalProfile");
 
@@ -570,7 +576,7 @@ namespace LocalHub.Infrastructure.Migrations
                         .HasForeignKey("LocalHub.Domain.Services.Review", "ServiceId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
-                        .HasConstraintName("fK_Review_Service_serviceId");
+                        .HasConstraintName("fK_Review_services_serviceId");
 
                     b.Navigation("Service");
                 });
@@ -582,7 +588,7 @@ namespace LocalHub.Infrastructure.Migrations
                         .HasForeignKey("ClientId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
-                        .HasConstraintName("fK_Service_User_clientId");
+                        .HasConstraintName("fK_Service_users_clientId");
 
                     b.HasOne("LocalHub.Domain.Categories.ServiceCategory", "ServiceCategory")
                         .WithMany("Services")
@@ -603,7 +609,7 @@ namespace LocalHub.Infrastructure.Migrations
                         .HasForeignKey("ChangedByUserId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
-                        .HasConstraintName("fK_ServiceStatusHistory_User_changedByUserId");
+                        .HasConstraintName("fK_ServiceStatusHistory_users_changedByUserId");
 
                     b.HasOne("LocalHub.Domain.Services.Service", "Service")
                         .WithMany("StatusHistory")
