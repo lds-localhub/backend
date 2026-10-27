@@ -11,7 +11,7 @@ namespace LocalHub.Infrastructure.Security;
 
 public class JwtTokenIssuer : ITokenIssuer
 {
-    private readonly JsonWebTokenHandler _handler = new JsonWebTokenHandler();
+    private readonly JsonWebTokenHandler _handler = new();
     private readonly JwtOptions _options;
 
     public JwtTokenIssuer(IOptions<JwtOptions> options)
@@ -21,9 +21,9 @@ public class JwtTokenIssuer : ITokenIssuer
 
     public string Issue(User user, UserSession session)
     {
-        SymmetricSecurityKey key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_options.SigningKey));
+        SymmetricSecurityKey key = new(Encoding.UTF8.GetBytes(_options.SigningKey));
 
-        SecurityTokenDescriptor descriptor = new SecurityTokenDescriptor()
+        SecurityTokenDescriptor descriptor = new()
         {
             Issuer = _options.Issuer,
             Audience = _options.Audience,

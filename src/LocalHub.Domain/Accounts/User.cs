@@ -30,15 +30,15 @@ public class User
 
     // Navigations (they are not columns). The lists are private so that other classes can read them but cannot add
     // or remove items.
-    private readonly List<UserSession> _sessions = new List<UserSession>();
+    private readonly List<UserSession> _sessions = new();
     public IReadOnlyCollection<UserSession> Sessions => _sessions;
     // The professional profile of a provider; null for clients and administrators.
     public ProfessionalProfile? Profile { get; private set; }
     // The services created by a client.
-    private readonly List<Service> _services = new List<Service>();
+    private readonly List<Service> _services = new();
     public IReadOnlyCollection<Service> Services => _services;
     // The changes of state of services made by this user.
-    private readonly List<ServiceStatusHistory> _statusChanges = new List<ServiceStatusHistory>();
+    private readonly List<ServiceStatusHistory> _statusChanges = new();
     public IReadOnlyCollection<ServiceStatusHistory> StatusChanges => _statusChanges;
 
     // Private: a user is created with Register or CreateAdministrator. Entity Framework uses this constructor
@@ -47,29 +47,23 @@ public class User
 
     // Used by the registration (RF-F001-01). The fields, including the role (only Client or Provider), are
     // validated by the DTO (rule R17).
-    public static User Register(string name, string email, UserRole role)
+    public static User Register(string name, string email, UserRole role) => new()
     {
-        return new User
-        {
-            Name = name.Trim(),
-            // Always stored in lowercase, so "Ana@Mail.com" and "ana@mail.com" are the same e-mail (RF-F001-01).
-            Email = email.Trim().ToLowerInvariant(),
-            Role = role,
-            Status = ActivationStatus.Active,
-        };
-    }
+        Name = name.Trim(),
+        // Always stored in lowercase, so "Ana@Mail.com" and "ana@mail.com" are the same e-mail (RF-F001-01).
+        Email = email.Trim().ToLowerInvariant(),
+        Role = role,
+        Status = ActivationStatus.Active,
+    };
 
     // Administrators cannot register themselves; they are created by the DataSeeder.
-    public static User CreateAdministrator(string name, string email)
+    public static User CreateAdministrator(string name, string email) => new()
     {
-        return new User
-        {
-            Name = name.Trim(),
-            Email = email.Trim().ToLowerInvariant(),
-            Role = UserRole.Admin,
-            Status = ActivationStatus.Active,
-        };
-    }
+        Name = name.Trim(),
+        Email = email.Trim().ToLowerInvariant(),
+        Role = UserRole.Admin,
+        Status = ActivationStatus.Active,
+    };
 
     // Receives the hash created by IPasswordHasher, never the password itself.
     public void SetPasswordHash(string passwordHash)

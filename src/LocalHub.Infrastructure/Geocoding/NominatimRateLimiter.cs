@@ -4,7 +4,7 @@ namespace LocalHub.Infrastructure.Geocoding;
 
 public sealed class NominatimRateLimiter : IDisposable
 {
-    private readonly SemaphoreSlim _gate = new SemaphoreSlim(1, 1);
+    private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly TimeSpan _minInterval;
     private DateTimeOffset? _lastRequestAt;
 

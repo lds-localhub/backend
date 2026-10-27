@@ -12,13 +12,13 @@ namespace LocalHub.Application.Accounts;
 public class AccountService
 {
     // Filters accepted by E05: the list never includes administrators (RF-F002-01).
-    private static readonly Dictionary<string, UserRole> RoleFilters = new Dictionary<string, UserRole>(StringComparer.OrdinalIgnoreCase)
+    private static readonly Dictionary<string, UserRole> RoleFilters = new(StringComparer.OrdinalIgnoreCase)
     {
         ["CLIENT"] = UserRole.Client,
         ["PROVIDER"] = UserRole.Provider,
     };
 
-    private static readonly Dictionary<string, ActivationStatus> StatusFilters = new Dictionary<string, ActivationStatus>(StringComparer.OrdinalIgnoreCase)
+    private static readonly Dictionary<string, ActivationStatus> StatusFilters = new(StringComparer.OrdinalIgnoreCase)
     {
         ["ACTIVE"] = ActivationStatus.Active,
         ["INACTIVE"] = ActivationStatus.Inactive,

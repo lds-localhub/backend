@@ -28,13 +28,7 @@ public static class GeoDistance
     }
 
     // The distances are shown in kilometres with one decimal place (API documentation, section 4.3).
-    public static decimal RoundKm(double km)
-    {
-        return Math.Round((decimal)km, 1, MidpointRounding.AwayFromZero);
-    }
+    public static decimal RoundKm(double km) => Math.Round((decimal)km, 1, MidpointRounding.AwayFromZero);
 
-    private static double ToRadians(decimal degrees)
-    {
-        return double.DegreesToRadians((double)degrees);
-    }
+    private static double ToRadians(decimal degrees) => double.DegreesToRadians((double)degrees);
 }

@@ -24,10 +24,8 @@ public class UsersController : ControllerBase
 
     // E04
     [HttpGet("me")]
-    public async Task<ActionResult<UserResponse>> GetMe(CancellationToken cancellationToken)
-    {
-        return Ok(await _accountService.GetMeAsync(cancellationToken));
-    }
+    public async Task<ActionResult<UserResponse>> GetMe(CancellationToken cancellationToken) =>
+        Ok(await _accountService.GetMeAsync(cancellationToken));
 
     // E16. Only clients and providers with a profile; administrators get 403 and providers without a profile
     // get 403 perfil-em-falta (the first location of a provider is set in E12).
@@ -35,8 +33,6 @@ public class UsersController : ControllerBase
     [Authorize(Roles = "CLIENT,PROVIDER")]
     [RequiresProfessionalProfile]
     public async Task<ActionResult<UserResponse>> SetLocation(
-        SetLocationRequest request, CancellationToken cancellationToken)
-    {
-        return Ok(await _locationService.SetMineAsync(request, cancellationToken));
-    }
+        SetLocationRequest request, CancellationToken cancellationToken) =>
+        Ok(await _locationService.SetMineAsync(request, cancellationToken));
 }

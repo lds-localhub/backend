@@ -33,10 +33,8 @@ public class ProfileService
     }
 
     // Used by the filter of the endpoints that need a profile (API documentation, section 7).
-    public Task<int?> GetMyProfileIdAsync(CancellationToken cancellationToken)
-    {
-        return _db.FindProfileIdAsync(_currentUser.UserId, cancellationToken);
-    }
+    public Task<int?> GetMyProfileIdAsync(CancellationToken cancellationToken) =>
+        _db.FindProfileIdAsync(_currentUser.UserId, cancellationToken);
 
     // E12 (RF-F004-01, RF-F015-01): the profile and the first location of the provider are saved together.
     // The fields were validated by the DTO; here are the rules that need the database or the Nominatim (rule R17).
@@ -132,13 +130,11 @@ public class ProfileService
         return new ServiceRadiusResponse(profile.ServiceRadiusKm);
     }
 
-    private static IQueryable<ProfessionalProfile> WithDetails(IQueryable<ProfessionalProfile> query)
-    {
-        return query
+    private static IQueryable<ProfessionalProfile> WithDetails(IQueryable<ProfessionalProfile> query) =>
+        query
             .Include(p => p.ServiceProvider)
             .Include(p => p.ServiceAreas)
             .ThenInclude(a => a.ServiceCategory);
-    }
 
     private async Task<ProfessionalProfile> FindMineAsync(CancellationToken cancellationToken)
     {

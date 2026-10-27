@@ -18,7 +18,7 @@ public static class GeoDistanceTranslation
     // LEAST does not propagate NULL from any of its two arguments.
     private static readonly bool[] NoNullPropagation = { false, false };
 
-    private static readonly DoubleTypeMapping DoublePrecision = new DoubleTypeMapping("double precision");
+    private static readonly DoubleTypeMapping DoublePrecision = new("double precision");
 
     public static void Register(ModelBuilder modelBuilder)
     {
@@ -63,19 +63,12 @@ public static class GeoDistanceTranslation
     }
 
     // A PostgreSQL function that returns NULL when its argument is NULL.
-    private static SqlFunctionExpression Function(string name, params SqlExpression[] arguments)
-    {
-        return new SqlFunctionExpression(name, arguments, nullable: true,
-            argumentsPropagateNullability: arguments.Select(_ => true), typeof(double), DoublePrecision);
-    }
+    private static SqlFunctionExpression Function(string name, params SqlExpression[] arguments) =>
+        new(name, arguments, nullable: true, argumentsPropagateNullability: arguments.Select(_ => true), typeof(double),
+            DoublePrecision);
 
-    private static SqlBinaryExpression Binary(ExpressionType operation, SqlExpression left, SqlExpression right)
-    {
-        return new SqlBinaryExpression(operation, left, right, typeof(double), DoublePrecision);
-    }
+    private static SqlBinaryExpression Binary(ExpressionType operation, SqlExpression left, SqlExpression right) =>
+        new(operation, left, right, typeof(double), DoublePrecision);
 
-    private static SqlConstantExpression Constant(double value)
-    {
-        return new SqlConstantExpression(value, typeof(double), DoublePrecision);
-    }
+    private static SqlConstantExpression Constant(double value) => new(value, typeof(double), DoublePrecision);
 }

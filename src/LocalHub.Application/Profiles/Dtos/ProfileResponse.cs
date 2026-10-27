@@ -38,11 +38,9 @@ public record ProfileResponse(
 public record ProfileCategoryResponse(int ServiceCategoryId, string Name)
 {
     // The same order wherever the categories of a profile are listed (E12 to E14 and the results of E18).
-    public static IReadOnlyList<ProfileCategoryResponse> InDisplayOrder(IEnumerable<ProfileCategoryResponse> categories)
-    {
-        return categories
+    public static IReadOnlyList<ProfileCategoryResponse> InDisplayOrder(IEnumerable<ProfileCategoryResponse> categories) =>
+        categories
             .OrderBy(c => c.Name, StringComparer.CurrentCulture)
             .ThenBy(c => c.ServiceCategoryId)
             .ToList();
-    }
 }

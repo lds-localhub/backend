@@ -5,8 +5,8 @@ namespace LocalHub.Infrastructure;
 
 public sealed class UpperSnakeCaseNameTranslator : INpgsqlNameTranslator
 {
-    public static readonly UpperSnakeCaseNameTranslator Instance = new UpperSnakeCaseNameTranslator();
-    private static readonly NpgsqlSnakeCaseNameTranslator Snake = new NpgsqlSnakeCaseNameTranslator();
+    public static readonly UpperSnakeCaseNameTranslator Instance = new();
+    private static readonly NpgsqlSnakeCaseNameTranslator Snake = new();
 
     public string TranslateTypeName(string clrName)
     {

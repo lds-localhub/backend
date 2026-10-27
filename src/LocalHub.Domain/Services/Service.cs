@@ -36,16 +36,16 @@ public class Service
     public User Client { get; private set; } = null!;
     public ServiceCategory ServiceCategory { get; private set; } = null!;
 
-    private readonly List<Proposal> _proposals = new List<Proposal>();
+    private readonly List<Proposal> _proposals = new();
     public IReadOnlyCollection<Proposal> Proposals => _proposals;
 
-    private readonly List<DirectRequest> _directRequests = new List<DirectRequest>();
+    private readonly List<DirectRequest> _directRequests = new();
     public IReadOnlyCollection<DirectRequest> DirectRequests => _directRequests;
 
     // Null while the service was not reviewed (at most one review per service).
     public Review? Review { get; private set; }
 
-    private readonly List<ServiceStatusHistory> _statusHistory = new List<ServiceStatusHistory>();
+    private readonly List<ServiceStatusHistory> _statusHistory = new();
     public IReadOnlyCollection<ServiceStatusHistory> StatusHistory => _statusHistory;
 
     // Private: a service is created with Create. Entity Framework uses this constructor when it reads a service.

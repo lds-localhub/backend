@@ -41,7 +41,7 @@ public sealed partial class NominatimGeocodingService : IGeocodingService
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(address);
 
-        Dictionary<string, string?> query = new Dictionary<string, string?>()
+        Dictionary<string, string?> query = new()
         {
             ["q"] = address.Trim(),
             ["format"] = "jsonv2",
@@ -70,7 +70,7 @@ public sealed partial class NominatimGeocodingService : IGeocodingService
 
     public async Task<string?> ReverseGeocodeAsync(Coordinates coordinates, CancellationToken cancellationToken = default)
     {
-        Dictionary<string, string?> query = new Dictionary<string, string?>()
+        Dictionary<string, string?> query = new()
         {
             ["lat"] = coordinates.Latitude.ToString(CultureInfo.InvariantCulture),
             ["lon"] = coordinates.Longitude.ToString(CultureInfo.InvariantCulture),
@@ -145,7 +145,7 @@ public sealed partial class NominatimGeocodingService : IGeocodingService
 
     private static Uri BuildRelativeUri(string path, Dictionary<string, string?> query)
     {
-        StringBuilder builder = new StringBuilder(path);
+        StringBuilder builder = new(path);
         char separator = '?';
 
         foreach ((string key, string? value) in query)
