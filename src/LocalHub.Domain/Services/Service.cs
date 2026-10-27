@@ -1,3 +1,5 @@
+using System.Linq.Expressions;
+
 using LocalHub.Domain.Accounts;
 using LocalHub.Domain.Categories;
 using LocalHub.Domain.Common;
@@ -26,6 +28,14 @@ public class Service
 
     // The requested dates are compared with the date in Portugal, like the CHECK constraint of the data model.
     private static readonly TimeZoneInfo Portugal = TimeZoneInfo.FindSystemTimeZoneById("Europe/Lisbon");
+
+    // RF-F006-01 and RF-F011-01 (E19, E38): the published jobs that any provider with a profile can find and consult —
+    // PUBLIC, OPEN and of a Client with an ACTIVE account. It is an expression, so that Entity Framework translates it
+    // into the WHERE of the queries; in C# (Compile()) the Client must be loaded.
+    public static readonly Expression<Func<Service, bool>> IsOpenPublishedJob =
+        s => s.ProposalModel == ProposalModel.Public
+             && s.Status == ServiceStatus.Open
+             && s.Client.Status == ActivationStatus.Active;
 
     public int ServiceId { get; private set; }
     public int ClientId { get; private set; }

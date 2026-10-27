@@ -26,6 +26,15 @@ public class DirectRequestsController(DirectRequestService directRequestService)
         return Ok(await directRequestService.ListAsync(status, new PageRequest(page, pageSize), cancellationToken));
     }
 
+    // E36: only the provider that received the request.
+    [HttpGet("{directRequestId:int}")]
+    [Authorize(Roles = "PROVIDER")]
+    [RequiresProfessionalProfile]
+    public async Task<ActionResult<ProviderDirectRequestResponse>> Get(int directRequestId, CancellationToken cancellationToken)
+    {
+        return Ok(await directRequestService.GetAsync(directRequestId, cancellationToken));
+    }
+
     // E24: only the provider that received the request.
     [HttpPost("{directRequestId:int}/decline")]
     [Authorize(Roles = "PROVIDER")]

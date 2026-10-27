@@ -210,6 +210,7 @@ GET {{LocalHub.Api_HostAddress}}/api/search/providers?serviceCategoryId=9&latitu
 
 ### E20 - Create a service with a direct request to the provider above (expect 201, OPEN, one PENDING request).
 ### Without "location", the client's location set in E16 is used. The dates must be today or later.
+# @name createDirectService
 POST {{LocalHub.Api_HostAddress}}/api/services
 Authorization: Bearer {{login2.response.body.token}}
 Content-Type: application/json
@@ -224,6 +225,7 @@ Content-Type: application/json
 }
 
 ### E20 - Publish a job with another address (geocoded by Nominatim; the client's location does not change)
+# @name publishJob
 POST {{LocalHub.Api_HostAddress}}/api/services
 Authorization: Bearer {{login2.response.body.token}}
 Content-Type: application/json
@@ -260,3 +262,42 @@ Content-Type: application/json
   "description": "Pintar a sala.",
   "requestedStartDate": "2026-12-01"
 }
+
+### E19 - Search the published jobs of "Canalização" (category 1), ordered by the distance to the provider's location
+GET {{LocalHub.Api_HostAddress}}/api/search/services?serviceCategoryId=1
+Authorization: Bearer {{loginProvider.response.body.token}}
+
+### E19 - Only the jobs inside the service radius of the profile
+GET {{LocalHub.Api_HostAddress}}/api/search/services?withinServiceRadius=true
+Authorization: Bearer {{loginProvider.response.body.token}}
+
+### E19 - A client cannot search published jobs (expect 403)
+GET {{LocalHub.Api_HostAddress}}/api/search/services
+Authorization: Bearer {{login2.response.body.token}}
+
+### E38 - The published job created above, with myProposalId (null while the provider has no proposal)
+GET {{LocalHub.Api_HostAddress}}/api/search/services/{{publishJob.response.body.serviceId}}
+Authorization: Bearer {{loginProvider.response.body.token}}
+
+### E38 - A service with direct requests is not a published job (expect 404)
+GET {{LocalHub.Api_HostAddress}}/api/search/services/{{createDirectService.response.body.serviceId}}
+Authorization: Bearer {{loginProvider.response.body.token}}
+
+### E36 - The direct request sent to the provider above (with the name of the Client and no contacts)
+GET {{LocalHub.Api_HostAddress}}/api/direct-requests/{{createDirectService.response.body.directRequests[0].directRequestId}}
+Authorization: Bearer {{loginProvider.response.body.token}}
+
+### E25 - Submit a proposal to the direct request
+# @name submitProposal
+POST {{LocalHub.Api_HostAddress}}/api/services/{{createDirectService.response.body.serviceId}}/proposals
+Authorization: Bearer {{loginProvider.response.body.token}}
+Content-Type: application/json
+
+{
+  "amount": 80.00,
+  "conditions": "Inclui deslocação e material."
+}
+
+### E37 - The proposal above, with the summary of its service
+GET {{LocalHub.Api_HostAddress}}/api/proposals/{{submitProposal.response.body.proposalId}}
+Authorization: Bearer {{loginProvider.response.body.token}}

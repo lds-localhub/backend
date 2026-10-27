@@ -36,6 +36,10 @@ public class AccessControlTests(LocalHubApiFactory factory)
         { "GET", "/api/proposals" },
         { "GET", "/api/direct-requests" },
         { "POST", "/api/direct-requests/1/decline" },
+        { "GET", "/api/search/services" },
+        { "GET", "/api/search/services/1" },
+        { "GET", "/api/direct-requests/1" },
+        { "GET", "/api/proposals/1" },
     };
 
     // Add each endpoint restricted to the administrator here, once for each role that is not authorized.

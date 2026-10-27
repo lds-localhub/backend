@@ -5387,6 +5387,544 @@
           ]
         }
       ]
+    },
+    {
+      "name": "F006, F007 e F008 — Consultas do Prestador",
+      "description": "Endpoints E19, E38, E36 e E37 (API v04, secção 8). Usa o Cliente (token), o Prestador com perfil (profileToken, profileCategoryId) e o serviço, a solicitação, a proposta e o trabalho publicado da pasta F007 e F011 (serviceId, directRequestId, proposalId, publicServiceId); executar depois dessa pasta.",
+      "item": [
+        {
+          "name": "E19 — Pesquisar trabalhos publicados da categoria (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/search/services?serviceCategoryId={{profileCategoryId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "search",
+                "services"
+              ],
+              "query": [
+                {
+                  "key": "serviceCategoryId",
+                  "value": "{{profileCategoryId}}"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{profileToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F006-01, RNF-06. Devolve o trabalho publicado da pasta anterior (publicServiceId), ordenado por distância, sem dados do Cliente."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Inclui o trabalho publicado, por distância crescente\", () => {",
+                  "    pm.expect(body.items.map(i => i.serviceId)).to.include(Number(pm.collectionVariables.get(\"publicServiceId\")));",
+                  "    const distances = body.items.map(i => i.distanceKm);",
+                  "    pm.expect(distances).to.eql([...distances].sort((a, b) => a - b));",
+                  "    body.items.forEach(i => pm.expect(i.withinServiceRadius).to.be.a(\"boolean\"));",
+                  "});",
+                  "pm.test(\"Sem dados do Cliente\", () => body.items.forEach(i => pm.expect(i).to.not.have.property(\"clientId\")));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E19 — Só os trabalhos dentro do raio de atuação (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/search/services?withinServiceRadius=true",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "search",
+                "services"
+              ],
+              "query": [
+                {
+                  "key": "withinServiceRadius",
+                  "value": "true"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{profileToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F006-01. Com withinServiceRadius=true só são devolvidos trabalhos dentro do raio do perfil."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Todos dentro do raio\", () => pm.response.json().items.forEach(i => pm.expect(i.withinServiceRadius).to.eql(true)));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E19 — Categoria inexistente (400)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/search/services?serviceCategoryId=999999",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "search",
+                "services"
+              ],
+              "query": [
+                {
+                  "key": "serviceCategoryId",
+                  "value": "999999"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{profileToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F006-01. Categoria inexistente ou INACTIVE: 400 com errors.serviceCategoryId."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"Erro no campo serviceCategoryId\", () => pm.expect(pm.response.json().errors).to.have.property(\"serviceCategoryId\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E19 — Pedido de um Cliente (403)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/search/services",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "search",
+                "services"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F006-01. Só os Prestadores com perfil pesquisam trabalhos publicados."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 403\", () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E38 — Consultar o trabalho publicado (200, com myProposalId)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/search/services/{{publicServiceId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "search",
+                "services",
+                "{{publicServiceId}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{profileToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F011-01, RNF-06. O Prestador já apresentou proposta na pasta anterior, por isso myProposalId não é null."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Trabalho com a distância e a proposta do Prestador\", () => {",
+                  "    pm.expect(body.serviceId).to.eql(Number(pm.collectionVariables.get(\"publicServiceId\")));",
+                  "    pm.expect(body.distanceKm).to.be.a(\"number\");",
+                  "    pm.expect(body.myProposalId).to.be.a(\"number\");",
+                  "    pm.expect(body).to.not.have.property(\"proposals\");",
+                  "});",
+                  "pm.test(\"Sem dados do Cliente\", () => pm.expect(body).to.not.have.property(\"clientId\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E38 — Serviço com solicitações diretas (404)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/search/services/{{serviceId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "search",
+                "services",
+                "{{serviceId}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{profileToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F011-01. Um serviço com solicitações diretas não é um trabalho publicado."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 404\", () => pm.response.to.have.status(404));",
+                  "pm.test(\"Problem Details rfc9110#section-15.5.5\", () => pm.expect(pm.response.json().type).to.include(\"rfc9110#section-15.5.5\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E36 — Consultar a solicitação direta (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/direct-requests/{{directRequestId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "direct-requests",
+                "{{directRequestId}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{profileToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F007-09, RNF-06. A solicitação com a proposta apresentada na pasta anterior e o nome do Cliente, sem contactos."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Solicitação com a proposta e o resumo do serviço\", () => {",
+                  "    pm.expect(body.directRequestId).to.eql(Number(pm.collectionVariables.get(\"directRequestId\")));",
+                  "    pm.expect(body.proposalId).to.eql(Number(pm.collectionVariables.get(\"proposalId\")));",
+                  "    pm.expect(body.service.serviceId).to.eql(Number(pm.collectionVariables.get(\"serviceId\")));",
+                  "    pm.expect(body.service.clientName).to.be.a(\"string\");",
+                  "    pm.expect(body.service.distanceKm).to.be.a(\"number\");",
+                  "    pm.expect(body.service.history).to.be.an(\"array\");",
+                  "});",
+                  "pm.test(\"Sem contactos do Cliente\", () => pm.expect(body.service).to.not.have.property(\"clientId\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E36 — Pedido de um Cliente (403)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/direct-requests/{{directRequestId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "direct-requests",
+                "{{directRequestId}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F007-09. O Cliente consulta as solicitações diretas no serviço (E22)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 403\", () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E36 — Solicitação inexistente (404)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/direct-requests/999999999",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "direct-requests",
+                "999999999"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{profileToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F007-09."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 404\", () => pm.response.to.have.status(404));",
+                  "pm.test(\"Problem Details rfc9110#section-15.5.5\", () => pm.expect(pm.response.json().type).to.include(\"rfc9110#section-15.5.5\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E37 — Consultar a proposta (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/proposals/{{proposalId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "proposals",
+                "{{proposalId}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{profileToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F008-07, RNF-06. A proposta com o resumo do serviço e o nome do Cliente, sem contactos."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Proposta com o resumo do serviço\", () => {",
+                  "    pm.expect(body.proposalId).to.eql(Number(pm.collectionVariables.get(\"proposalId\")));",
+                  "    pm.expect(body.status).to.eql(\"PENDING\");",
+                  "    pm.expect(body.service.serviceId).to.eql(Number(pm.collectionVariables.get(\"serviceId\")));",
+                  "    pm.expect(body.service.proposalModel).to.eql(\"DIRECT_REQUEST\");",
+                  "    pm.expect(body.service.clientName).to.be.a(\"string\");",
+                  "});",
+                  "pm.test(\"Sem contactos do Cliente\", () => pm.expect(body.service).to.not.have.property(\"clientId\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E37 — Pedido de um Cliente (403)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/proposals/{{proposalId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "proposals",
+                "{{proposalId}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F008-07. Só o Prestador que apresentou a proposta a consulta."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 403\", () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E37 — Sem token (401)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/proposals/{{proposalId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "proposals",
+                "{{proposalId}}"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "RF-F001-03."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 401\", () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
     }
   ],
   "variable": [
