@@ -5,8 +5,8 @@ using LocalHub.Application.Profiles.Dtos;
 using LocalHub.Application.Search.Dtos;
 using LocalHub.Domain.Accounts;
 using LocalHub.Domain.Locations;
-using LocalHub.Infrastructure.Geocoding;
 using LocalHub.Infrastructure;
+using LocalHub.Infrastructure.Geocoding;
 
 using Microsoft.EntityFrameworkCore;
 

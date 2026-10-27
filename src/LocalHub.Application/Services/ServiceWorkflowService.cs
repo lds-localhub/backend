@@ -8,8 +8,8 @@ using LocalHub.Domain.Common;
 using LocalHub.Domain.Locations;
 using LocalHub.Domain.Profiles;
 using LocalHub.Domain.Services;
-using LocalHub.Infrastructure.Geocoding;
 using LocalHub.Infrastructure;
+using LocalHub.Infrastructure.Geocoding;
 
 using Microsoft.EntityFrameworkCore;
 
