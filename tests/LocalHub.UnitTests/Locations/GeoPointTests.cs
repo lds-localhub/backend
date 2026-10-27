@@ -1,7 +1,4 @@
-﻿using System.Globalization;
-
-using LocalHub.Domain.Common;
-using LocalHub.Domain.Locations;
+﻿using LocalHub.Domain.Locations;
 
 namespace LocalHub.UnitTests.Locations;
 
@@ -31,32 +28,6 @@ public class GeoPointTests
         Assert.Equal((decimal)longitude, point.Longitude);
     }
 
-    [Theory]
-    [Trait("Requisito", "RF-F015-04")]
-    [InlineData("95", "10")]
-    [InlineData("90.000001", "0")]
-    [InlineData("-90.000001", "0")]
-    public void Create_LatitudeForaDoIntervalo_LancaErroNoCampoLatitude(string latitude, string longitude)
-    {
-        DomainException ex = Assert.Throws<DomainException>(() => GeoPoint.Create(Parse(latitude), Parse(longitude)));
-
-        Assert.Equal(DomainErrorKind.Validation, ex.Kind);
-        Assert.Equal("latitude", ex.Field);
-    }
-
-    [Theory]
-    [Trait("Requisito", "RF-F015-04")]
-    [InlineData("0", "180.000001")]
-    [InlineData("0", "-180.000001")]
-    [InlineData("41.1579", "200")]
-    public void Create_LongitudeForaDoIntervalo_LancaErroNoCampoLongitude(string latitude, string longitude)
-    {
-        DomainException ex = Assert.Throws<DomainException>(() => GeoPoint.Create(Parse(latitude), Parse(longitude)));
-
-        Assert.Equal(DomainErrorKind.Validation, ex.Kind);
-        Assert.Equal("longitude", ex.Field);
-    }
-
     [Fact]
     [Trait("Requisito", "RF-F015-04")]
     public void Create_MaisDeSeisCasasDecimais_ArredondaASeisCasas()
@@ -65,10 +36,5 @@ public class GeoPointTests
 
         Assert.Equal(41.157900m, point.Latitude);
         Assert.Equal(-8.629101m, point.Longitude);
-    }
-
-    private static decimal Parse(string value)
-    {
-        return decimal.Parse(value, CultureInfo.InvariantCulture);
     }
 }

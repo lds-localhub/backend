@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+
 using LocalHub.Application.Common;
 using LocalHub.Application.Search;
 using LocalHub.Application.Search.Dtos;
@@ -12,15 +14,16 @@ namespace LocalHub.Api.Controllers;
 [Route("api/search")]
 public class SearchController(SearchService searchService) : ControllerBase
 {
-    // E18: public (RF-F001-03, rule 3). With the token of a client, its registered location is used when the request
+    // E18: public (RF-F001-03, rule 3). The parameters are validated by [ApiController] before the method is called
+    // (rule R17). With the token of a client, its registered location is used when the request
     // has no coordinates and no address.
     [HttpGet("providers")]
     [AllowAnonymous]
     public async Task<ActionResult<PagedResult<ProviderSearchResult>>> SearchProviders(
-        [FromQuery] int? serviceCategoryId,
-        [FromQuery] string? address,
-        [FromQuery] decimal? latitude,
-        [FromQuery] decimal? longitude,
+        [FromQuery, Required(ErrorMessage = "Indique a categoria de serviços.")] int? serviceCategoryId,
+        [FromQuery, StringLength(Domain.Accounts.User.AddressMaxLength, ErrorMessage = "A morada é demasiado longa.")] string? address,
+        [FromQuery, Range(-90.0, 90.0, ErrorMessage = "A latitude tem de estar entre -90 e 90.")] decimal? latitude,
+        [FromQuery, Range(-180.0, 180.0, ErrorMessage = "A longitude tem de estar entre -180 e 180.")] decimal? longitude,
         [FromQuery] string? name,
         CancellationToken cancellationToken,
         [FromQuery] int page = PageRequest.DefaultPage,

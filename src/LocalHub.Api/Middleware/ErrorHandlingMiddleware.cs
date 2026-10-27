@@ -99,10 +99,6 @@ public class ErrorHandlingMiddleware(ILogger<ErrorHandlingMiddleware> logger) : 
 
         switch (exception.Kind)
         {
-            case DomainErrorKind.Validation:
-                return ProblemResponses.WriteAsync(
-                    context, StatusCodes.Status400BadRequest, "Dados inválidos", exception.Message, errors: errors);
-
             case DomainErrorKind.Forbidden:
                 return ProblemResponses.WriteAsync(
                     context, StatusCodes.Status403Forbidden, "Operação não autorizada", exception.Message);

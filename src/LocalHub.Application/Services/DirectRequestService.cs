@@ -50,6 +50,7 @@ public class DirectRequestService(LocalHubDbContext db, ICurrentUser currentUser
                     .Select(s => new DirectRequestServiceSummary(
                         s.ServiceId,
                         new ServiceCategorySummary(s.ServiceCategoryId, s.ServiceCategory.Name),
+                        s.Title,
                         s.Description,
                         s.Location,
                         s.RequestedStartDate,

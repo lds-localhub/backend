@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations.Schema;
+
 using LocalHub.Domain.Categories;
 
 namespace LocalHub.Domain.Profiles;
@@ -5,12 +7,17 @@ namespace LocalHub.Domain.Profiles;
 /// <summary>
 /// Represents a category of services in which a provider works (table "ServiceArea" of the data model).
 /// </summary>
+[Table("ServiceArea")]
 public class ServiceArea
 {
+    // Composite primary key (ServiceCategoryId, ProfessionalProfileId), configured in LocalHubDbContext.
     public int ServiceCategoryId { get; private set; }
     public int ProfessionalProfileId { get; private set; }
-    // "= null!": always set by ProfessionalProfile or loaded by Entity Framework with Include.
+
+    // Navigations (they are not columns). "= null!": always set by ProfessionalProfile or loaded by Entity Framework
+    // with Include.
     public ServiceCategory ServiceCategory { get; private set; } = null!;
+    public ProfessionalProfile ProfessionalProfile { get; private set; } = null!;
 
     // Private: Entity Framework uses this constructor when it reads an area.
     private ServiceArea() { }

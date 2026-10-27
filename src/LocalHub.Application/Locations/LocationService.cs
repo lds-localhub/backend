@@ -23,7 +23,7 @@ public class LocationService(LocalHubDbContext db, LocationResolver resolver, IC
             throw new NotFoundException("Utilizador não encontrado.");
         }
 
-        user.SetLocation(location.Address, location.Coordinates);
+        user.SetLocation(location.Address, location.Coordinates.Latitude, location.Coordinates.Longitude);
         await db.SaveChangesAsync(cancellationToken);
 
         return UserResponse.From(user, await db.FindProfileIdAsync(user.UserId, cancellationToken));

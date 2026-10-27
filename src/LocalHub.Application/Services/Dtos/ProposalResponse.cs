@@ -57,6 +57,7 @@ public record ProposalServiceSummary(
     int ServiceId,
     ProposalModel ProposalModel,
     ServiceCategorySummary ServiceCategory,
+    string Title,
     string Description,
     string Location,
     DateOnly RequestedStartDate,

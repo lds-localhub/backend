@@ -34,9 +34,10 @@ public class CategoryService(LocalHubDbContext db, ICategoryUsage categoryUsage)
     }
 
     // E09: the new category is active and its name is unique, ignoring upper and lower case (RF-F003-01).
+    // The name was validated by the DTO (rule R17).
     public async Task<CategoryResponse> CreateAsync(CategoryRequest request, CancellationToken cancellationToken)
     {
-        var category = ServiceCategory.Create(request.Name);
+        var category = ServiceCategory.Create(request.Name!);
         await EnsureNameIsFreeAsync(category.Name, exceptCategoryId: null, cancellationToken);
 
         db.ServiceCategories.Add(category);
@@ -51,7 +52,7 @@ public class CategoryService(LocalHubDbContext db, ICategoryUsage categoryUsage)
     {
         var category = await FindAsync(serviceCategoryId, cancellationToken);
 
-        category.Rename(request.Name);
+        category.Rename(request.Name!);
         await EnsureNameIsFreeAsync(category.Name, serviceCategoryId, cancellationToken);
         await SaveAsync(cancellationToken);
 
@@ -108,8 +109,9 @@ public class CategoryService(LocalHubDbContext db, ICategoryUsage categoryUsage)
         return category ?? throw new NotFoundException("Categoria não encontrada.");
     }
 
-    // The names keep their upper case letters ("Canalização"), so the comparison is done in the database:
-    // ToLower() is translated to lower(), the same function used by the index UX_ServiceCategory_name.
+    // The names keep their upper case letters ("Canalização"), so the comparison ignoring upper and lower case is done
+    // here, in the database: ToLower() is translated to lower(). The index UX_ServiceCategory_name only rejects equal
+    // names, when two requests arrive at the same time.
     private async Task EnsureNameIsFreeAsync(string name, int? exceptCategoryId, CancellationToken cancellationToken)
     {
         string lowerName = name.ToLowerInvariant();

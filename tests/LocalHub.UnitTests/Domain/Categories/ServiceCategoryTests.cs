@@ -28,20 +28,6 @@ public class ServiceCategoryTests
         Assert.Equal(name, category.Name);
     }
 
-    [Theory]
-    [InlineData(null)]
-    [InlineData("")]
-    [InlineData("   ")]
-    [InlineData("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")] // 61 characters
-    [Trait("Requisito", "RF-F003-01")]
-    public void Create_NomeEmFaltaOuCom61Caracteres_LancaErroDeValidacaoNoNome(string? name)
-    {
-        var exception = Assert.Throws<DomainException>(() => ServiceCategory.Create(name));
-
-        Assert.Equal(DomainErrorKind.Validation, exception.Kind);
-        Assert.Equal("name", exception.Field);
-    }
-
     [Fact]
     [Trait("Requisito", "RF-F003-02")]
     public void Rename_NomeValido_AlteraApenasONome()
@@ -52,21 +38,6 @@ public class ServiceCategoryTests
 
         Assert.Equal("Serralharia e portões", category.Name);
         Assert.Equal(ActivationStatus.Active, category.Status);
-    }
-
-    [Theory]
-    [InlineData("")]
-    [InlineData("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")] // 61 characters
-    [Trait("Requisito", "RF-F003-02")]
-    public void Rename_NomeInvalido_LancaErroDeValidacaoEMantemONome(string name)
-    {
-        var category = ServiceCategory.Create("Pintura");
-
-        var exception = Assert.Throws<DomainException>(() => category.Rename(name));
-
-        Assert.Equal(DomainErrorKind.Validation, exception.Kind);
-        Assert.Equal("name", exception.Field);
-        Assert.Equal("Pintura", category.Name);
     }
 
     [Fact]

@@ -23,10 +23,20 @@ public class ServiceWorkflowService(
     ICurrentUser currentUser,
     TimeProvider timeProvider)
 {
-    // E20 (RF-F009-01, RF-F009-03, RF-F010-01). The checks go from the cheapest to the most expensive: first the
-    // fields, then the category and the chosen profiles (database), and last the address (Nominatim). Nothing is
-    // changed before the address is converted (rule R2), and the service and its direct requests are saved with a
-    // single SaveChangesAsync, in one transaction (rule R1): on any error nothing is created.
+    private const string CategoryField = "serviceCategoryId";
+    private const string StartDateField = "requestedStartDate";
+    private const string EndDateField = "requestedEndDate";
+    private const string LocationField = "location";
+    private const string RecipientsField = "professionalProfileIds";
+
+    // The requested dates are compared with the date in Portugal (RF-F010-01, rule 5).
+    private static readonly TimeZoneInfo Portugal = TimeZoneInfo.FindSystemTimeZoneById("Europe/Lisbon");
+
+    // E20 (RF-F009-01, RF-F009-03, RF-F010-01). The fields were validated by the DTO; here are the rules that compare
+    // fields or need the database or the Nominatim (rule R17). The checks go from the cheapest to the most expensive:
+    // first the dates and the recipients, then the category and the chosen profiles (database), and last the address
+    // (Nominatim). Nothing is changed before the address is converted (rule R2), and the service and its direct
+    // requests are saved with a single SaveChangesAsync, in one transaction (rule R1): on any error nothing is created.
     public async Task<ServiceResponse> CreateAsync(CreateServiceRequest request, CancellationToken cancellationToken)
     {
         var client = await db.Users.SingleOrDefaultAsync(u => u.UserId == currentUser.UserId, cancellationToken)
@@ -38,18 +48,19 @@ public class ServiceWorkflowService(
         var profileIds = request.ProfessionalProfileIds?.Distinct().ToList() ?? [];
 
         var errors = new FieldErrors();
-        CollectFieldErrors(errors, request, now);
+        CollectRequestErrors(errors, request, now);
         errors.ThrowIfAny();
 
         var category = await db.ServiceCategories
             .SingleOrDefaultAsync(c => c.ServiceCategoryId == request.ServiceCategoryId, cancellationToken);
         if (category is null)
         {
-            errors.Add(Service.CategoryField, "A categoria indicada não existe.");
+            errors.Add(CategoryField, "A categoria indicada não existe.");
         }
-        else
+        else if (category.Status != ActivationStatus.Active)
         {
-            errors.Collect(() => Service.ValidateCategory(category), Service.CategoryField);
+            // RF-F003-03, rule 3: a deactivated category cannot be used in new services.
+            errors.Add(CategoryField, $"A categoria «{category.Name}» está desativada. Escolha uma categoria ativa.");
         }
 
         var profiles = await LoadProfilesAsync(profileIds, cancellationToken);
@@ -57,18 +68,17 @@ public class ServiceWorkflowService(
             .Where(id => profiles.All(p => p.ProfessionalProfileId != id))
             .Select(id => $"O perfil {id} não existe.")
             .ToList();
-        recipientErrors.AddRange(Service.DescribeIneligible(profiles, category?.ServiceCategoryId));
+        recipientErrors.AddRange(DescribeIneligible(profiles, category?.ServiceCategoryId));
 
         if (recipientErrors.Count > 0)
         {
-            errors.Add(Service.RecipientsField, [.. recipientErrors]);
+            errors.Add(RecipientsField, [.. recipientErrors]);
         }
 
         bool hasAddress = !string.IsNullOrWhiteSpace(request.Location);
         if (!hasAddress && (client.Address is null || client.Latitude is null || client.Longitude is null))
         {
-            errors.Add(Service.LocationField,
-                "Indique o local de realização: ainda não tem uma localização registada.");
+            errors.Add(LocationField, "Indique o local de realização: ainda não tem uma localização registada.");
         }
 
         errors.ThrowIfAny();
@@ -76,18 +86,20 @@ public class ServiceWorkflowService(
         // Without location, the client's registered location; otherwise the address converted into coordinates,
         // without changing the registered location (RF-F009-01, rule 3; RF-F010-01, rule 6).
         var location = hasAddress
-            ? await locationResolver.ResolveAddressAsync(request.Location!, Service.LocationField, cancellationToken)
+            ? await locationResolver.ResolveAddressAsync(request.Location!, LocationField, cancellationToken)
             : new ResolvedLocation(client.Address!, GeoPoint.Create(client.Latitude!.Value, client.Longitude!.Value));
 
         var service = Service.Create(
             client,
             category!,
             request.ProposalModel!.Value,
-            request.Description,
-            request.RequestedStartDate,
+            request.Title!,
+            request.Description!,
+            request.RequestedStartDate!.Value,
             request.RequestedEndDate,
             location.Address,
-            location.Coordinates,
+            location.Coordinates.Latitude,
+            location.Coordinates.Longitude,
             profiles,
             now);
 
@@ -97,18 +109,12 @@ public class ServiceWorkflowService(
         return ServiceResponse.From(service);
     }
 
-    // E25 (RF-F007-01, RF-F011-02). The fields are checked first (400); the access and the states are decided by
-    // Service.SubmitProposal. The proposal, the answer of the direct request and the unique index (provider, service)
-    // are saved with a single SaveChangesAsync (rule R1).
+    // E25 (RF-F007-01, RF-F011-02). The fields were validated by the DTO (rule R17); the access and the states are
+    // decided by Service.SubmitProposal. The proposal, the answer of the direct request and the unique index
+    // (provider, service) are saved with a single SaveChangesAsync (rule R1).
     public async Task<ProposalResponse> SubmitProposalAsync(
         int serviceId, SubmitProposalRequest request, CancellationToken cancellationToken)
     {
-        var errors = new FieldErrors();
-        errors.Collect(() => Proposal.ValidateAmount(request.Amount), Proposal.AmountField);
-        errors.Collect(() => Proposal.ValidateConditions(request.Conditions), Proposal.ConditionsField);
-        errors.Collect(() => Proposal.ValidateObs(request.Obs), Proposal.ObsField);
-        errors.ThrowIfAny();
-
         var provider = await db.ProfessionalProfiles
             .Include(p => p.ServiceAreas)
             .SingleOrDefaultAsync(p => p.ServiceProviderId == currentUser.UserId, cancellationToken)
@@ -122,9 +128,12 @@ public class ServiceWorkflowService(
             .SingleOrDefaultAsync(s => s.ServiceId == serviceId, cancellationToken)
             ?? throw new NotFoundException("Serviço não encontrado.");
 
+        // Optional: a missing or blank text is not saved.
+        string? obs = string.IsNullOrWhiteSpace(request.Obs) ? null : request.Obs;
+
         var utcNow = timeProvider.GetUtcNow();
         var now = utcNow.AddTicks(-(utcNow.Ticks % TimeSpan.TicksPerMicrosecond));
-        var proposal = service.SubmitProposal(provider, request.Amount, request.Conditions, request.Obs, now);
+        var proposal = service.SubmitProposal(provider, request.Amount!.Value, request.Conditions!, obs, now);
 
         try
         {
@@ -189,6 +198,7 @@ public class ServiceWorkflowService(
                     r.Service.ServiceId,
                     r.Service.ProposalModel,
                     new ServiceCategorySummary(r.Service.ServiceCategoryId, r.Service.ServiceCategory.Name),
+                    r.Service.Title,
                     r.Service.Description,
                     r.Service.Location,
                     r.Service.RequestedStartDate,
@@ -241,6 +251,7 @@ public class ServiceWorkflowService(
             service.ServiceId,
             service.ProposalModel,
             new ServiceCategorySummary(service.ServiceCategoryId, service.ServiceCategory.Name),
+            service.Title,
             service.Description,
             service.RequestedStartDate,
             service.RequestedEndDate,
@@ -258,41 +269,57 @@ public class ServiceWorkflowService(
             History: []);
     }
 
-    // The rules that need neither the database nor the Nominatim, all reported in the same response.
-    private static void CollectFieldErrors(FieldErrors errors, CreateServiceRequest request, DateTimeOffset now)
+    // The rules that compare fields of the request, all reported in the same response.
+    private static void CollectRequestErrors(FieldErrors errors, CreateServiceRequest request, DateTimeOffset now)
     {
-        errors.Collect(() => Service.ValidateProposalModel(request.ProposalModel), Service.ProposalModelField);
-        if (request.ServiceCategoryId is null)
+        // RF-F010-01, rule 5: a single date (start only) or an interval. The start cannot be before today and the end
+        // cannot be before the start.
+        DateOnly today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(now, Portugal).DateTime);
+        if (request.RequestedStartDate < today)
         {
-            errors.Add(Service.CategoryField, "Indique a categoria do serviço.");
+            errors.Add(StartDateField, "A data pretendida tem de ser igual ou posterior à data de hoje.");
         }
-
-        errors.Collect(() => Service.ValidateDescription(request.Description), Service.DescriptionField);
-        errors.Collect(
-            () => Service.ValidateRequestedDates(
-                request.RequestedStartDate, request.RequestedEndDate, Service.TodayInPortugal(now)),
-            Service.StartDateField);
-        if (!string.IsNullOrWhiteSpace(request.Location))
+        else if (request.RequestedEndDate is not null && request.RequestedEndDate < request.RequestedStartDate)
         {
-            errors.Collect(() => Service.ValidateLocation(request.Location), Service.LocationField);
-        }
-
-        if (errors.Contains(Service.ProposalModelField))
-        {
-            return;
+            errors.Add(EndDateField, "A data de fim tem de ser igual ou posterior à data de início.");
         }
 
         // PUBLIC does not accept the field at all, not even an empty list (API documentation, E20).
         if (request.ProposalModel == ProposalModel.Public && request.ProfessionalProfileIds is not null)
         {
-            errors.Add(Service.RecipientsField,
+            errors.Add(RecipientsField,
                 "Um trabalho publicado não tem destinatários: não indique professionalProfileIds.");
-            return;
         }
 
-        errors.Collect(
-            () => Service.ValidateRecipientCount(request.ProposalModel!.Value, request.ProfessionalProfileIds?.Count ?? 0),
-            Service.RecipientsField);
+        // DIRECT_REQUEST needs at least one provider (RF-F009-01, rule 4).
+        if (request.ProposalModel == ProposalModel.DirectRequest && (request.ProfessionalProfileIds?.Count ?? 0) == 0)
+        {
+            errors.Add(RecipientsField, "Selecione pelo menos um Prestador de Serviços.");
+        }
+    }
+
+    // RF-F009-01, rules 5 and 6 (UC03, E5.3): each chosen provider must have an ACTIVE account and the category of
+    // the service in the profile. Returns one message per profile that cannot be chosen, naming the provider.
+    // Without a category (the one indicated does not exist), only the account is checked, so the other errors are
+    // still reported in the same response.
+    private static List<string> DescribeIneligible(IEnumerable<ProfessionalProfile> profiles, int? serviceCategoryId)
+    {
+        var messages = new List<string>();
+        foreach (var profile in profiles)
+        {
+            string provider = $"O Prestador {profile.ServiceProvider.Name} (perfil {profile.ProfessionalProfileId})";
+            if (profile.ServiceProvider.Status != ActivationStatus.Active)
+            {
+                messages.Add($"{provider} tem a conta desativada.");
+            }
+            else if (serviceCategoryId is not null
+                     && profile.ServiceAreas.All(a => a.ServiceCategoryId != serviceCategoryId))
+            {
+                messages.Add($"{provider} não tem a categoria do serviço no perfil.");
+            }
+        }
+
+        return messages;
     }
 
     // With the provider (account state) and the categories of the profile (RF-F009-01, rules 5 and 6).

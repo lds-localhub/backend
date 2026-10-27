@@ -6,7 +6,6 @@ using LocalHub.Application.Profiles.Dtos;
 using LocalHub.Domain.Accounts;
 using LocalHub.Domain.Categories;
 using LocalHub.Domain.Common;
-using LocalHub.Domain.Locations;
 using LocalHub.Domain.Profiles;
 using LocalHub.Infrastructure;
 
@@ -18,8 +17,7 @@ namespace LocalHub.Application.Profiles;
 
 public class ProfileService(LocalHubDbContext db, LocationResolver locationResolver, ICurrentUser currentUser)
 {
-    private const string AddressField = "address";
-    private const string ServiceRadiusField = "serviceRadiusKm";
+    private const string CategoriesField = "serviceCategoryIds";
     private const string ProfileExistsMessage = "Já tem um perfil profissional.";
     public const string MissingProfileMessage = "Crie primeiro o seu perfil profissional.";
 
@@ -28,6 +26,7 @@ public class ProfileService(LocalHubDbContext db, LocationResolver locationResol
         db.FindProfileIdAsync(currentUser.UserId, cancellationToken);
 
     // E12 (RF-F004-01, RF-F015-01): the profile and the first location of the provider are saved together.
+    // The fields were validated by the DTO; here are the rules that need the database or the Nominatim (rule R17).
     public async Task<ProfileResponse> CreateAsync(CreateProfileRequest request, CancellationToken cancellationToken)
     {
         var provider = await db.Users.SingleOrDefaultAsync(u => u.UserId == currentUser.UserId, cancellationToken)
@@ -38,28 +37,16 @@ public class ProfileService(LocalHubDbContext db, LocationResolver locationResol
             throw new DomainException(DomainErrorKind.Conflict, ProfileExistsMessage);
         }
 
-        // First the rules that do not need the database or the Nominatim, all reported in the same response.
-        var errors = new Dictionary<string, string[]>();
-        CollectDetailErrors(errors, request.Introduction, request.ContactDetails, request.Experience);
-        CollectCategoryListError(errors, request.ServiceCategoryIds);
-        Collect(errors, () => ServiceRadius.Validate(request.ServiceRadiusKm), ServiceRadiusField);
-        if (string.IsNullOrWhiteSpace(request.Address))
-        {
-            errors[AddressField] = ["A morada é obrigatória."];
-        }
-
-        ThrowIfAny(errors);
-
-        var categories = await LoadCategoriesAsync(request.ServiceCategoryIds!, cancellationToken);
+        var categories = await LoadCategoriesAsync(request.ServiceCategoryIds!, currentIds: new HashSet<int>(), cancellationToken);
         var profile = ProfessionalProfile.Create(
-            provider, request.Introduction, request.ContactDetails, request.Experience, categories,
-            request.ServiceRadiusKm);
+            provider, request.Introduction!, request.ContactDetails!, request.Experience!, categories,
+            request.ServiceRadiusKm!.Value);
 
         // Last, because it calls the Nominatim: an address that is not found (400) or a Nominatim that is down (503)
         // leaves nothing saved.
         var location = await locationResolver.ResolveAsync(
             new SetLocationRequest(request.Address, null, null), cancellationToken);
-        provider.SetLocation(location.Address, location.Coordinates);
+        provider.SetLocation(location.Address, location.Coordinates.Latitude, location.Coordinates.Longitude);
 
         db.ProfessionalProfiles.Add(profile);
         await SaveNewProfileAsync(cancellationToken);
@@ -101,22 +88,18 @@ public class ProfileService(LocalHubDbContext db, LocationResolver locationResol
     // E14 (RF-F004-02, RF-F004-04): the list of categories replaces the previous one.
     public async Task<ProfileResponse> UpdateMineAsync(UpdateProfileRequest request, CancellationToken cancellationToken)
     {
-        var errors = new Dictionary<string, string[]>();
-        CollectDetailErrors(errors, request.Introduction, request.ContactDetails, request.Experience);
-        CollectCategoryListError(errors, request.ServiceCategoryIds);
-        ThrowIfAny(errors);
-
         var profile = await FindMineAsync(cancellationToken);
-        var categories = await LoadCategoriesAsync(request.ServiceCategoryIds!, cancellationToken);
+        var currentIds = profile.ServiceAreas.Select(a => a.ServiceCategoryId).ToHashSet();
+        var categories = await LoadCategoriesAsync(request.ServiceCategoryIds!, currentIds, cancellationToken);
 
-        profile.UpdateDetails(request.Introduction, request.ContactDetails, request.Experience);
+        profile.UpdateDetails(request.Introduction!, request.ContactDetails!, request.Experience!);
         profile.ReplaceCategories(categories);
         await db.SaveChangesAsync(cancellationToken);
 
         return ProfileResponse.From(profile);
     }
 
-    // E17 (RF-F015-01): the new radius replaces the previous one.
+    // E17 (RF-F015-01): the new radius replaces the previous one. The range was validated by the DTO.
     public async Task<ServiceRadiusResponse> SetMyServiceRadiusAsync(
         ServiceRadiusRequest request, CancellationToken cancellationToken)
     {
@@ -124,7 +107,7 @@ public class ProfileService(LocalHubDbContext db, LocationResolver locationResol
             .SingleOrDefaultAsync(p => p.ServiceProviderId == currentUser.UserId, cancellationToken)
             ?? throw new ForbiddenException(MissingProfileMessage, ErrorTypes.MissingProfile);
 
-        profile.SetServiceRadius(request.ServiceRadiusKm);
+        profile.SetServiceRadius(request.ServiceRadiusKm!.Value);
         await db.SaveChangesAsync(cancellationToken);
 
         return new ServiceRadiusResponse(profile.ServiceRadiusKm);
@@ -143,10 +126,10 @@ public class ProfileService(LocalHubDbContext db, LocationResolver locationResol
                ?? throw new ForbiddenException(MissingProfileMessage, ErrorTypes.MissingProfile);
     }
 
-    // Every requested category must exist; whether it can be associated (active, or already associated) is
-    // decided by ProfessionalProfile (RF-F004-04).
+    // RF-F004-04: every requested category must exist and only active categories can be added. A category that was
+    // already associated (currentIds) can stay even if it was deactivated in the meantime (API documentation, E14).
     private async Task<IReadOnlyCollection<ServiceCategory>> LoadCategoriesAsync(
-        IReadOnlyList<int> serviceCategoryIds, CancellationToken cancellationToken)
+        IReadOnlyList<int> serviceCategoryIds, HashSet<int> currentIds, CancellationToken cancellationToken)
     {
         var ids = serviceCategoryIds.Distinct().ToList();
         var categories = await db.ServiceCategories
@@ -156,48 +139,20 @@ public class ProfileService(LocalHubDbContext db, LocationResolver locationResol
         var missing = ids.Except(categories.Select(c => c.ServiceCategoryId)).ToList();
         if (missing.Count > 0)
         {
-            throw new DomainException(DomainErrorKind.Validation,
-                $"Categoria inexistente: {string.Join(", ", missing)}.", ProfessionalProfile.CategoriesField);
+            throw new ValidationException(CategoriesField, $"Categoria inexistente: {string.Join(", ", missing)}.");
+        }
+
+        var inactive = categories
+            .Where(c => !currentIds.Contains(c.ServiceCategoryId) && c.Status != ActivationStatus.Active)
+            .Select(c => c.Name)
+            .ToList();
+        if (inactive.Count > 0)
+        {
+            throw new ValidationException(CategoriesField,
+                $"Só pode associar categorias ativas (desativada: {string.Join(", ", inactive)}).");
         }
 
         return categories;
-    }
-
-    private static void CollectDetailErrors(
-        Dictionary<string, string[]> errors, string? introduction, string? contactDetails, string? experience)
-    {
-        Collect(errors, () => ProfessionalProfile.ValidateIntroduction(introduction), ProfessionalProfile.IntroductionField);
-        Collect(errors, () => ProfessionalProfile.ValidateContactDetails(contactDetails),
-            ProfessionalProfile.ContactDetailsField);
-        Collect(errors, () => ProfessionalProfile.ValidateExperience(experience), ProfessionalProfile.ExperienceField);
-    }
-
-    private static void CollectCategoryListError(Dictionary<string, string[]> errors, IReadOnlyList<int>? ids)
-    {
-        if (ids is null || ids.Count == 0)
-        {
-            errors[ProfessionalProfile.CategoriesField] = ["Indique pelo menos uma categoria de serviços."];
-        }
-    }
-
-    private static void Collect<T>(Dictionary<string, string[]> errors, Func<T> validate, string field)
-    {
-        try
-        {
-            validate();
-        }
-        catch (DomainException ex) when (ex.Kind == DomainErrorKind.Validation)
-        {
-            errors[ex.Field ?? field] = [ex.Message];
-        }
-    }
-
-    private static void ThrowIfAny(Dictionary<string, string[]> errors)
-    {
-        if (errors.Count > 0)
-        {
-            throw new ValidationException(errors);
-        }
     }
 
     private async Task SaveNewProfileAsync(CancellationToken cancellationToken)
@@ -208,11 +163,11 @@ public class ProfileService(LocalHubDbContext db, LocationResolver locationResol
         }
         catch (DbUpdateException ex) when (ex.InnerException is PostgresException
         {
-            SqlState: PostgresErrorCodes.UniqueViolation,
-            ConstraintName: "UQ_ProfessionalProfile_serviceProviderId"
+            SqlState: PostgresErrorCodes.UniqueViolation
         })
         {
-            // Two E12 requests of the same provider at the same time: the unique index rejects the second one.
+            // Two E12 requests of the same provider at the same time: the UNIQUE of serviceProviderId (created by the
+            // 1:1 relationship with User) rejects the second one.
             throw new DomainException(DomainErrorKind.Conflict, ProfileExistsMessage);
         }
     }

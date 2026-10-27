@@ -4,7 +4,6 @@ using LocalHub.Application.Locations;
 using LocalHub.Application.Profiles.Dtos;
 using LocalHub.Application.Search.Dtos;
 using LocalHub.Domain.Accounts;
-using LocalHub.Domain.Common;
 using LocalHub.Domain.Locations;
 using LocalHub.Infrastructure;
 
@@ -22,12 +21,8 @@ public class SearchService(LocalHubDbContext db, LocationResolver locationResolv
     public async Task<PagedResult<ProviderSearchResult>> SearchProvidersAsync(
         ProviderSearchRequest request, PageRequest page, CancellationToken cancellationToken)
     {
+        // The category is required and the coordinates are inside their ranges (checked by the controller, rule R17).
         var errors = new Dictionary<string, string[]>();
-        if (request.ServiceCategoryId is null)
-        {
-            errors[CategoryField] = ["Indique a categoria de serviços."];
-        }
-
         page.Validate(errors);
         if (errors.Count > 0)
         {
@@ -108,8 +103,7 @@ public class SearchService(LocalHubDbContext db, LocationResolver locationResolv
 
         if (!isActive)
         {
-            throw new DomainException(DomainErrorKind.Validation,
-                "A categoria indicada não existe ou está desativada.", CategoryField);
+            throw new ValidationException(CategoryField, "A categoria indicada não existe ou está desativada.");
         }
     }
 

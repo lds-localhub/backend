@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations.Schema;
+
 using LocalHub.Domain.Common;
 using LocalHub.Domain.Profiles;
 
@@ -6,17 +8,21 @@ namespace LocalHub.Domain.Services;
 /// <summary>
 /// Represents a request for a proposal sent to a provider chosen by the client (F009).
 /// </summary>
+[Table("DirectRequest")]
 public class DirectRequest
 {
     public int DirectRequestId { get; private set; }
     public int ServiceId { get; private set; }
     public int ProfessionalProfileId { get; private set; }
-    // "= null!": always set by Service.Create or loaded by Entity Framework with Include.
-    public ProfessionalProfile ProfessionalProfile { get; private set; } = null!;
     public DirectRequestStatus Status { get; private set; }
     // Set when the provider answers (proposal submitted or declined); null while PENDING and when VOID.
     public DateTimeOffset? ResponseDate { get; private set; }
     public DateTimeOffset CreationDate { get; private set; }
+
+    // Navigations (they are not columns). "= null!": always set by Service.Create or loaded by Entity Framework with
+    // Include.
+    public Service Service { get; private set; } = null!;
+    public ProfessionalProfile ProfessionalProfile { get; private set; } = null!;
 
     // Private: Entity Framework uses this constructor when it reads a direct request.
     private DirectRequest() { }

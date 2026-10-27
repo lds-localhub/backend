@@ -1,5 +1,4 @@
 using LocalHub.Application.Common.Exceptions;
-using LocalHub.Domain.Common;
 
 namespace LocalHub.Application.Common;
 
@@ -11,19 +10,6 @@ public sealed class FieldErrors
     public void Add(string field, params string[] messages)
     {
         _errors[field] = messages;
-    }
-
-    // Runs a validation of the domain and keeps its message under the field of the exception (or the given field).
-    public void Collect(Action validate, string field)
-    {
-        try
-        {
-            validate();
-        }
-        catch (DomainException ex) when (ex.Kind == DomainErrorKind.Validation)
-        {
-            _errors[ex.Field ?? field] = [ex.Message];
-        }
     }
 
     public bool Contains(string field) => _errors.ContainsKey(field);

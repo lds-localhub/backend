@@ -28,7 +28,7 @@ namespace LocalHub.Infrastructure.Migrations
             NpgsqlModelBuilderExtensions.HasPostgresEnum(modelBuilder, "proposal_status", new[] { "ACCEPTED", "DECLINED", "PENDING", "VOID" });
             NpgsqlModelBuilderExtensions.HasPostgresEnum(modelBuilder, "service_status", new[] { "ASSIGNED", "CANCELLED", "COMPLETED", "OPEN" });
             NpgsqlModelBuilderExtensions.HasPostgresEnum(modelBuilder, "user_role", new[] { "ADMIN", "CLIENT", "PROVIDER" });
-            NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
+            NpgsqlModelBuilderExtensions.UseIdentityAlwaysColumns(modelBuilder);
 
             modelBuilder.Entity("LocalHub.Domain.Accounts.User", b =>
                 {
@@ -51,12 +51,10 @@ namespace LocalHub.Infrastructure.Migrations
                         .HasColumnName("email");
 
                     b.Property<decimal?>("Latitude")
-                        .HasPrecision(8, 6)
                         .HasColumnType("numeric(8,6)")
                         .HasColumnName("latitude");
 
                     b.Property<decimal?>("Longitude")
-                        .HasPrecision(9, 6)
                         .HasColumnType("numeric(9,6)")
                         .HasColumnName("longitude");
 
@@ -81,18 +79,13 @@ namespace LocalHub.Infrastructure.Migrations
                         .HasColumnName("status");
 
                     b.HasKey("UserId")
-                        .HasName("PK_User");
+                        .HasName("pK_User");
 
-                    b.ToTable("User", null, t =>
-                        {
-                            t.HasCheckConstraint("CK_User_coordinates", "(\"latitude\" IS NULL) = (\"longitude\" IS NULL)");
+                    b.HasIndex("Email")
+                        .IsUnique()
+                        .HasDatabaseName("UX_User_email");
 
-                            t.HasCheckConstraint("CK_User_latitude", "\"latitude\" BETWEEN -90 AND 90");
-
-                            t.HasCheckConstraint("CK_User_longitude", "\"longitude\" BETWEEN -180 AND 180");
-
-                            t.HasCheckConstraint("CK_User_name", "btrim(\"name\") <> ''");
-                        });
+                    b.ToTable("User");
                 });
 
             modelBuilder.Entity("LocalHub.Domain.Accounts.UserSession", b =>
@@ -121,17 +114,12 @@ namespace LocalHub.Infrastructure.Migrations
                         .HasColumnName("userId");
 
                     b.HasKey("SessionId")
-                        .HasName("PK_UserSession");
+                        .HasName("pK_UserSession");
 
                     b.HasIndex("UserId")
-                        .HasDatabaseName("IX_UserSession_userId");
+                        .HasDatabaseName("iX_UserSession_userId");
 
-                    b.ToTable("UserSession", null, t =>
-                        {
-                            t.HasCheckConstraint("CK_UserSession_expiresAt", "\"expiresAt\" > \"createdAt\" AND \"expiresAt\" <= \"createdAt\" + interval '8 hours'");
-
-                            t.HasCheckConstraint("CK_UserSession_revokedAt", "\"revokedAt\" IS NULL OR \"revokedAt\" >= \"createdAt\"");
-                        });
+                    b.ToTable("UserSession");
                 });
 
             modelBuilder.Entity("LocalHub.Domain.Categories.ServiceCategory", b =>
@@ -154,12 +142,13 @@ namespace LocalHub.Infrastructure.Migrations
                         .HasColumnName("status");
 
                     b.HasKey("ServiceCategoryId")
-                        .HasName("PK_ServiceCategory");
+                        .HasName("pK_ServiceCategory");
 
-                    b.ToTable("ServiceCategory", null, t =>
-                        {
-                            t.HasCheckConstraint("CK_ServiceCategory_name", "btrim(\"name\") <> ''");
-                        });
+                    b.HasIndex("Name")
+                        .IsUnique()
+                        .HasDatabaseName("UX_ServiceCategory_name");
+
+                    b.ToTable("ServiceCategory");
                 });
 
             modelBuilder.Entity("LocalHub.Domain.Profiles.ProfessionalProfile", b =>
@@ -172,7 +161,6 @@ namespace LocalHub.Infrastructure.Migrations
                     NpgsqlPropertyBuilderExtensions.UseIdentityAlwaysColumn(b.Property<int>("ProfessionalProfileId"));
 
                     b.Property<decimal?>("AverageRating")
-                        .HasPrecision(2, 1)
                         .HasColumnType("numeric(2,1)")
                         .HasColumnName("averageRating");
 
@@ -203,24 +191,13 @@ namespace LocalHub.Infrastructure.Migrations
                         .HasColumnName("serviceRadiusKm");
 
                     b.HasKey("ProfessionalProfileId")
-                        .HasName("PK_ProfessionalProfile");
+                        .HasName("pK_ProfessionalProfile");
 
                     b.HasIndex("ServiceProviderId")
                         .IsUnique()
-                        .HasDatabaseName("UQ_ProfessionalProfile_serviceProviderId");
+                        .HasDatabaseName("iX_ProfessionalProfile_serviceProviderId");
 
-                    b.ToTable("ProfessionalProfile", null, t =>
-                        {
-                            t.HasCheckConstraint("CK_ProfessionalProfile_averageRating", "\"averageRating\" BETWEEN 1.0 AND 5.0");
-
-                            t.HasCheckConstraint("CK_ProfessionalProfile_contactDetails", "btrim(\"contactDetails\") <> ''");
-
-                            t.HasCheckConstraint("CK_ProfessionalProfile_experience", "btrim(\"experience\") <> ''");
-
-                            t.HasCheckConstraint("CK_ProfessionalProfile_introduction", "btrim(\"introduction\") <> ''");
-
-                            t.HasCheckConstraint("CK_ProfessionalProfile_serviceRadiusKm", "\"serviceRadiusKm\" BETWEEN 1 AND 100");
-                        });
+                    b.ToTable("ProfessionalProfile");
                 });
 
             modelBuilder.Entity("LocalHub.Domain.Profiles.ServiceArea", b =>
@@ -234,12 +211,12 @@ namespace LocalHub.Infrastructure.Migrations
                         .HasColumnName("professionalProfileId");
 
                     b.HasKey("ServiceCategoryId", "ProfessionalProfileId")
-                        .HasName("PK_ServiceArea");
+                        .HasName("pK_ServiceArea");
 
                     b.HasIndex("ProfessionalProfileId")
-                        .HasDatabaseName("IX_ServiceArea_professionalProfileId");
+                        .HasDatabaseName("iX_ServiceArea_professionalProfileId");
 
-                    b.ToTable("ServiceArea", (string)null);
+                    b.ToTable("ServiceArea");
                 });
 
             modelBuilder.Entity("LocalHub.Domain.Services.DirectRequest", b =>
@@ -272,19 +249,16 @@ namespace LocalHub.Infrastructure.Migrations
                         .HasColumnName("status");
 
                     b.HasKey("DirectRequestId")
-                        .HasName("PK_DirectRequest");
+                        .HasName("pK_DirectRequest");
 
                     b.HasIndex("ServiceId")
-                        .HasDatabaseName("IX_DirectRequest_serviceId");
+                        .HasDatabaseName("iX_DirectRequest_serviceId");
 
                     b.HasIndex("ProfessionalProfileId", "ServiceId")
                         .IsUnique()
-                        .HasDatabaseName("UQ_DirectRequest_professionalProfileId_serviceId");
+                        .HasDatabaseName("iX_DirectRequest_professionalProfileId_serviceId");
 
-                    b.ToTable("DirectRequest", null, t =>
-                        {
-                            t.HasCheckConstraint("CK_DirectRequest_responseDate", "(\"status\" IN ('PROPOSAL_SUBMITTED', 'DECLINED')) = (\"responseDate\" IS NOT NULL) AND (\"responseDate\" IS NULL OR \"responseDate\" >= \"creationDate\")");
-                        });
+                    b.ToTable("DirectRequest");
                 });
 
             modelBuilder.Entity("LocalHub.Domain.Services.Proposal", b =>
@@ -297,7 +271,6 @@ namespace LocalHub.Infrastructure.Migrations
                     NpgsqlPropertyBuilderExtensions.UseIdentityAlwaysColumn(b.Property<int>("ProposalId"));
 
                     b.Property<decimal>("Amount")
-                        .HasPrecision(8, 2)
                         .HasColumnType("numeric(8,2)")
                         .HasColumnName("amount");
 
@@ -333,25 +306,54 @@ namespace LocalHub.Infrastructure.Migrations
                         .HasColumnName("status");
 
                     b.HasKey("ProposalId")
-                        .HasName("PK_Proposal");
+                        .HasName("pK_Proposal");
 
                     b.HasIndex("ServiceId")
-                        .HasDatabaseName("IX_Proposal_serviceId");
+                        .IsUnique()
+                        .HasDatabaseName("UX_Proposal_serviceId_accepted")
+                        .HasFilter("\"status\" = 'ACCEPTED'");
 
                     b.HasIndex("ProfessionalProfileId", "ServiceId")
                         .IsUnique()
-                        .HasDatabaseName("UQ_Proposal_professionalProfileId_serviceId");
+                        .HasDatabaseName("iX_Proposal_professionalProfileId_serviceId");
 
-                    b.ToTable("Proposal", null, t =>
-                        {
-                            t.HasCheckConstraint("CK_Proposal_amount", "\"amount\" > 0 AND \"amount\" <= 100000");
+                    b.ToTable("Proposal");
+                });
 
-                            t.HasCheckConstraint("CK_Proposal_conditions", "btrim(\"conditions\") <> ''");
+            modelBuilder.Entity("LocalHub.Domain.Services.Review", b =>
+                {
+                    b.Property<int>("ReviewId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("reviewId");
 
-                            t.HasCheckConstraint("CK_Proposal_decisionDate", "(\"status\" = 'PENDING') = (\"decisionDate\" IS NULL) AND (\"decisionDate\" IS NULL OR \"decisionDate\" >= \"creationDate\")");
+                    NpgsqlPropertyBuilderExtensions.UseIdentityAlwaysColumn(b.Property<int>("ReviewId"));
 
-                            t.HasCheckConstraint("CK_Proposal_obs", "\"obs\" IS NULL OR btrim(\"obs\") <> ''");
-                        });
+                    b.Property<string>("Comment")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("comment");
+
+                    b.Property<DateTimeOffset>("CreationDate")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("creationDate");
+
+                    b.Property<short>("Rating")
+                        .HasColumnType("smallint")
+                        .HasColumnName("rating");
+
+                    b.Property<int>("ServiceId")
+                        .HasColumnType("integer")
+                        .HasColumnName("serviceId");
+
+                    b.HasKey("ReviewId")
+                        .HasName("pK_Review");
+
+                    b.HasIndex("ServiceId")
+                        .IsUnique()
+                        .HasDatabaseName("iX_Review_serviceId");
+
+                    b.ToTable("Review");
                 });
 
             modelBuilder.Entity("LocalHub.Domain.Services.Service", b =>
@@ -382,7 +384,6 @@ namespace LocalHub.Infrastructure.Migrations
                         .HasColumnName("description");
 
                     b.Property<decimal>("Latitude")
-                        .HasPrecision(8, 6)
                         .HasColumnType("numeric(8,6)")
                         .HasColumnName("latitude");
 
@@ -393,7 +394,6 @@ namespace LocalHub.Infrastructure.Migrations
                         .HasColumnName("location");
 
                     b.Property<decimal>("Longitude")
-                        .HasPrecision(9, 6)
                         .HasColumnType("numeric(9,6)")
                         .HasColumnName("longitude");
 
@@ -417,76 +417,106 @@ namespace LocalHub.Infrastructure.Migrations
                         .HasColumnType("service_status")
                         .HasColumnName("status");
 
-                    b.Property<uint>("Version")
-                        .IsConcurrencyToken()
-                        .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("xid")
-                        .HasColumnName("xmin");
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("title");
 
                     b.HasKey("ServiceId")
-                        .HasName("PK_Service");
+                        .HasName("pK_Service");
 
                     b.HasIndex("ClientId")
-                        .HasDatabaseName("IX_Service_clientId");
+                        .HasDatabaseName("iX_Service_clientId");
 
-                    b.HasIndex("ServiceCategoryId", "Status")
-                        .HasDatabaseName("IX_Service_serviceCategoryId_status");
+                    b.HasIndex("ServiceCategoryId")
+                        .HasDatabaseName("iX_Service_serviceCategoryId");
 
-                    b.ToTable("Service", null, t =>
-                        {
-                            t.HasCheckConstraint("CK_Service_actualCompletionDate", "(\"status\" = 'COMPLETED') = (\"actualCompletionDate\" IS NOT NULL) AND (\"actualCompletionDate\" IS NULL OR \"actualCompletionDate\" >= \"creationDate\")");
+                    b.ToTable("Service");
+                });
 
-                            t.HasCheckConstraint("CK_Service_description", "btrim(\"description\") <> ''");
+            modelBuilder.Entity("LocalHub.Domain.Services.ServiceStatusHistory", b =>
+                {
+                    b.Property<int>("ServiceStatusHistoryId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("serviceStatusHistoryId");
 
-                            t.HasCheckConstraint("CK_Service_latitude", "\"latitude\" BETWEEN -90 AND 90");
+                    NpgsqlPropertyBuilderExtensions.UseIdentityAlwaysColumn(b.Property<int>("ServiceStatusHistoryId"));
 
-                            t.HasCheckConstraint("CK_Service_location", "btrim(\"location\") <> ''");
+                    b.Property<DateTimeOffset>("ChangedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("changedAt");
 
-                            t.HasCheckConstraint("CK_Service_longitude", "\"longitude\" BETWEEN -180 AND 180");
+                    b.Property<int>("ChangedByUserId")
+                        .HasColumnType("integer")
+                        .HasColumnName("changedByUserId");
 
-                            t.HasCheckConstraint("CK_Service_requestedEndDate", "\"requestedEndDate\" IS NULL OR \"requestedEndDate\" >= \"requestedStartDate\"");
+                    b.Property<ServiceStatus>("NewStatus")
+                        .HasColumnType("service_status")
+                        .HasColumnName("newStatus");
 
-                            t.HasCheckConstraint("CK_Service_requestedStartDate", "\"requestedStartDate\" >= (\"creationDate\" AT TIME ZONE 'Europe/Lisbon')::date");
-                        });
+                    b.Property<ServiceStatus>("PreviousStatus")
+                        .HasColumnType("service_status")
+                        .HasColumnName("previousStatus");
+
+                    b.Property<int>("ServiceId")
+                        .HasColumnType("integer")
+                        .HasColumnName("serviceId");
+
+                    b.HasKey("ServiceStatusHistoryId")
+                        .HasName("pK_ServiceStatusHistory");
+
+                    b.HasIndex("ChangedByUserId")
+                        .HasDatabaseName("iX_ServiceStatusHistory_changedByUserId");
+
+                    b.HasIndex("ServiceId")
+                        .HasDatabaseName("iX_ServiceStatusHistory_serviceId");
+
+                    b.ToTable("ServiceStatusHistory");
                 });
 
             modelBuilder.Entity("LocalHub.Domain.Accounts.UserSession", b =>
                 {
-                    b.HasOne("LocalHub.Domain.Accounts.User", null)
+                    b.HasOne("LocalHub.Domain.Accounts.User", "User")
                         .WithMany("Sessions")
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
-                        .HasConstraintName("FK_UserSession_User");
+                        .HasConstraintName("fK_UserSession_User_userId");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("LocalHub.Domain.Profiles.ProfessionalProfile", b =>
                 {
                     b.HasOne("LocalHub.Domain.Accounts.User", "ServiceProvider")
-                        .WithOne()
+                        .WithOne("Profile")
                         .HasForeignKey("LocalHub.Domain.Profiles.ProfessionalProfile", "ServiceProviderId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
-                        .HasConstraintName("FK_ProfessionalProfile_User");
+                        .HasConstraintName("fK_ProfessionalProfile_User_serviceProviderId");
 
                     b.Navigation("ServiceProvider");
                 });
 
             modelBuilder.Entity("LocalHub.Domain.Profiles.ServiceArea", b =>
                 {
-                    b.HasOne("LocalHub.Domain.Profiles.ProfessionalProfile", null)
+                    b.HasOne("LocalHub.Domain.Profiles.ProfessionalProfile", "ProfessionalProfile")
                         .WithMany("ServiceAreas")
                         .HasForeignKey("ProfessionalProfileId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
-                        .HasConstraintName("FK_ServiceArea_ProfessionalProfile");
+                        .HasConstraintName("fK_ServiceArea_ProfessionalProfile_professionalProfileId");
 
                     b.HasOne("LocalHub.Domain.Categories.ServiceCategory", "ServiceCategory")
-                        .WithMany()
+                        .WithMany("ServiceAreas")
                         .HasForeignKey("ServiceCategoryId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
-                        .HasConstraintName("FK_ServiceArea_ServiceCategory");
+                        .HasConstraintName("fK_ServiceArea_ServiceCategory_serviceCategoryId");
+
+                    b.Navigation("ProfessionalProfile");
 
                     b.Navigation("ServiceCategory");
                 });
@@ -494,69 +524,123 @@ namespace LocalHub.Infrastructure.Migrations
             modelBuilder.Entity("LocalHub.Domain.Services.DirectRequest", b =>
                 {
                     b.HasOne("LocalHub.Domain.Profiles.ProfessionalProfile", "ProfessionalProfile")
-                        .WithMany()
+                        .WithMany("DirectRequests")
                         .HasForeignKey("ProfessionalProfileId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
-                        .HasConstraintName("FK_DirectRequest_ProfessionalProfile");
+                        .HasConstraintName("fK_DirectRequest_ProfessionalProfile_professionalProfileId");
 
-                    b.HasOne("LocalHub.Domain.Services.Service", null)
+                    b.HasOne("LocalHub.Domain.Services.Service", "Service")
                         .WithMany("DirectRequests")
                         .HasForeignKey("ServiceId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
-                        .HasConstraintName("FK_DirectRequest_Service");
+                        .HasConstraintName("fK_DirectRequest_Service_serviceId");
 
                     b.Navigation("ProfessionalProfile");
+
+                    b.Navigation("Service");
                 });
 
             modelBuilder.Entity("LocalHub.Domain.Services.Proposal", b =>
                 {
                     b.HasOne("LocalHub.Domain.Profiles.ProfessionalProfile", "ProfessionalProfile")
-                        .WithMany()
+                        .WithMany("Proposals")
                         .HasForeignKey("ProfessionalProfileId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
-                        .HasConstraintName("FK_Proposal_ProfessionalProfile");
+                        .HasConstraintName("fK_Proposal_ProfessionalProfile_professionalProfileId");
 
-                    b.HasOne("LocalHub.Domain.Services.Service", null)
+                    b.HasOne("LocalHub.Domain.Services.Service", "Service")
                         .WithMany("Proposals")
                         .HasForeignKey("ServiceId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
-                        .HasConstraintName("FK_Proposal_Service");
+                        .HasConstraintName("fK_Proposal_Service_serviceId");
 
                     b.Navigation("ProfessionalProfile");
+
+                    b.Navigation("Service");
+                });
+
+            modelBuilder.Entity("LocalHub.Domain.Services.Review", b =>
+                {
+                    b.HasOne("LocalHub.Domain.Services.Service", "Service")
+                        .WithOne("Review")
+                        .HasForeignKey("LocalHub.Domain.Services.Review", "ServiceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fK_Review_Service_serviceId");
+
+                    b.Navigation("Service");
                 });
 
             modelBuilder.Entity("LocalHub.Domain.Services.Service", b =>
                 {
                     b.HasOne("LocalHub.Domain.Accounts.User", "Client")
-                        .WithMany()
+                        .WithMany("Services")
                         .HasForeignKey("ClientId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
-                        .HasConstraintName("FK_Service_User");
+                        .HasConstraintName("fK_Service_User_clientId");
 
                     b.HasOne("LocalHub.Domain.Categories.ServiceCategory", "ServiceCategory")
-                        .WithMany()
+                        .WithMany("Services")
                         .HasForeignKey("ServiceCategoryId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
-                        .HasConstraintName("FK_Service_ServiceCategory");
+                        .HasConstraintName("fK_Service_ServiceCategory_serviceCategoryId");
 
                     b.Navigation("Client");
 
                     b.Navigation("ServiceCategory");
                 });
 
+            modelBuilder.Entity("LocalHub.Domain.Services.ServiceStatusHistory", b =>
+                {
+                    b.HasOne("LocalHub.Domain.Accounts.User", "ChangedBy")
+                        .WithMany("StatusChanges")
+                        .HasForeignKey("ChangedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fK_ServiceStatusHistory_User_changedByUserId");
+
+                    b.HasOne("LocalHub.Domain.Services.Service", "Service")
+                        .WithMany("StatusHistory")
+                        .HasForeignKey("ServiceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fK_ServiceStatusHistory_Service_serviceId");
+
+                    b.Navigation("ChangedBy");
+
+                    b.Navigation("Service");
+                });
+
             modelBuilder.Entity("LocalHub.Domain.Accounts.User", b =>
                 {
+                    b.Navigation("Profile");
+
+                    b.Navigation("Services");
+
                     b.Navigation("Sessions");
+
+                    b.Navigation("StatusChanges");
+                });
+
+            modelBuilder.Entity("LocalHub.Domain.Categories.ServiceCategory", b =>
+                {
+                    b.Navigation("ServiceAreas");
+
+                    b.Navigation("Services");
                 });
 
             modelBuilder.Entity("LocalHub.Domain.Profiles.ProfessionalProfile", b =>
                 {
+                    b.Navigation("DirectRequests");
+
+                    b.Navigation("Proposals");
+
                     b.Navigation("ServiceAreas");
                 });
 
@@ -565,6 +649,10 @@ namespace LocalHub.Infrastructure.Migrations
                     b.Navigation("DirectRequests");
 
                     b.Navigation("Proposals");
+
+                    b.Navigation("Review");
+
+                    b.Navigation("StatusHistory");
                 });
 #pragma warning restore 612, 618
         }

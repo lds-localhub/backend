@@ -1,7 +1,10 @@
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+
 using LocalHub.Domain.Accounts;
 using LocalHub.Domain.Categories;
 using LocalHub.Domain.Common;
-using LocalHub.Domain.Locations;
+using LocalHub.Domain.Services;
 
 namespace LocalHub.Domain.Profiles;
 
@@ -9,45 +12,50 @@ namespace LocalHub.Domain.Profiles;
 /// Represents the professional profile of a service provider (F004): presentation, contacts, experience,
 /// categories in which the provider works and service radius.
 /// </summary>
+[Table("ProfessionalProfile")]
 public class ProfessionalProfile
 {
-    // Limits of the API documentation (E12), the same as the columns of the data model.
+    // Limits of the API documentation (E12), the same as the columns of the data model. The DTOs use the same
+    // constants (rule R17).
     public const int IntroductionMaxLength = 1000;
     public const int ContactDetailsMaxLength = 500;
     public const int ExperienceMaxLength = 2000;
-
-    public const string IntroductionField = "introduction";
-    public const string ContactDetailsField = "contactDetails";
-    public const string ExperienceField = "experience";
-    public const string CategoriesField = "serviceCategoryIds";
+    public const int ServiceRadiusMinKm = 1;
+    public const int ServiceRadiusMaxKm = 100;
 
     public int ProfessionalProfileId { get; private set; }
     public int ServiceProviderId { get; private set; }
-    // "= null!": always set by Create or loaded by Entity Framework with Include.
-    public User ServiceProvider { get; private set; } = null!;
-    public string Introduction { get; private set; } = null!;
-    public string ContactDetails { get; private set; } = null!;
-    public string Experience { get; private set; } = null!;
+    [MaxLength(IntroductionMaxLength)] public string Introduction { get; private set; } = null!;
+    [MaxLength(ContactDetailsMaxLength)] public string ContactDetails { get; private set; } = null!;
+    [MaxLength(ExperienceMaxLength)] public string Experience { get; private set; } = null!;
     // Derived from the reviews (F012); null while the provider has no reviews. Never changed by the provider
     // (RF-F004-02, rule 3).
-    public decimal? AverageRating { get; private set; }
+    [Column(TypeName = "numeric(2,1)")] public decimal? AverageRating { get; private set; }
     public short ServiceRadiusKm { get; private set; }
 
+    // Navigations (they are not columns). "= null!": always set by Create or loaded by Entity Framework with Include.
+    // The name ServiceProvider lets Entity Framework find the foreign key ServiceProviderId by convention.
+    public User ServiceProvider { get; private set; } = null!;
     private readonly List<ServiceArea> _serviceAreas = [];
     public IReadOnlyCollection<ServiceArea> ServiceAreas => _serviceAreas;
+    private readonly List<Proposal> _proposals = [];
+    public IReadOnlyCollection<Proposal> Proposals => _proposals;
+    private readonly List<DirectRequest> _directRequests = [];
+    public IReadOnlyCollection<DirectRequest> DirectRequests => _directRequests;
 
     // Private: a profile is created with Create. Entity Framework uses this constructor when it reads a profile.
     private ProfessionalProfile() { }
 
-    // RF-F004-01. "One profile per provider" depends on the database, so it is checked by the ProfileService.
+    // RF-F004-01. The fields are validated by the DTO; "one profile per provider" and the categories depend on the
+    // database, so they are checked by the ProfileService (rule R17).
     // The location of the provider is saved in User (E12 converts the address before calling Create).
     public static ProfessionalProfile Create(
         User provider,
-        string? introduction,
-        string? contactDetails,
-        string? experience,
+        string introduction,
+        string contactDetails,
+        string experience,
         IReadOnlyCollection<ServiceCategory> categories,
-        decimal? serviceRadiusKm)
+        short serviceRadiusKm)
     {
         if (provider.Role != UserRole.Provider)
         {
@@ -59,31 +67,26 @@ public class ProfessionalProfile
         {
             ServiceProvider = provider,
             ServiceProviderId = provider.UserId,
-            Introduction = ValidateIntroduction(introduction),
-            ContactDetails = ValidateContactDetails(contactDetails),
-            Experience = ValidateExperience(experience),
-            ServiceRadiusKm = ServiceRadius.Validate(serviceRadiusKm),
+            Introduction = introduction.Trim(),
+            ContactDetails = contactDetails.Trim(),
+            Experience = experience.Trim(),
+            ServiceRadiusKm = serviceRadiusKm,
         };
         profile.ReplaceCategories(categories);
 
         return profile;
     }
 
-    // RF-F004-02 (E14): the presentation, the contacts and the experience. The rules are the ones of Create.
-    public void UpdateDetails(string? introduction, string? contactDetails, string? experience)
+    // RF-F004-02 (E14): the presentation, the contacts and the experience.
+    public void UpdateDetails(string introduction, string contactDetails, string experience)
     {
-        string newIntroduction = ValidateIntroduction(introduction);
-        string newContactDetails = ValidateContactDetails(contactDetails);
-        string newExperience = ValidateExperience(experience);
-
-        Introduction = newIntroduction;
-        ContactDetails = newContactDetails;
-        Experience = newExperience;
+        Introduction = introduction.Trim();
+        ContactDetails = contactDetails.Trim();
+        Experience = experience.Trim();
     }
 
-    // RF-F004-04 (E12 and E14): the list replaces the previous one. The profile keeps at least one category,
-    // each category is associated only once and only active categories can be added. A category that was
-    // already associated can stay even if it was deactivated in the meantime (API documentation, E14).
+    // RF-F004-04 (E12 and E14): the list replaces the previous one and each category is associated only once.
+    // The ProfileService checks before that the list is not empty and that the new categories are active.
     public void ReplaceCategories(IReadOnlyCollection<ServiceCategory> categories)
     {
         var distinct = categories
@@ -91,23 +94,7 @@ public class ProfessionalProfile
             .Select(g => g.First())
             .ToList();
 
-        if (distinct.Count == 0)
-        {
-            throw new DomainException(DomainErrorKind.Validation,
-                "Indique pelo menos uma categoria de serviços.", CategoriesField);
-        }
-
         var currentIds = _serviceAreas.Select(a => a.ServiceCategoryId).ToHashSet();
-        var inactive = distinct
-            .Where(c => !currentIds.Contains(c.ServiceCategoryId) && c.Status != ActivationStatus.Active)
-            .Select(c => c.Name)
-            .ToList();
-        if (inactive.Count > 0)
-        {
-            throw new DomainException(DomainErrorKind.Validation,
-                $"Só pode associar categorias ativas (desativada: {string.Join(", ", inactive)}).", CategoriesField);
-        }
-
         var newIds = distinct.Select(c => c.ServiceCategoryId).ToHashSet();
         _serviceAreas.RemoveAll(a => !newIds.Contains(a.ServiceCategoryId));
         foreach (var category in distinct.Where(c => !currentIds.Contains(c.ServiceCategoryId)))
@@ -116,34 +103,9 @@ public class ProfessionalProfile
         }
     }
 
-    // RF-F015-01 (E17): a new radius replaces the previous one.
-    public void SetServiceRadius(decimal? serviceRadiusKm)
+    // RF-F015-01 (E17): a new radius replaces the previous one. The range is validated by the DTO.
+    public void SetServiceRadius(short serviceRadiusKm)
     {
-        ServiceRadiusKm = ServiceRadius.Validate(serviceRadiusKm);
-    }
-
-    // Public so that the ProfileService can collect the errors of every field in a single 400 response.
-    public static string ValidateIntroduction(string? value) =>
-        ValidateText(value, IntroductionMaxLength, IntroductionField,
-            $"A apresentação é obrigatória e tem no máximo {IntroductionMaxLength} caracteres.");
-
-    public static string ValidateContactDetails(string? value) =>
-        ValidateText(value, ContactDetailsMaxLength, ContactDetailsField,
-            $"Os contactos são obrigatórios e têm no máximo {ContactDetailsMaxLength} caracteres.");
-
-    public static string ValidateExperience(string? value) =>
-        ValidateText(value, ExperienceMaxLength, ExperienceField,
-            $"A experiência profissional é obrigatória e tem no máximo {ExperienceMaxLength} caracteres.");
-
-    // Same rule as the CHECK constraints of the table: the text cannot be empty or only spaces.
-    private static string ValidateText(string? value, int maxLength, string field, string message)
-    {
-        string trimmed = value?.Trim() ?? string.Empty;
-        if (trimmed.Length == 0 || trimmed.Length > maxLength)
-        {
-            throw new DomainException(DomainErrorKind.Validation, message, field);
-        }
-
-        return trimmed;
+        ServiceRadiusKm = serviceRadiusKm;
     }
 }

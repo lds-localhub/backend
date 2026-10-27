@@ -1,6 +1,6 @@
+using LocalHub.Application.Common.Exceptions;
 using LocalHub.Application.Locations;
 using LocalHub.Application.Locations.Dtos;
-using LocalHub.Domain.Common;
 using LocalHub.Domain.Locations;
 using LocalHub.Infrastructure.Geocoding;
 
@@ -40,22 +40,10 @@ public class LocationResolverTests
     [Trait("Requisito", "RF-F015-03")]
     public async Task ResolveAsync_MoradaNaoEncontrada_LancaErroNaMorada()
     {
-        var exception = await Assert.ThrowsAsync<DomainException>(
+        var exception = await Assert.ThrowsAsync<ValidationException>(
             () => _resolver.ResolveAsync(new SetLocationRequest("Rua Que Não Existe", null, null), default));
 
-        Assert.Equal(DomainErrorKind.Validation, exception.Kind);
-        Assert.Equal("address", exception.Field);
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F015-03")]
-    public async Task ResolveAsync_MoradaComMaisDe255Caracteres_NaoChamaOGeocodificador()
-    {
-        var exception = await Assert.ThrowsAsync<DomainException>(
-            () => _resolver.ResolveAsync(new SetLocationRequest(new string('a', 256), null, null), default));
-
-        Assert.Equal("address", exception.Field);
-        Assert.Equal(0, _geocoding.Calls);
+        Assert.Equal("address", Assert.Single(exception.Errors).Key);
     }
 
     [Fact]
@@ -82,27 +70,10 @@ public class LocationResolverTests
     [Trait("Requisito", "RF-F015-04")]
     public async Task ResolveAsync_CoordenadasSemMorada_LancaErroNaLatitude()
     {
-        var exception = await Assert.ThrowsAsync<DomainException>(
+        var exception = await Assert.ThrowsAsync<ValidationException>(
             () => _resolver.ResolveAsync(new SetLocationRequest(null, 0m, 0m), default));
 
-        Assert.Equal("latitude", exception.Field);
-    }
-
-    [Theory]
-    [Trait("Requisito", "RF-F015-04")]
-    [InlineData(90.5, -8.6, "latitude")]
-    [InlineData(-91, -8.6, "latitude")]
-    [InlineData(41.1, 180.5, "longitude")]
-    [InlineData(41.1, -181, "longitude")]
-    public async Task ResolveAsync_CoordenadasForaDoIntervalo_LancaErroNoCampoSemChamarOGeocodificador(
-        double latitude, double longitude, string field)
-    {
-        var request = new SetLocationRequest(null, (decimal)latitude, (decimal)longitude);
-
-        var exception = await Assert.ThrowsAsync<DomainException>(() => _resolver.ResolveAsync(request, default));
-
-        Assert.Equal(field, exception.Field);
-        Assert.Equal(0, _geocoding.Calls);
+        Assert.Equal("latitude", Assert.Single(exception.Errors).Key);
     }
 
     [Theory]
@@ -114,9 +85,9 @@ public class LocationResolverTests
     {
         var request = new SetLocationRequest(null, (decimal?)latitude, (decimal?)longitude);
 
-        var exception = await Assert.ThrowsAsync<DomainException>(() => _resolver.ResolveAsync(request, default));
+        var exception = await Assert.ThrowsAsync<ValidationException>(() => _resolver.ResolveAsync(request, default));
 
-        Assert.Equal(field, exception.Field);
+        Assert.Equal(field, Assert.Single(exception.Errors).Key);
     }
 
     [Fact]
@@ -124,10 +95,10 @@ public class LocationResolverTests
     [Trait("Requisito", "RF-F015-04")]
     public async Task ResolveAsync_MoradaECoordenadas_LancaErroNaMorada()
     {
-        var exception = await Assert.ThrowsAsync<DomainException>(
+        var exception = await Assert.ThrowsAsync<ValidationException>(
             () => _resolver.ResolveAsync(new SetLocationRequest(KnownAddress, 41.1579m, -8.6291m), default));
 
-        Assert.Equal("address", exception.Field);
+        Assert.Equal("address", Assert.Single(exception.Errors).Key);
         Assert.Equal(0, _geocoding.Calls);
     }
 
@@ -138,10 +109,10 @@ public class LocationResolverTests
     [InlineData("   ")]
     public async Task ResolveAsync_NemMoradaNemCoordenadas_LancaErroNaMorada(string? address)
     {
-        var exception = await Assert.ThrowsAsync<DomainException>(
+        var exception = await Assert.ThrowsAsync<ValidationException>(
             () => _resolver.ResolveAsync(new SetLocationRequest(address, null, null), default));
 
-        Assert.Equal("address", exception.Field);
+        Assert.Equal("address", Assert.Single(exception.Errors).Key);
     }
 
     // ---------- ResolveReferenceAsync: reference location of the search of providers (E18) ----------
@@ -188,11 +159,10 @@ public class LocationResolverTests
     [Trait("Requisito", "RF-F005-02")]
     public async Task ResolveReferenceAsync_SemNenhumaLocalizacao_LancaErroNaMorada()
     {
-        var exception = await Assert.ThrowsAsync<DomainException>(
+        var exception = await Assert.ThrowsAsync<ValidationException>(
             () => _resolver.ResolveReferenceAsync(null, null, null, null, default));
 
-        Assert.Equal(DomainErrorKind.Validation, exception.Kind);
-        Assert.Equal("address", exception.Field);
+        Assert.Equal("address", Assert.Single(exception.Errors).Key);
     }
 
     [Fact]
@@ -200,26 +170,23 @@ public class LocationResolverTests
     [Trait("Requisito", "RF-F015-03")]
     public async Task ResolveReferenceAsync_MoradaNaoEncontrada_LancaErroNaMorada()
     {
-        var exception = await Assert.ThrowsAsync<DomainException>(
+        var exception = await Assert.ThrowsAsync<ValidationException>(
             () => _resolver.ResolveReferenceAsync("Rua Que Não Existe", null, null, Braga, default));
 
-        Assert.Equal(DomainErrorKind.Validation, exception.Kind);
-        Assert.Equal("address", exception.Field);
+        Assert.Equal("address", Assert.Single(exception.Errors).Key);
     }
 
     [Theory]
     [Trait("Requisito", "RF-F015-04")]
-    [InlineData(95.0, 10.0, "latitude")]
-    [InlineData(0.0, 180.5, "longitude")]
     [InlineData(41.1579, null, "longitude")]
     [InlineData(null, -8.6291, "latitude")]
-    public async Task ResolveReferenceAsync_CoordenadasInvalidas_LancaErroNoCampoSemChamarOGeocodificador(
+    public async Task ResolveReferenceAsync_SoUmaCoordenada_LancaErroNoCampoSemChamarOGeocodificador(
         double? latitude, double? longitude, string field)
     {
-        var exception = await Assert.ThrowsAsync<DomainException>(() => _resolver.ResolveReferenceAsync(
+        var exception = await Assert.ThrowsAsync<ValidationException>(() => _resolver.ResolveReferenceAsync(
             KnownAddress, (decimal?)latitude, (decimal?)longitude, Braga, default));
 
-        Assert.Equal(field, exception.Field);
+        Assert.Equal(field, Assert.Single(exception.Errors).Key);
         Assert.Equal(0, _geocoding.Calls);
     }
 

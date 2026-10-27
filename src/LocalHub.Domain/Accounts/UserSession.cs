@@ -1,10 +1,14 @@
-﻿using LocalHub.Domain.Common;
+﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+
+using LocalHub.Domain.Common;
 
 namespace LocalHub.Domain.Accounts;
 
 /// <summary>
 /// Represents a login session of a user. The JWT token returned at login identifies this session.
 /// </summary>
+[Table("UserSession")]
 public class UserSession
 {
     // A session is valid for 8 hours (RNF-02).
@@ -14,11 +18,15 @@ public class UserSession
     // when it reads a session from the database.
     private UserSession() { }
 
-    public int SessionId { get; private set; }
+    // [Key]: by convention Entity Framework expects the primary key to be called Id or UserSessionId.
+    [Key] public int SessionId { get; private set; }
     public int UserId { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
     public DateTimeOffset ExpiresAt { get; private set; }
     public DateTimeOffset? RevokedAt { get; private set; }
+
+    // Navigation (not a column). "= null!": loaded by Entity Framework with Include.
+    public User User { get; private set; } = null!;
 
     public static UserSession Start(User user, DateTimeOffset now)
     {

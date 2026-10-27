@@ -27,17 +27,6 @@ public class UserTests
     }
 
     [Fact]
-    [Trait("Requisito", "RF-F001-01")]
-    public void Register_PapelAdministrador_LancaErroDeValidacaoNoPapel()
-    {
-        var exception = Assert.Throws<DomainException>(
-            () => User.Register("Ana Costa", "ana.costa@exemplo.pt", UserRole.Admin));
-
-        Assert.Equal(DomainErrorKind.Validation, exception.Kind);
-        Assert.Equal("role", exception.Field);
-    }
-
-    [Fact]
     [Trait("Requisito", "RF-F001-05")]
     public void CreateAdministrator_CriaAdministradorAtivo()
     {
@@ -57,19 +46,6 @@ public class UserTests
         user.SetPasswordHash("hash");
 
         Assert.Equal("hash", user.PasswordHash);
-    }
-
-    [Theory]
-    [InlineData("")]
-    [InlineData("   ")]
-    [Trait("Requisito", "RF-F001-01")]
-    public void SetPasswordHash_ResumoVazio_LancaErroDeValidacao(string hash)
-    {
-        var user = User.Register("Ana Costa", "ana.costa@exemplo.pt", UserRole.Client);
-
-        var exception = Assert.Throws<DomainException>(() => user.SetPasswordHash(hash));
-
-        Assert.Equal(DomainErrorKind.Validation, exception.Kind);
     }
 
     [Theory]

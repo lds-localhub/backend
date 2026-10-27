@@ -13,6 +13,7 @@ using LocalHub.Infrastructure.Seed;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -22,7 +23,17 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddOpenApi();
 builder.Services.AddApplication(builder.Configuration);
 
-builder.Services.AddControllers()
+const string InvalidValueMessage = "Valor inválido.";
+
+builder.Services.AddControllers(o =>
+    {
+        // A query parameter that cannot be converted (for example ?page=abc) gets a Portuguese message.
+        o.ModelBindingMessageProvider.SetAttemptedValueIsInvalidAccessor((_, _) => InvalidValueMessage);
+        o.ModelBindingMessageProvider.SetNonPropertyAttemptedValueIsInvalidAccessor(_ => InvalidValueMessage);
+        o.ModelBindingMessageProvider.SetUnknownValueIsInvalidAccessor(_ => InvalidValueMessage);
+        o.ModelBindingMessageProvider.SetValueIsInvalidAccessor(_ => InvalidValueMessage);
+        o.ModelBindingMessageProvider.SetValueMustBeANumberAccessor(_ => InvalidValueMessage);
+    })
     .AddJsonOptions(o =>
     {
         // Enum values as in the API documentation (CLIENT, PROVIDER, ADMIN, ...) and instants in UTC.
@@ -31,12 +42,17 @@ builder.Services.AddControllers()
     })
     .ConfigureApiBehaviorOptions(o =>
     {
-        // Malformed bodies (invalid JSON, unknown enum value) and query parameters (for example ?page=abc)
-        // use the same 400 format as the other errors.
+        // The DTOs are validated before the controller is called (rule R17). The fields with Data Annotations,
+        // the malformed bodies (invalid JSON, unknown enum value) and the query parameters (for example ?page=abc)
+        // use the same 400 format as the other errors, with all the invalid fields.
         o.InvalidModelStateResponseFactory = context =>
         {
-            // System.Text.Json reports the field as "$.role"; expose it as "role" with a Portuguese message.
-            // A query parameter is reported with its own name ("page").
+            // The parameter that receives the body ("request"): its errors only say that the body is missing.
+            var bodyParameters = context.ActionDescriptor.Parameters
+                .Where(p => p.BindingInfo?.BindingSource == BindingSource.Body)
+                .Select(p => p.Name)
+                .ToList();
+
             var errors = new Dictionary<string, string[]>();
             foreach (var entry in context.ModelState)
             {
@@ -45,13 +61,18 @@ builder.Services.AddControllers()
                     continue;
                 }
 
-                string? field = entry.Key.StartsWith("$.", StringComparison.Ordinal)
-                    ? entry.Key.Substring(2)
-                    : context.HttpContext.Request.Query.ContainsKey(entry.Key) ? entry.Key : null;
-                if (field is not null)
+                if (entry.Key.StartsWith("$.", StringComparison.Ordinal))
                 {
-                    // [...] instead of new[] { ... }: the recommended .NET rule CA1861 rejects new[] here.
-                    errors[field] = ["Valor inválido."];
+                    // System.Text.Json reports the field as "$.role"; expose it as "role" with a Portuguese message.
+                    errors[entry.Key.Substring(2)] = [InvalidValueMessage];
+                }
+                else if (entry.Key.Length > 0 && entry.Key != "$" && !bodyParameters.Contains(entry.Key))
+                {
+                    // A field of the DTO ("Name", written "name" as in the JSON and in the API documentation) or a
+                    // query parameter ("page"), with the message of each error.
+                    errors[JsonNamingPolicy.CamelCase.ConvertName(entry.Key)] = entry.Value.Errors
+                        .Select(e => string.IsNullOrEmpty(e.ErrorMessage) ? InvalidValueMessage : e.ErrorMessage)
+                        .ToArray();
                 }
             }
 

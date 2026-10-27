@@ -1,6 +1,5 @@
+using LocalHub.Application.Common.Exceptions;
 using LocalHub.Application.Locations.Dtos;
-using LocalHub.Domain.Accounts;
-using LocalHub.Domain.Common;
 using LocalHub.Domain.Locations;
 using LocalHub.Infrastructure.Geocoding;
 
@@ -8,7 +7,8 @@ namespace LocalHub.Application.Locations;
 
 // Turns the location sent by the user (an address or a pair of coordinates) into an address and a point, using
 // the geocoding service. It does not change any entity, so it can be used before loading them (E12, E16 and the
-// reference location of the search of providers, E18).
+// reference location of the search of providers, E18). The sizes and the ranges were validated by the DTO; here are
+// the rules that compare fields or need the geocoding service (rule R17).
 public class LocationResolver(IGeocodingService geocodingService)
 {
     public async Task<ResolvedLocation> ResolveAsync(SetLocationRequest request, CancellationToken cancellationToken)
@@ -18,13 +18,12 @@ public class LocationResolver(IGeocodingService geocodingService)
 
         if (hasAddress && hasCoordinates)
         {
-            throw new DomainException(DomainErrorKind.Validation,
-                "Indique a morada ou as coordenadas, mas não ambas.", "address");
+            throw new ValidationException("address", "Indique a morada ou as coordenadas, mas não ambas.");
         }
 
         if (!hasAddress && !hasCoordinates)
         {
-            throw new DomainException(DomainErrorKind.Validation, "Indique a morada ou as coordenadas.", "address");
+            throw new ValidationException("address", "Indique a morada ou as coordenadas.");
         }
 
         return hasAddress
@@ -61,24 +60,18 @@ public class LocationResolver(IGeocodingService geocodingService)
             return location.Coordinates;
         }
 
-        return registeredLocation ?? throw new DomainException(DomainErrorKind.Validation,
-            "Indique uma morada ou as coordenadas da localização de referência.", "address");
+        return registeredLocation ?? throw new ValidationException(
+            "address", "Indique uma morada ou as coordenadas da localização de referência.");
     }
 
     private async Task<ResolvedLocation> FromAddressAsync(
         string address, string field, string notFoundMessage, CancellationToken cancellationToken)
     {
         string trimmed = address.Trim();
-        if (trimmed.Length > User.AddressMaxLength)
-        {
-            throw new DomainException(DomainErrorKind.Validation,
-                $"A morada tem no máximo {User.AddressMaxLength} caracteres.", field);
-        }
-
         GeoPoint? coordinates = await geocodingService.GeocodeAsync(trimmed, cancellationToken);
         if (coordinates is null)
         {
-            throw new DomainException(DomainErrorKind.Validation, notFoundMessage, field);
+            throw new ValidationException(field, notFoundMessage);
         }
 
         return new ResolvedLocation(trimmed, coordinates.Value);
@@ -93,24 +86,23 @@ public class LocationResolver(IGeocodingService geocodingService)
         string? address = await geocodingService.ReverseGeocodeAsync(coordinates, cancellationToken);
         if (address is null)
         {
-            throw new DomainException(DomainErrorKind.Validation,
-                "Não foi possível obter uma morada para estas coordenadas.", "latitude");
+            throw new ValidationException("latitude", "Não foi possível obter uma morada para estas coordenadas.");
         }
 
         return new ResolvedLocation(address, coordinates);
     }
 
-    // Both coordinates are required, inside the valid ranges (RF-F015-04).
+    // Both coordinates are required (RF-F015-04); their ranges were validated by the DTO.
     private static GeoPoint ToPoint(decimal? latitude, decimal? longitude)
     {
         if (latitude is null)
         {
-            throw new DomainException(DomainErrorKind.Validation, "Indique a latitude.", "latitude");
+            throw new ValidationException("latitude", "Indique a latitude.");
         }
 
         if (longitude is null)
         {
-            throw new DomainException(DomainErrorKind.Validation, "Indique a longitude.", "longitude");
+            throw new ValidationException("longitude", "Indique a longitude.");
         }
 
         return GeoPoint.Create(latitude.Value, longitude.Value);
