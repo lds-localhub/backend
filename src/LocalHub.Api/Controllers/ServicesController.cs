@@ -89,6 +89,29 @@ public class ServicesController : ControllerBase
         return Ok(await _serviceWorkflowService.DeclineProposalAsync(serviceId, proposalId, cancellationToken));
     }
 
+    // E30: the client that created the service (OPEN or ASSIGNED) or the provider whose proposal was accepted
+    // (ASSIGNED); each role gets its own view of the service, as in E22. Administrators get 403.
+    [HttpPost("{serviceId:int}/cancel")]
+    [Authorize(Roles = "CLIENT,PROVIDER")]
+    [RequiresProfessionalProfile]
+    public async Task<IActionResult> Cancel(int serviceId, CancellationToken cancellationToken)
+    {
+        if (_currentUser.Role == UserRole.Client)
+        {
+            return Ok(await _serviceWorkflowService.CancelAsClientAsync(serviceId, cancellationToken));
+        }
+
+        return Ok(await _serviceWorkflowService.CancelAsProviderAsync(serviceId, cancellationToken));
+    }
+
+    // E31: only the client that created the service (providers and administrators get 403).
+    [HttpPost("{serviceId:int}/complete")]
+    [Authorize(Roles = "CLIENT")]
+    public async Task<ActionResult<ClientServiceResponse>> Complete(int serviceId, CancellationToken cancellationToken)
+    {
+        return Ok(await _serviceWorkflowService.CompleteAsync(serviceId, cancellationToken));
+    }
+
     // E25: only providers with a profile (clients and administrators get 403).
     [HttpPost("{serviceId:int}/proposals")]
     [Authorize(Roles = "PROVIDER")]

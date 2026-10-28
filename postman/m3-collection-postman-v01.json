@@ -6521,6 +6521,341 @@
           ]
         }
       ]
+    },
+    {
+      "name": "F007 e F008 — Cancelar e concluir serviços",
+      "description": "Endpoints E30 e E31 (API v03, secção 8). Usa o Cliente (token), o Prestador com perfil (profileToken), o serviço atribuído da pasta F007 e F008 — Decisões e consultas do Cliente (serviceId) e o trabalho publicado ainda aberto (publicServiceId); executar depois dessa pasta.",
+      "item": [
+        {
+          "name": "E30 — Prestador sem proposta aceite num trabalho aberto (403)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/services/{{publicServiceId}}/cancel",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "services",
+                "{{publicServiceId}}",
+                "cancel"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{profileToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F008-04. Um Prestador só cancela um serviço ASSIGNED em que a sua proposta foi aceite."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 403\", () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E30 — Cancelar o trabalho aberto (200, CANCELLED)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/services/{{publicServiceId}}/cancel",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "services",
+                "{{publicServiceId}}",
+                "cancel"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F008-04. O trabalho passa a CANCELLED; as propostas PENDING passam a VOID e as DECLINED mantêm-se."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Trabalho cancelado sem proposta aceite\", () => {",
+                  "    pm.expect(body.status).to.eql(\"CANCELLED\");",
+                  "    pm.expect(body.acceptedProposal).to.eql(null);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E31 — Marcar como realizado um trabalho cancelado (409 transicao-invalida)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/services/{{publicServiceId}}/complete",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "services",
+                "{{publicServiceId}}",
+                "complete"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F008-06. CANCELLED é um estado final."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 409\", () => pm.response.to.have.status(409));",
+                  "pm.test(\"Tipo transicao-invalida\", () => pm.expect(pm.response.json().type).to.eql(\"https://localhub.local/erros/transicao-invalida\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E31 — Pedido do Prestador contratado (403)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/services/{{serviceId}}/complete",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "services",
+                "{{serviceId}}",
+                "complete"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{profileToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F007-06, regra 1. Só o Cliente marca o serviço como realizado."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 403\", () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E31 — Marcar o serviço como realizado (200, COMPLETED)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/services/{{serviceId}}/complete",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "services",
+                "{{serviceId}}",
+                "complete"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F007-06. O serviço ASSIGNED passa a COMPLETED e regista actualCompletionDate; a proposta aceite mantém-se ACCEPTED."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Serviço realizado com a data de realização\", () => {",
+                  "    pm.expect(body.status).to.eql(\"COMPLETED\");",
+                  "    pm.expect(body.actualCompletionDate).to.not.eql(null);",
+                  "    pm.expect(body.acceptedProposal.status).to.eql(\"ACCEPTED\");",
+                  "    pm.expect(body.reviewed).to.eql(false);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E30 — Cancelar o serviço realizado (409 transicao-invalida)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/services/{{serviceId}}/cancel",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "services",
+                "{{serviceId}}",
+                "cancel"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F007-05, regra 7. O cancelamento de um serviço realizado é rejeitado e o estado mantém-se."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 409\", () => pm.response.to.have.status(409));",
+                  "pm.test(\"Tipo transicao-invalida\", () => pm.expect(pm.response.json().type).to.eql(\"https://localhub.local/erros/transicao-invalida\"));",
+                  "pm.test(\"Mensagem do estado realizado\", () => pm.expect(pm.response.json().detail).to.eql(\"Não é possível cancelar um serviço no estado realizado.\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E30 — Sem token (401)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/services/{{serviceId}}/cancel",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "services",
+                "{{serviceId}}",
+                "cancel"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "RF-F001-03."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 401\", () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E31 — Sem token (401)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/services/{{serviceId}}/complete",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "services",
+                "{{serviceId}}",
+                "complete"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "RF-F001-03."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 401\", () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
     }
   ],
   "variable": [

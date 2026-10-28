@@ -518,6 +518,67 @@ public class ServiceWorkflowService
         return ProposalResponse.From(proposal);
     }
 
+    // E30 (RF-F007-05, RF-F008-04), client side: the service, the proposals and the direct requests are saved with a
+    // single SaveChangesAsync (rule R1). It takes the same lock as E28, so a service cannot be cancelled while a
+    // proposal is being accepted.
+    public async Task<ClientServiceResponse> CancelAsClientAsync(int serviceId, CancellationToken cancellationToken)
+    {
+        await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
+        await LockServiceAsync(serviceId, cancellationToken);
+
+        var service = await FindOwnServiceAsync(_db.Services, serviceId, cancellationToken);
+        service.CancelByClient(_currentUser.UserId, Now());
+        await SaveDecisionAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+
+        return ClientServiceResponse.From(service);
+    }
+
+    // E30 (RF-F007-05, RF-F008-04), provider side: only the provider whose proposal was accepted, while the service is
+    // ASSIGNED. The response is the service as the provider sees it (E22).
+    public async Task<ProviderServiceResponse> CancelAsProviderAsync(int serviceId, CancellationToken cancellationToken)
+    {
+        int? profileId = await _db.FindProfileIdAsync(_currentUser.UserId, cancellationToken);
+        if (profileId is null)
+        {
+            throw new ForbiddenException(ProfileService.MissingProfileMessage, ErrorTypes.MissingProfile);
+        }
+
+        await using (var transaction = await _db.Database.BeginTransactionAsync(cancellationToken))
+        {
+            await LockServiceAsync(serviceId, cancellationToken);
+
+            var service = await _db.Services
+                .Include(s => s.Proposals)
+                .SingleOrDefaultAsync(s => s.ServiceId == serviceId, cancellationToken);
+            if (service is null)
+            {
+                throw new NotFoundException("Serviço não encontrado.");
+            }
+
+            service.CancelByProvider(profileId.Value);
+            await SaveDecisionAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+
+        return await GetForProviderAsync(serviceId, cancellationToken);
+    }
+
+    // E31 (RF-F007-06, RF-F008-05): only the client that created the service, while it is ASSIGNED. It takes the same
+    // lock as E30, so a service cannot be completed and cancelled at the same time.
+    public async Task<ClientServiceResponse> CompleteAsync(int serviceId, CancellationToken cancellationToken)
+    {
+        await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
+        await LockServiceAsync(serviceId, cancellationToken);
+
+        var service = await FindOwnServiceAsync(_db.Services, serviceId, cancellationToken);
+        service.Complete(_currentUser.UserId, Now());
+        await SaveDecisionAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+
+        return ClientServiceResponse.From(service);
+    }
+
     // Rule R1: the row of the service stays locked until the end of the transaction, so a second decision in the same
     // service waits for the first one and then reads the service already changed. Without the lock, both requests
     // would read the same PENDING proposals and the second one would silently overwrite the first.

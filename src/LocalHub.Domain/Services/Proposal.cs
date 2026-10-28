@@ -54,6 +54,9 @@ public class Proposal
     // Section 10.3: PENDING → DECLINED, when the client declines it or accepts another one (RF-F007-04, RF-F008-03).
     internal void Decline(DateTimeOffset now) => Decide(ProposalStatus.Declined, now);
 
+    // Section 10.3: PENDING → VOID, when the client cancels an OPEN service (RF-F007-05, RF-F008-04).
+    internal void Void(DateTimeOffset now) => Decide(ProposalStatus.Void, now);
+
     // The other states are final (RF-F008-06).
     private void Decide(ProposalStatus newStatus, DateTimeOffset now)
     {
