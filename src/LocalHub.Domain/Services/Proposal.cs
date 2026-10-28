@@ -1,3 +1,4 @@
+using LocalHub.Domain.Common;
 using LocalHub.Domain.Profiles;
 
 namespace LocalHub.Domain.Services;
@@ -45,5 +46,23 @@ public class Proposal
         Obs = obs?.Trim();
         Status = ProposalStatus.Pending;
         CreationDate = now;
+    }
+
+    // Section 10.3: PENDING → ACCEPTED, when the client accepts the proposal (RF-F007-03, RF-F008-02).
+    internal void Accept(DateTimeOffset now) => Decide(ProposalStatus.Accepted, now);
+
+    // Section 10.3: PENDING → DECLINED, when the client declines it or accepts another one (RF-F007-04, RF-F008-03).
+    internal void Decline(DateTimeOffset now) => Decide(ProposalStatus.Declined, now);
+
+    // The other states are final (RF-F008-06).
+    private void Decide(ProposalStatus newStatus, DateTimeOffset now)
+    {
+        if (Status != ProposalStatus.Pending)
+        {
+            throw new DomainException(DomainErrorKind.InvalidTransition, "A proposta já não está pendente.");
+        }
+
+        Status = newStatus;
+        DecisionDate = now;
     }
 }

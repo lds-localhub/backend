@@ -265,3 +265,52 @@ Content-Type: application/json
   "description": "Pintar a sala.",
   "requestedStartDate": "2026-12-01"
 }
+
+### E20 - A service with a direct request to the provider above, for the decisions of the client (E21 to E29)
+# @name createService
+POST {{LocalHub.Api_HostAddress}}/api/services
+Authorization: Bearer {{login2.response.body.token}}
+Content-Type: application/json
+
+{
+  "proposalModel": "DIRECT_REQUEST",
+  "serviceCategoryId": 1,
+  "description": "Esquentador sem água quente.",
+  "requestedStartDate": "2026-12-01",
+  "professionalProfileIds": [{{createProfile.response.body.professionalProfileId}}]
+}
+
+### E25 - The provider submits a proposal (expect 201)
+# @name submitProposal
+POST {{LocalHub.Api_HostAddress}}/api/services/{{createService.response.body.serviceId}}/proposals
+Authorization: Bearer {{loginProvider.response.body.token}}
+Content-Type: application/json
+
+{
+  "amount": 80.00,
+  "conditions": "Inclui deslocação e material."
+}
+
+### E21 - The services of the client, newest first, with pendingProposalsCount (status and proposalModel filter)
+GET {{LocalHub.Api_HostAddress}}/api/services?status=OPEN&page=1&pageSize=20
+Authorization: Bearer {{login2.response.body.token}}
+
+### E22 - The service as its client sees it: all the direct requests, each with the provider
+GET {{LocalHub.Api_HostAddress}}/api/services/{{createService.response.body.serviceId}}
+Authorization: Bearer {{login2.response.body.token}}
+
+### E23 - The direct requests of the services of the client, with the provider and its proposal
+GET {{LocalHub.Api_HostAddress}}/api/direct-requests?status=PROPOSAL_SUBMITTED
+Authorization: Bearer {{login2.response.body.token}}
+
+### E26 - The proposals of the service (status filter optional)
+GET {{LocalHub.Api_HostAddress}}/api/services/{{createService.response.body.serviceId}}/proposals
+Authorization: Bearer {{login2.response.body.token}}
+
+### E28 - Accept the proposal (expect 200 ASSIGNED; a second time gets 409 transicao-invalida)
+POST {{LocalHub.Api_HostAddress}}/api/services/{{createService.response.body.serviceId}}/proposals/{{submitProposal.response.body.proposalId}}/accept
+Authorization: Bearer {{login2.response.body.token}}
+
+### E29 - Decline the proposal (here 409, because it was accepted above; a PENDING proposal gets 200 DECLINED)
+POST {{LocalHub.Api_HostAddress}}/api/services/{{createService.response.body.serviceId}}/proposals/{{submitProposal.response.body.proposalId}}/decline
+Authorization: Bearer {{login2.response.body.token}}
