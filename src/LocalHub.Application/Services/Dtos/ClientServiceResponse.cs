@@ -10,6 +10,7 @@ public record ClientServiceResponse(
     int ClientId,
     ProposalModel ProposalModel,
     ServiceCategorySummary ServiceCategory,
+    string Title,
     string Description,
     DateOnly RequestedStartDate,
     DateOnly? RequestedEndDate,
@@ -36,6 +37,7 @@ public record ClientServiceResponse(
             service.ClientId,
             service.ProposalModel,
             new ServiceCategorySummary(service.ServiceCategoryId, service.ServiceCategory.Name),
+            service.Title,
             service.Description,
             service.RequestedStartDate,
             service.RequestedEndDate,
@@ -48,7 +50,7 @@ public record ClientServiceResponse(
             Reviewed: false,
             service.DirectRequests.OrderBy(r => r.DirectRequestId).Select(ClientDirectRequestResponse.From).ToList(),
             accepted is null ? null : ClientProposalResponse.From(accepted),
-            History: []);
+            History: new List<ServiceHistoryResponse>());
     }
 }
 
@@ -117,6 +119,7 @@ public record ServiceListItem(
     int ClientId,
     ProposalModel ProposalModel,
     ServiceCategorySummary ServiceCategory,
+    string Title,
     string Description,
     DateOnly RequestedStartDate,
     DateOnly? RequestedEndDate,

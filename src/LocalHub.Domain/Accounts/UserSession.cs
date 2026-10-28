@@ -20,6 +20,9 @@ public class UserSession
     public DateTimeOffset ExpiresAt { get; private set; }
     public DateTimeOffset? RevokedAt { get; private set; }
 
+    // Navigation (not a column). "= null!": loaded by Entity Framework with Include.
+    public User User { get; private set; } = null!;
+
     public static UserSession Start(User user, DateTimeOffset now)
     {
         if (user.Status != ActivationStatus.Active)

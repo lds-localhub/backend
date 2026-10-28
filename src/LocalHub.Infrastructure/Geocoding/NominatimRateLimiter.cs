@@ -2,11 +2,19 @@
 
 namespace LocalHub.Infrastructure.Geocoding;
 
-public sealed class NominatimRateLimiter(IOptions<NominatimOptions> options, TimeProvider timeProvider) : IDisposable
+public sealed class NominatimRateLimiter : IDisposable
 {
     private readonly SemaphoreSlim _gate = new(1, 1);
-    private readonly TimeSpan _minInterval = options.Value.MinIntervalBetweenRequests;
+    private readonly TimeSpan _minInterval;
     private DateTimeOffset? _lastRequestAt;
+
+    private readonly TimeProvider _timeProvider;
+
+    public NominatimRateLimiter(IOptions<NominatimOptions> options, TimeProvider timeProvider)
+    {
+        _timeProvider = timeProvider;
+        _minInterval = options.Value.MinIntervalBetweenRequests;
+    }
 
     public async Task WaitTurnAsync(CancellationToken cancellationToken)
     {
@@ -15,14 +23,14 @@ public sealed class NominatimRateLimiter(IOptions<NominatimOptions> options, Tim
         {
             if (_lastRequestAt is { } last)
             {
-                TimeSpan wait = last + _minInterval - timeProvider.GetUtcNow();
+                TimeSpan wait = last + _minInterval - _timeProvider.GetUtcNow();
                 if (wait > TimeSpan.Zero)
                 {
-                    await Task.Delay(wait, timeProvider, cancellationToken).ConfigureAwait(false);
+                    await Task.Delay(wait, _timeProvider, cancellationToken).ConfigureAwait(false);
                 }
             }
 
-            _lastRequestAt = timeProvider.GetUtcNow();
+            _lastRequestAt = _timeProvider.GetUtcNow();
         }
         finally
         {

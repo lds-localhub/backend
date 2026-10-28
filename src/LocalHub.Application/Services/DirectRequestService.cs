@@ -10,8 +10,19 @@ using Microsoft.EntityFrameworkCore;
 namespace LocalHub.Application.Services;
 
 // Direct requests seen and answered by the provider that received them, and seen by the client that sent them (F007).
-public class DirectRequestService(LocalHubDbContext db, ICurrentUser currentUser, TimeProvider timeProvider)
+public class DirectRequestService
 {
+    private readonly LocalHubDbContext _db;
+    private readonly ICurrentUser _currentUser;
+    private readonly TimeProvider _timeProvider;
+
+    public DirectRequestService(LocalHubDbContext db, ICurrentUser currentUser, TimeProvider timeProvider)
+    {
+        _db = db;
+        _currentUser = currentUser;
+        _timeProvider = timeProvider;
+    }
+
     // E23 (RF-F007-09), provider side: only the requests sent to the profile of the provider, newest first. The
     // proposal of the provider is the one for the same service. The data of the Client is not returned.
     public async Task<PagedResult<DirectRequestListItem>> ListAsync(
@@ -27,7 +38,7 @@ public class DirectRequestService(LocalHubDbContext db, ICurrentUser currentUser
 
         int profileId = await GetMyProfileIdAsync(cancellationToken);
 
-        var requests = db.DirectRequests.AsNoTracking().Where(r => r.ProfessionalProfileId == profileId);
+        var requests = _db.DirectRequests.AsNoTracking().Where(r => r.ProfessionalProfileId == profileId);
         if (statusFilter is not null)
         {
             requests = requests.Where(r => r.Status == statusFilter);
@@ -45,18 +56,19 @@ public class DirectRequestService(LocalHubDbContext db, ICurrentUser currentUser
                 r.Status,
                 r.CreationDate,
                 r.ResponseDate,
-                Service = db.Services
+                Service = _db.Services
                     .Where(s => s.ServiceId == r.ServiceId)
                     .Select(s => new DirectRequestServiceSummary(
                         s.ServiceId,
                         new ServiceCategorySummary(s.ServiceCategoryId, s.ServiceCategory.Name),
+                        s.Title,
                         s.Description,
                         s.Location,
                         s.RequestedStartDate,
                         s.RequestedEndDate,
                         s.Status))
                     .First(),
-                Proposal = db.Proposals
+                Proposal = _db.Proposals
                     .Where(p => p.ServiceId == r.ServiceId && p.ProfessionalProfileId == r.ProfessionalProfileId)
                     .Select(p => new { p.ProposalId, p.Amount, p.Conditions, p.Obs, p.Status })
                     .FirstOrDefault(),
@@ -92,9 +104,9 @@ public class DirectRequestService(LocalHubDbContext db, ICurrentUser currentUser
             throw new ValidationException(errors);
         }
 
-        int clientId = currentUser.UserId;
-        var requests = db.DirectRequests.AsNoTracking()
-            .Where(r => db.Services.Any(s => s.ServiceId == r.ServiceId && s.ClientId == clientId));
+        int clientId = _currentUser.UserId;
+        var requests = _db.DirectRequests.AsNoTracking()
+            .Where(r => _db.Services.Any(s => s.ServiceId == r.ServiceId && s.ClientId == clientId));
         if (statusFilter is not null)
         {
             requests = requests.Where(r => r.Status == statusFilter);
@@ -114,18 +126,19 @@ public class DirectRequestService(LocalHubDbContext db, ICurrentUser currentUser
                 r.ResponseDate,
                 Provider = new ProviderSummary(
                     r.ProfessionalProfileId, r.ProfessionalProfile.ServiceProvider.Name, r.ProfessionalProfile.AverageRating),
-                Service = db.Services
+                Service = _db.Services
                     .Where(s => s.ServiceId == r.ServiceId)
                     .Select(s => new DirectRequestServiceSummary(
                         s.ServiceId,
                         new ServiceCategorySummary(s.ServiceCategoryId, s.ServiceCategory.Name),
+                        s.Title,
                         s.Description,
                         s.Location,
                         s.RequestedStartDate,
                         s.RequestedEndDate,
                         s.Status))
                     .First(),
-                Proposal = db.Proposals
+                Proposal = _db.Proposals
                     .Where(p => p.ServiceId == r.ServiceId && p.ProfessionalProfileId == r.ProfessionalProfileId)
                     .Select(p => new { p.ProposalId, p.Amount, p.Conditions, p.Obs, p.Status })
                     .FirstOrDefault(),
@@ -153,22 +166,30 @@ public class DirectRequestService(LocalHubDbContext db, ICurrentUser currentUser
     public async Task<DirectRequestStatusResponse> DeclineAsync(int directRequestId, CancellationToken cancellationToken)
     {
         int profileId = await GetMyProfileIdAsync(cancellationToken);
-        var service = await db.Services
+        var service = await _db.Services
             .Include(s => s.DirectRequests)
-            .SingleOrDefaultAsync(s => s.DirectRequests.Any(r => r.DirectRequestId == directRequestId), cancellationToken)
-            ?? throw new NotFoundException("Solicitação direta não encontrada.");
+            .SingleOrDefaultAsync(s => s.DirectRequests.Any(r => r.DirectRequestId == directRequestId), cancellationToken);
+        if (service is null)
+        {
+            throw new NotFoundException("Solicitação direta não encontrada.");
+        }
 
-        var utcNow = timeProvider.GetUtcNow();
+        var utcNow = _timeProvider.GetUtcNow();
         var now = utcNow.AddTicks(-(utcNow.Ticks % TimeSpan.TicksPerMicrosecond));
         var request = service.DeclineDirectRequest(directRequestId, profileId, now);
-        await db.SaveChangesAsync(cancellationToken);
+        await _db.SaveChangesAsync(cancellationToken);
 
         return DirectRequestStatusResponse.From(service.ServiceId, request);
     }
 
     private async Task<int> GetMyProfileIdAsync(CancellationToken cancellationToken)
     {
-        return await db.FindProfileIdAsync(currentUser.UserId, cancellationToken)
-               ?? throw new ForbiddenException(ProfileService.MissingProfileMessage, ErrorTypes.MissingProfile);
+        int? profileId = await _db.FindProfileIdAsync(_currentUser.UserId, cancellationToken);
+        if (profileId is null)
+        {
+            throw new ForbiddenException(ProfileService.MissingProfileMessage, ErrorTypes.MissingProfile);
+        }
+
+        return profileId.Value;
     }
 }

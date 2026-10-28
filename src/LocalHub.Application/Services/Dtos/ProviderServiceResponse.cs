@@ -8,6 +8,7 @@ public record ProviderServiceResponse(
     int ServiceId,
     ProposalModel ProposalModel,
     ServiceCategorySummary ServiceCategory,
+    string Title,
     string Description,
     DateOnly RequestedStartDate,
     DateOnly? RequestedEndDate,

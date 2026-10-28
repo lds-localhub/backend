@@ -152,7 +152,7 @@ public class ClientProposalsEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal(JsonValueKind.Null, service.GetProperty("acceptedProposal").ValueKind);
     }
 
-    // CA5: rule R1 of the Class Model (xmin of Service and index UX_Proposal_serviceId_accepted).
+    // CA5: rule R1 of the Class Model (index UX_Proposal_serviceId_accepted).
     [Fact]
     [Trait("Requisito", "RF-F007-03")]
     [Trait("Requisito", "RF-F008-02")]

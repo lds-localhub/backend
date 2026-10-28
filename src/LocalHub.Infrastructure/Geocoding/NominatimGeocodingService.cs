@@ -2,7 +2,7 @@
 using System.Text;
 using System.Text.Json;
 
-using LocalHub.Domain.Locations;
+using LocalHub.Infrastructure.Geocoding;
 
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -14,18 +14,30 @@ namespace LocalHub.Infrastructure.Geocoding;
 /// Usa os endpoints «search» e «reverse» no formato jsonv2 e respeita a política de utilização:
 /// User-Agent próprio (configurado no HttpClient) e no máximo um pedido por segundo (<see cref="NominatimRateLimiter"/>).
 /// </summary>
-public sealed partial class NominatimGeocodingService(
-    HttpClient httpClient,
-    NominatimRateLimiter rateLimiter,
-    IOptions<NominatimOptions> options,
-    ILogger<NominatimGeocodingService> logger) : IGeocodingService
+public sealed partial class NominatimGeocodingService : IGeocodingService
 {
     /// <summary>Tamanho máximo da morada guardada (coluna address varchar(255) do Modelo de Dados v01).</summary>
     public const int AddressMaxLength = 255;
 
-    private readonly NominatimOptions _options = options.Value;
+    private readonly NominatimOptions _options;
 
-    public async Task<GeoPoint?> GeocodeAsync(string address, CancellationToken cancellationToken = default)
+    private readonly HttpClient _httpClient;
+    private readonly NominatimRateLimiter _rateLimiter;
+    private readonly ILogger<NominatimGeocodingService> _logger;
+
+    public NominatimGeocodingService(
+        HttpClient httpClient,
+        NominatimRateLimiter rateLimiter,
+        IOptions<NominatimOptions> options,
+        ILogger<NominatimGeocodingService> logger)
+    {
+        _httpClient = httpClient;
+        _rateLimiter = rateLimiter;
+        _logger = logger;
+        _options = options.Value;
+    }
+
+    public async Task<Coordinates?> GeocodeAsync(string address, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(address);
 
@@ -53,10 +65,10 @@ public sealed partial class NominatimGeocodingService(
             throw new GeocodingUnavailableException("O Nominatim devolveu coordenadas num formato inesperado.");
         }
 
-        return GeoPoint.Create(latitude, longitude);
+        return Coordinates.Rounded(latitude, longitude);
     }
 
-    public async Task<string?> ReverseGeocodeAsync(GeoPoint coordinates, CancellationToken cancellationToken = default)
+    public async Task<string?> ReverseGeocodeAsync(Coordinates coordinates, CancellationToken cancellationToken = default)
     {
         Dictionary<string, string?> query = new()
         {
@@ -85,22 +97,22 @@ public sealed partial class NominatimGeocodingService(
             return null;
         }
 
-        return address.Length <= AddressMaxLength ? address : address[..AddressMaxLength];
+        return address.Length <= AddressMaxLength ? address : address.Substring(0, AddressMaxLength);
     }
 
     private async Task<JsonDocument> SendAsync(string path, Dictionary<string, string?> query, CancellationToken cancellationToken)
     {
         Uri requestUri = BuildRelativeUri(path, query);
 
-        await rateLimiter.WaitTurnAsync(cancellationToken).ConfigureAwait(false);
+        await _rateLimiter.WaitTurnAsync(cancellationToken).ConfigureAwait(false);
 
         try
         {
-            using HttpResponseMessage response = await httpClient.GetAsync(requestUri, cancellationToken).ConfigureAwait(false);
+            using HttpResponseMessage response = await _httpClient.GetAsync(requestUri, cancellationToken).ConfigureAwait(false);
 
             if (!response.IsSuccessStatusCode)
             {
-                LogUnsuccessfulStatus(logger, (int)response.StatusCode, path);
+                LogUnsuccessfulStatus(_logger, (int)response.StatusCode, path);
                 throw new GeocodingUnavailableException("O Nominatim respondeu com um código de erro.");
             }
 
@@ -109,18 +121,24 @@ public sealed partial class NominatimGeocodingService(
         }
         catch (HttpRequestException ex)
         {
-            LogRequestFailed(logger, ex, path);
+            LogRequestFailed(_logger, ex, path);
             throw new GeocodingUnavailableException("Não foi possível contactar o Nominatim.", ex);
         }
-        catch (TaskCanceledException ex) when (!cancellationToken.IsCancellationRequested)
+        catch (TaskCanceledException ex)
         {
+            // O pedido do utilizador foi cancelado: a exceção continua.
+            if (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+
             // Tempo limite do HttpClient: não foi o pedido do utilizador a ser cancelado.
-            LogRequestFailed(logger, ex, path);
+            LogRequestFailed(_logger, ex, path);
             throw new GeocodingUnavailableException("O Nominatim não respondeu a tempo.", ex);
         }
         catch (JsonException ex)
         {
-            LogRequestFailed(logger, ex, path);
+            LogRequestFailed(_logger, ex, path);
             throw new GeocodingUnavailableException("O Nominatim devolveu uma resposta inválida.", ex);
         }
     }

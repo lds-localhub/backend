@@ -12,9 +12,17 @@ namespace LocalHub.Api.Controllers;
 // F007: the direct requests received by the provider or sent by the client.
 [ApiController]
 [Route("api/direct-requests")]
-public class DirectRequestsController(DirectRequestService directRequestService, ICurrentUser currentUser)
-    : ControllerBase
+public class DirectRequestsController : ControllerBase
 {
+    private readonly DirectRequestService _directRequestService;
+    private readonly ICurrentUser _currentUser;
+
+    public DirectRequestsController(DirectRequestService directRequestService, ICurrentUser currentUser)
+    {
+        _directRequestService = directRequestService;
+        _currentUser = currentUser;
+    }
+
     // E23: the provider sees the requests sent to its profile; the client, the requests of its services, with the
     // provider (DirectRequestListItem or ClientDirectRequestListItem).
     [HttpGet]
@@ -27,9 +35,12 @@ public class DirectRequestsController(DirectRequestService directRequestService,
         [FromQuery] int pageSize = PageRequest.DefaultPageSize)
     {
         var pageRequest = new PageRequest(page, pageSize);
-        return currentUser.Role == UserRole.Client
-            ? Ok(await directRequestService.ListForClientAsync(status, pageRequest, cancellationToken))
-            : Ok(await directRequestService.ListAsync(status, pageRequest, cancellationToken));
+        if (_currentUser.Role == UserRole.Client)
+        {
+            return Ok(await _directRequestService.ListForClientAsync(status, pageRequest, cancellationToken));
+        }
+
+        return Ok(await _directRequestService.ListAsync(status, pageRequest, cancellationToken));
     }
 
     // E24: only the provider that received the request.
@@ -39,6 +50,6 @@ public class DirectRequestsController(DirectRequestService directRequestService,
     public async Task<ActionResult<DirectRequestStatusResponse>> Decline(
         int directRequestId, CancellationToken cancellationToken)
     {
-        return Ok(await directRequestService.DeclineAsync(directRequestId, cancellationToken));
+        return Ok(await _directRequestService.DeclineAsync(directRequestId, cancellationToken));
     }
 }

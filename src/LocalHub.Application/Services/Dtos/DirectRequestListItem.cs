@@ -15,6 +15,7 @@ public record DirectRequestListItem(
 public record DirectRequestServiceSummary(
     int ServiceId,
     ServiceCategorySummary ServiceCategory,
+    string Title,
     string Description,
     string Location,
     DateOnly RequestedStartDate,

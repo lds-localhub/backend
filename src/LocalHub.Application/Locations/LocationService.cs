@@ -9,23 +9,34 @@ using Microsoft.EntityFrameworkCore;
 
 namespace LocalHub.Application.Locations;
 
-public class LocationService(LocalHubDbContext db, LocationResolver resolver, ICurrentUser currentUser)
+public class LocationService
 {
+    private readonly LocalHubDbContext _db;
+    private readonly LocationResolver _resolver;
+    private readonly ICurrentUser _currentUser;
+
+    public LocationService(LocalHubDbContext db, LocationResolver resolver, ICurrentUser currentUser)
+    {
+        _db = db;
+        _resolver = resolver;
+        _currentUser = currentUser;
+    }
+
     // E16. The location is resolved before the user is loaded, so when the address is not found or the geocoding
     // service is unavailable the saved location stays as it was.
     public async Task<UserResponse> SetMineAsync(SetLocationRequest request, CancellationToken cancellationToken)
     {
-        var location = await resolver.ResolveAsync(request, cancellationToken);
+        var location = await _resolver.ResolveAsync(request, cancellationToken);
 
-        var user = await db.Users.SingleOrDefaultAsync(u => u.UserId == currentUser.UserId, cancellationToken);
+        var user = await _db.Users.SingleOrDefaultAsync(u => u.UserId == _currentUser.UserId, cancellationToken);
         if (user is null)
         {
             throw new NotFoundException("Utilizador não encontrado.");
         }
 
-        user.SetLocation(location.Address, location.Coordinates);
-        await db.SaveChangesAsync(cancellationToken);
+        user.SetLocation(location.Address, location.Coordinates.Latitude, location.Coordinates.Longitude);
+        await _db.SaveChangesAsync(cancellationToken);
 
-        return UserResponse.From(user, await db.FindProfileIdAsync(user.UserId, cancellationToken));
+        return UserResponse.From(user, await _db.FindProfileIdAsync(user.UserId, cancellationToken));
     }
 }

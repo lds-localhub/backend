@@ -12,7 +12,8 @@ using static LocalHub.IntegrationTests.Fixtures.AuthRequests;
 
 namespace LocalHub.IntegrationTests.Accounts;
 
-// F002: E05 (list accounts), E06 (deactivate account) and E07 (activate account), reserved to the administrator.
+// F002: E05 (list accounts), E06 (deactivate account), E07 (activate account) and E41 (reset password), reserved to
+// the administrator.
 // The 401 and 403 cases of these endpoints are in AccessControlTests.
 [Collection(ApiTestGroup.Name)]
 [Trait("Category", "Integration")]
@@ -220,7 +221,10 @@ public class AccountsEndpointsTests(LocalHubApiFactory factory)
         using var response = await LoginAsync(_client, account.Email, ValidPassword);
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-        await AssertProblemAsync(response, "https://localhub.local/erros/conta-desativada", "/api/auth/login");
+        var body = await AssertProblemAsync(response, "https://localhub.local/erros/conta-desativada", "/api/auth/login");
+        Assert.Equal(
+            "A sua conta foi desativada. Para saber o motivo, contacte suporte@localhub.test.",
+            body.GetProperty("detail").GetString());
         Assert.Empty(await GetSessionsAsync(account.UserId));
     }
 
@@ -258,6 +262,118 @@ public class AccountsEndpointsTests(LocalHubApiFactory factory)
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
         await AssertProblemAsync(response, ConflictType, $"{AccountsUrl}/{account.UserId}/activate");
+    }
+
+    [Fact]
+    [Trait("Requisito", "RF-F002-05")]
+    [Trait("Requisito", "RNF-01")]
+    public async Task ResetPassword_ContaDeCliente_Devolve200ComPalavraPasseTemporariaValida()
+    {
+        var account = await RegisterAccountAsync("CLIENT");
+        string adminToken = await LoginAsAdminAsync(_client);
+
+        string temporaryPassword = await ResetPasswordAsync(adminToken, account.UserId);
+
+        Assert.True(temporaryPassword.Length >= 8);
+        Assert.Contains(temporaryPassword, char.IsLetter);
+        Assert.Contains(temporaryPassword, char.IsDigit);
+        Assert.NotEqual(temporaryPassword, await GetPasswordHashAsync(account.UserId));
+    }
+
+    [Fact]
+    [Trait("Requisito", "RF-F002-05")]
+    public async Task ResetPassword_PalavraPasseTemporaria_IniciaSessaoEAnteriorDeixaDeFuncionar()
+    {
+        var account = await RegisterAccountAsync("CLIENT");
+        string adminToken = await LoginAsAdminAsync(_client);
+
+        string temporaryPassword = await ResetPasswordAsync(adminToken, account.UserId);
+
+        using var newLogin = await LoginAsync(_client, account.Email, temporaryPassword);
+        Assert.Equal(HttpStatusCode.OK, newLogin.StatusCode);
+        using var oldLogin = await LoginAsync(_client, account.Email, ValidPassword);
+        Assert.Equal(HttpStatusCode.Unauthorized, oldLogin.StatusCode);
+    }
+
+    [Fact]
+    [Trait("Requisito", "RF-F002-05")]
+    public async Task ResetPassword_SessoesAnteriores_PassamADevolver401()
+    {
+        var account = await RegisterAccountAsync("PROVIDER");
+        string userToken = await LoginAndGetTokenAsync(_client, account.Email, ValidPassword);
+        await LoginAndGetTokenAsync(_client, account.Email, ValidPassword);
+        string adminToken = await LoginAsAdminAsync(_client);
+
+        await ResetPasswordAsync(adminToken, account.UserId);
+
+        using var me = await SendWithTokenAsync(_client, HttpMethod.Get, MeUrl, userToken);
+        Assert.Equal(HttpStatusCode.Unauthorized, me.StatusCode);
+        var sessions = await GetSessionsAsync(account.UserId);
+        Assert.Equal(2, sessions.Count);
+        Assert.All(sessions, revokedAt => Assert.NotNull(revokedAt));
+    }
+
+    [Fact]
+    [Trait("Requisito", "RF-F002-05")]
+    public async Task ResetPassword_ContaDeAdministrador_Devolve409()
+    {
+        string adminToken = await LoginAsAdminAsync(_client);
+        int adminId = await GetMyUserIdAsync(adminToken);
+        string url = $"{AccountsUrl}/{adminId}/reset-password";
+
+        using var response = await SendWithTokenAsync(_client, HttpMethod.Post, url, adminToken);
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        await AssertProblemAsync(response, ConflictType, url);
+        using var me = await SendWithTokenAsync(_client, HttpMethod.Get, MeUrl, adminToken);
+        Assert.Equal(HttpStatusCode.OK, me.StatusCode);
+    }
+
+    [Fact]
+    [Trait("Requisito", "RF-F002-05")]
+    public async Task ResetPassword_ContaDesativada_MantemEstadoDaConta()
+    {
+        var account = await RegisterAccountAsync("PROVIDER");
+        string adminToken = await LoginAsAdminAsync(_client);
+        await DeactivateAsync(adminToken, account.UserId);
+
+        string temporaryPassword = await ResetPasswordAsync(adminToken, account.UserId);
+
+        var listed = (await ListAllAsync(adminToken, "role=PROVIDER"))
+            .Single(a => a.GetProperty("userId").GetInt32() == account.UserId);
+        Assert.Equal("INACTIVE", listed.GetProperty("status").GetString());
+        using var login = await LoginAsync(_client, account.Email, temporaryPassword);
+        Assert.Equal(HttpStatusCode.Forbidden, login.StatusCode);
+        await AssertProblemAsync(login, "https://localhub.local/erros/conta-desativada", "/api/auth/login");
+    }
+
+    [Fact]
+    [Trait("Requisito", "RF-F002-05")]
+    public async Task ResetPassword_ContaInexistente_Devolve404()
+    {
+        string adminToken = await LoginAsAdminAsync(_client);
+        string url = $"{AccountsUrl}/{int.MaxValue}/reset-password";
+
+        using var response = await SendWithTokenAsync(_client, HttpMethod.Post, url, adminToken);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        await AssertProblemAsync(response, NotFoundType, url);
+    }
+
+    private async Task<string> ResetPasswordAsync(string adminToken, int userId)
+    {
+        using var response = await SendWithTokenAsync(
+            _client, HttpMethod.Post, $"{AccountsUrl}/{userId}/reset-password", adminToken);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        return body.GetProperty("temporaryPassword").GetString()!;
+    }
+
+    private async Task<string> GetPasswordHashAsync(int userId)
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<LocalHubDbContext>();
+        return await db.Users.Where(u => u.UserId == userId).Select(u => u.PasswordHash).SingleAsync();
     }
 
     private async Task<(int UserId, string Email)> RegisterAccountAsync(string role, string name = "Teste Contas")

@@ -248,7 +248,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\",\n  \"client\": \"WEB\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -307,7 +307,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"errada123\"\n}",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"errada123\",\n  \"client\": \"WEB\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -596,7 +596,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"{{accountEmail}}\",\n  \"password\": \"{{password}}\"\n}",
+              "raw": "{\n  \"email\": \"{{accountEmail}}\",\n  \"password\": \"{{password}}\",\n  \"client\": \"WEB\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -689,7 +689,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}",
+              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\",\n  \"client\": \"WEB\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1000,7 +1000,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"{{accountEmail}}\",\n  \"password\": \"{{password}}\"\n}",
+              "raw": "{\n  \"email\": \"{{accountEmail}}\",\n  \"password\": \"{{password}}\",\n  \"client\": \"WEB\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1201,7 +1201,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"{{accountEmail}}\",\n  \"password\": \"{{password}}\"\n}",
+              "raw": "{\n  \"email\": \"{{accountEmail}}\",\n  \"password\": \"{{password}}\",\n  \"client\": \"WEB\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1432,7 +1432,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"{{categoryUserEmail}}\",\n  \"password\": \"{{password}}\"\n}",
+              "raw": "{\n  \"email\": \"{{categoryUserEmail}}\",\n  \"password\": \"{{password}}\",\n  \"client\": \"WEB\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1578,7 +1578,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}",
+              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\",\n  \"client\": \"WEB\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -2103,7 +2103,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\",\n  \"client\": \"WEB\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -2340,7 +2340,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}",
+              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\",\n  \"client\": \"WEB\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -2507,7 +2507,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"{{profileEmail}}\",\n  \"password\": \"{{password}}\"\n}",
+              "raw": "{\n  \"email\": \"{{profileEmail}}\",\n  \"password\": \"{{password}}\",\n  \"client\": \"WEB\"\n}",
               "options": {
                 "raw": {
                   "language": "json"

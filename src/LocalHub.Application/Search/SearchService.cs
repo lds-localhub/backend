@@ -4,17 +4,28 @@ using LocalHub.Application.Locations;
 using LocalHub.Application.Profiles.Dtos;
 using LocalHub.Application.Search.Dtos;
 using LocalHub.Domain.Accounts;
-using LocalHub.Domain.Common;
 using LocalHub.Domain.Locations;
 using LocalHub.Infrastructure;
+using LocalHub.Infrastructure.Geocoding;
 
 using Microsoft.EntityFrameworkCore;
 
 namespace LocalHub.Application.Search;
 
-public class SearchService(LocalHubDbContext db, LocationResolver locationResolver, ICurrentUser currentUser)
+public class SearchService
 {
     private const string CategoryField = "serviceCategoryId";
+
+    private readonly LocalHubDbContext _db;
+    private readonly LocationResolver _locationResolver;
+    private readonly ICurrentUser _currentUser;
+
+    public SearchService(LocalHubDbContext db, LocationResolver locationResolver, ICurrentUser currentUser)
+    {
+        _db = db;
+        _locationResolver = locationResolver;
+        _currentUser = currentUser;
+    }
 
     // E18 (RF-F005-01, RF-F005-02, RF-F009-02): the providers of an active category, ordered by the distance to the
     // reference location. The service radius does not limit the results; each result tells whether the reference
@@ -22,12 +33,8 @@ public class SearchService(LocalHubDbContext db, LocationResolver locationResolv
     public async Task<PagedResult<ProviderSearchResult>> SearchProvidersAsync(
         ProviderSearchRequest request, PageRequest page, CancellationToken cancellationToken)
     {
+        // The category is required and the coordinates are inside their ranges (checked by the controller, rule R17).
         var errors = new Dictionary<string, string[]>();
-        if (request.ServiceCategoryId is null)
-        {
-            errors[CategoryField] = ["Indique a categoria de serviços."];
-        }
-
         page.Validate(errors);
         if (errors.Count > 0)
         {
@@ -38,13 +45,13 @@ public class SearchService(LocalHubDbContext db, LocationResolver locationResolv
         await EnsureCategoryIsActiveAsync(serviceCategoryId, cancellationToken);
 
         // Last, because an address is sent to the Nominatim: not found → 400, Nominatim down → 503.
-        GeoPoint reference = await locationResolver.ResolveReferenceAsync(
+        Coordinates reference = await _locationResolver.ResolveReferenceAsync(
             request.Address, request.Latitude, request.Longitude, await FindClientLocationAsync(cancellationToken),
             cancellationToken);
 
         // Only providers with an active account, a profile with the category and a location (the radius is always
         // defined in the profile) — RF-F005-01, rule 3; RF-F015-05.
-        var profiles = db.ProfessionalProfiles.AsNoTracking()
+        var profiles = _db.ProfessionalProfiles.AsNoTracking()
             .Where(p => p.ServiceProvider.Status == ActivationStatus.Active
                         && p.ServiceProvider.Latitude != null
                         && p.ServiceProvider.Longitude != null
@@ -102,31 +109,30 @@ public class SearchService(LocalHubDbContext db, LocationResolver locationResolv
     // RF-F005-01, rule 2: only active categories can be searched.
     private async Task EnsureCategoryIsActiveAsync(int serviceCategoryId, CancellationToken cancellationToken)
     {
-        bool isActive = await db.ServiceCategories.AnyAsync(
+        bool isActive = await _db.ServiceCategories.AnyAsync(
             c => c.ServiceCategoryId == serviceCategoryId && c.Status == ActivationStatus.Active,
             cancellationToken);
 
         if (!isActive)
         {
-            throw new DomainException(DomainErrorKind.Validation,
-                "A categoria indicada não existe ou está desativada.", CategoryField);
+            throw new ValidationException(CategoryField, "A categoria indicada não existe ou está desativada.");
         }
     }
 
     // RF-F005-02, rule 1: the registered location of a client is used when the search has no other location.
     // Visitors and the other roles always indicate it.
-    private async Task<GeoPoint?> FindClientLocationAsync(CancellationToken cancellationToken)
+    private async Task<Coordinates?> FindClientLocationAsync(CancellationToken cancellationToken)
     {
-        if (!currentUser.IsAuthenticated || currentUser.Role != UserRole.Client)
+        if (!_currentUser.IsAuthenticated || _currentUser.Role != UserRole.Client)
         {
             return null;
         }
 
-        var location = await db.Users.AsNoTracking()
-            .Where(u => u.UserId == currentUser.UserId && u.Latitude != null && u.Longitude != null)
+        var location = await _db.Users.AsNoTracking()
+            .Where(u => u.UserId == _currentUser.UserId && u.Latitude != null && u.Longitude != null)
             .Select(u => new { Latitude = u.Latitude!.Value, Longitude = u.Longitude!.Value })
             .SingleOrDefaultAsync(cancellationToken);
 
-        return location is null ? null : GeoPoint.Create(location.Latitude, location.Longitude);
+        return location is null ? null : Coordinates.Rounded(location.Latitude, location.Longitude);
     }
 }
