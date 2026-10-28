@@ -411,31 +411,49 @@ public class ServiceWorkflowService
     }
 
     // E28 (RF-F007-03, RF-F008-02). The changes of the service, of the proposals and of the direct requests are saved
-    // with a single SaveChangesAsync (rule R1). Two simultaneous acceptances in the same service: the second one is
-    // refused by the index of the accepted proposal, and gets 409.
+    // with a single SaveChangesAsync (rule R1). Two simultaneous decisions in the same service: the second one waits
+    // for the lock of the service, reads it already ASSIGNED and gets 409.
     public async Task<ClientServiceResponse> AcceptProposalAsync(
         int serviceId, int proposalId, CancellationToken cancellationToken)
     {
+        await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
+        await LockServiceAsync(serviceId, cancellationToken);
+
         var service = await FindOwnServiceAsync(_db.Services, serviceId, cancellationToken);
         EnsureProposalBelongs(service, proposalId);
 
         service.AcceptProposal(proposalId, _currentUser.UserId, Now());
         await SaveDecisionAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
 
         return ClientServiceResponse.From(service);
     }
 
-    // E29 (RF-F007-04, RF-F008-03): only the proposal changes; the service stays OPEN.
+    // E29 (RF-F007-04, RF-F008-03): only the proposal changes; the service stays OPEN. It takes the same lock as E28,
+    // so a proposal cannot be declined and accepted at the same time.
     public async Task<ProposalResponse> DeclineProposalAsync(
         int serviceId, int proposalId, CancellationToken cancellationToken)
     {
+        await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
+        await LockServiceAsync(serviceId, cancellationToken);
+
         var service = await FindOwnServiceAsync(_db.Services, serviceId, cancellationToken);
         EnsureProposalBelongs(service, proposalId);
 
         var proposal = service.DeclineProposal(proposalId, _currentUser.UserId, Now());
         await SaveDecisionAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
 
         return ProposalResponse.From(proposal);
+    }
+
+    // Rule R1: the row of the service stays locked until the end of the transaction, so a second decision in the same
+    // service waits for the first one and then reads the service already changed. Without the lock, both requests
+    // would read the same PENDING proposals and the second one would silently overwrite the first.
+    private async Task LockServiceAsync(int serviceId, CancellationToken cancellationToken)
+    {
+        await _db.Database.ExecuteSqlAsync(
+            $"SELECT 1 FROM \"Service\" WHERE \"serviceId\" = {serviceId} FOR UPDATE", cancellationToken);
     }
 
     // The service with everything the client sees (E22, E26, E28). 404 when it does not exist; 403 when it was created
@@ -478,8 +496,8 @@ public class ServiceWorkflowService
         return utcNow.AddTicks(-(utcNow.Ticks % TimeSpan.TicksPerMicrosecond));
     }
 
-    // Rule R1: a second accepted proposal in the same service is refused by the index UX_Proposal_serviceId_accepted.
-    // The client has to reload the service, so the error is a 409 transicao-invalida.
+    // Rule R1: besides the lock, a second accepted proposal in the same service is refused by the index
+    // UX_Proposal_serviceId_accepted. The client has to reload the service, so the error is a 409 transicao-invalida.
     private async Task SaveDecisionAsync(CancellationToken cancellationToken)
     {
         try
