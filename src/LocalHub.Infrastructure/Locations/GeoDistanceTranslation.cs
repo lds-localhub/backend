@@ -15,6 +15,9 @@ namespace LocalHub.Infrastructure.Locations;
 // It is part of each query; no function is created in the database.
 public static class GeoDistanceTranslation
 {
+    // LEAST does not propagate NULL from any of its two arguments.
+    private static readonly bool[] NoNullPropagation = { false, false };
+
     private static readonly DoubleTypeMapping DoublePrecision = new("double precision");
 
     public static void Register(ModelBuilder modelBuilder)
@@ -43,9 +46,9 @@ public static class GeoDistanceTranslation
         // queries only pass users with a location.
         var atMostOne = new SqlFunctionExpression(
             "LEAST",
-            [Constant(1), Function("sqrt", a)],
+            new SqlExpression[] { Constant(1), Function("sqrt", a) },
             nullable: true,
-            argumentsPropagateNullability: [false, false],
+            argumentsPropagateNullability: NoNullPropagation,
             typeof(double),
             DoublePrecision);
 

@@ -40,6 +40,12 @@ public class AccessControlTests(LocalHubApiFactory factory)
         { "GET", "/api/search/services/1" },
         { "GET", "/api/direct-requests/1" },
         { "GET", "/api/proposals/1" },
+        { "GET", "/api/services" },
+        { "GET", "/api/services/1/proposals" },
+        { "POST", "/api/services/1/proposals/1/accept" },
+        { "POST", "/api/services/1/proposals/1/decline" },
+        { "PUT", "/api/users/me/password" },
+        { "POST", "/api/accounts/1/reset-password" },
     };
 
     // Add each endpoint restricted to the administrator here, once for each role that is not authorized.
@@ -57,6 +63,8 @@ public class AccessControlTests(LocalHubApiFactory factory)
         { "PUT", "/api/categories/1", "PROVIDER" },
         { "POST", "/api/categories/1/deactivate", "CLIENT" },
         { "POST", "/api/categories/1/deactivate", "PROVIDER" },
+        { "POST", "/api/accounts/1/reset-password", "CLIENT" },
+        { "POST", "/api/accounts/1/reset-password", "PROVIDER" },
     };
 
     [Theory]

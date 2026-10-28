@@ -20,8 +20,10 @@ public static class AuthRequests
         HttpClient client, string name, string email, string password, string role) =>
         client.PostAsJsonAsync("/api/auth/register", new { name, email, password, role });
 
-    public static Task<HttpResponseMessage> LoginAsync(HttpClient client, string email, string password) =>
-        client.PostAsJsonAsync("/api/auth/login", new { email, password });
+    // "app" is the application that starts the session (E02, field client): WEB or MOBILE.
+    public static Task<HttpResponseMessage> LoginAsync(
+        HttpClient client, string email, string password, string app = "WEB") =>
+        client.PostAsJsonAsync("/api/auth/login", new { email, password, client = app });
 
     public static async Task<HttpResponseMessage> SendWithTokenAsync(
         HttpClient client, HttpMethod method, string url, string? token)

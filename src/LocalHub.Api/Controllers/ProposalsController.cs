@@ -11,8 +11,15 @@ namespace LocalHub.Api.Controllers;
 // F008: the proposals presented by the provider.
 [ApiController]
 [Route("api/proposals")]
-public class ProposalsController(ServiceWorkflowService serviceWorkflowService) : ControllerBase
+public class ProposalsController : ControllerBase
 {
+    private readonly ServiceWorkflowService _serviceWorkflowService;
+
+    public ProposalsController(ServiceWorkflowService serviceWorkflowService)
+    {
+        _serviceWorkflowService = serviceWorkflowService;
+    }
+
     // E27: only providers, and only their own proposals.
     [HttpGet]
     [Authorize(Roles = "PROVIDER")]
@@ -24,7 +31,7 @@ public class ProposalsController(ServiceWorkflowService serviceWorkflowService) 
         [FromQuery] int page = PageRequest.DefaultPage,
         [FromQuery] int pageSize = PageRequest.DefaultPageSize)
     {
-        return Ok(await serviceWorkflowService.ListMyProposalsAsync(
+        return Ok(await _serviceWorkflowService.ListMyProposalsAsync(
             status, proposalModel, new PageRequest(page, pageSize), cancellationToken));
     }
 
@@ -34,6 +41,6 @@ public class ProposalsController(ServiceWorkflowService serviceWorkflowService) 
     [RequiresProfessionalProfile]
     public async Task<ActionResult<ProviderProposalResponse>> Get(int proposalId, CancellationToken cancellationToken)
     {
-        return Ok(await serviceWorkflowService.GetMyProposalAsync(proposalId, cancellationToken));
+        return Ok(await _serviceWorkflowService.GetMyProposalAsync(proposalId, cancellationToken));
     }
 }

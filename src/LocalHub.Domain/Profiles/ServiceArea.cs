@@ -7,10 +7,14 @@ namespace LocalHub.Domain.Profiles;
 /// </summary>
 public class ServiceArea
 {
+    // Composite primary key (ServiceCategoryId, ProfessionalProfileId), configured in ServiceAreaConfiguration.
     public int ServiceCategoryId { get; private set; }
     public int ProfessionalProfileId { get; private set; }
-    // "= null!": always set by ProfessionalProfile or loaded by Entity Framework with Include.
+
+    // Navigations (they are not columns). "= null!": always set by ProfessionalProfile or loaded by Entity Framework
+    // with Include.
     public ServiceCategory ServiceCategory { get; private set; } = null!;
+    public ProfessionalProfile ProfessionalProfile { get; private set; } = null!;
 
     // Private: Entity Framework uses this constructor when it reads an area.
     private ServiceArea() { }

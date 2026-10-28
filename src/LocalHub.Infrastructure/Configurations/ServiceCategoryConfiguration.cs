@@ -5,19 +5,18 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace LocalHub.Infrastructure.Configurations;
 
-// Table "ServiceCategory" of the data model (database/01-esquema.sql). The unique index UX_ServiceCategory_name,
-// on lower("name"), is created by the migration AddServiceCategories, because EF Core cannot describe it.
+// Table "ServiceCategory" of the data model.
 public class ServiceCategoryConfiguration : IEntityTypeConfiguration<ServiceCategory>
 {
     public void Configure(EntityTypeBuilder<ServiceCategory> builder)
     {
-        builder.HasKey(c => c.ServiceCategoryId).HasName("PK_ServiceCategory");
-        builder.Property(c => c.ServiceCategoryId).UseIdentityAlwaysColumn();
+        builder.ToTable("ServiceCategory");
+
         builder.Property(c => c.Name).HasMaxLength(ServiceCategory.NameMaxLength);
 
-        builder.ToTable("ServiceCategory", t =>
-        {
-            t.HasCheckConstraint("CK_ServiceCategory_name", "btrim(\"name\") <> ''");
-        });
+        // Normal UNIQUE; the uniqueness ignoring upper and lower case is checked by the CategoryService (E09, E10).
+        builder.HasIndex(c => c.Name)
+            .IsUnique()
+            .HasDatabaseName("UX_ServiceCategory_name");
     }
 }

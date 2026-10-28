@@ -116,6 +116,7 @@ public class PublishedJobsEndpointsTests(LocalHubApiFactory factory)
         var first = items[0];
         Assert.Equal(provider.ServiceCategoryId,
             first.GetProperty("serviceCategory").GetProperty("serviceCategoryId").GetInt32());
+        Assert.Equal("Substituir torneira", first.GetProperty("title").GetString());
         Assert.Equal("Substituir a torneira da cozinha que pinga.", first.GetProperty("description").GetString());
         Assert.Equal(FakeGeocodingService.AddressAt2Km, first.GetProperty("location").GetString());
         Assert.Equal(Today.AddDays(1).ToString(IsoDate, CultureInfo.InvariantCulture),
@@ -240,6 +241,7 @@ public class PublishedJobsEndpointsTests(LocalHubApiFactory factory)
         var job = await BodyAsync(response);
         Assert.Equal(serviceId, job.GetProperty("serviceId").GetInt32());
         Assert.Equal(provider.ServiceCategoryId, job.GetProperty("serviceCategory").GetProperty("serviceCategoryId").GetInt32());
+        Assert.Equal("Substituir torneira", job.GetProperty("title").GetString());
         Assert.Equal("Substituir a torneira da cozinha que pinga.", job.GetProperty("description").GetString());
         Assert.Equal(FakeGeocodingService.AddressAt10Km, job.GetProperty("location").GetString());
         Assert.Equal(10.0m, job.GetProperty("distanceKm").GetDecimal());

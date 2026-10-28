@@ -33,7 +33,8 @@ Content-Type: application/json
 
 {
   "email": "ana.almeida@localhub.test",
-  "password": "{{seedPassword}}"
+  "password": "{{seedPassword}}",
+  "client": "WEB"
 }
 
 ### E02 - Wrong password (expect 401 credenciais-invalidas)
@@ -42,7 +43,8 @@ Content-Type: application/json
 
 {
   "email": "ana.almeida@localhub.test",
-  "password": "errada123"
+  "password": "errada123",
+  "client": "WEB"
 }
 
 ### E04 - Authenticated user
@@ -74,7 +76,8 @@ Content-Type: application/json
 
 {
   "email": "teste.registo@localhub.test",
-  "password": "casa2026"
+  "password": "casa2026",
+  "client": "WEB"
 }
 
 ### E07 - Activate the account again (expect 200; a second time gets 409)
@@ -92,7 +95,8 @@ Content-Type: application/json
 
 {
   "email": "carla.costa@localhub.test",
-  "password": "{{seedPassword}}"
+  "password": "{{seedPassword}}",
+  "client": "WEB"
 }
 
 ### E16 - Set the location by address (geocoded by Nominatim, needs Internet access)
@@ -133,7 +137,8 @@ Content-Type: application/json
 
 {
   "email": "olga.oliveira@localhub.test",
-  "password": "Demo2026"
+  "password": "Demo2026",
+  "client": "WEB"
 }
 
 ### E14 - Provider without a profile (expect 403 perfil-em-falta)
@@ -263,6 +268,55 @@ Content-Type: application/json
   "requestedStartDate": "2026-12-01"
 }
 
+### E20 - A service with a direct request to the provider above, for the decisions of the client (E21 to E29)
+# @name createService
+POST {{LocalHub.Api_HostAddress}}/api/services
+Authorization: Bearer {{login2.response.body.token}}
+Content-Type: application/json
+
+{
+  "proposalModel": "DIRECT_REQUEST",
+  "serviceCategoryId": 1,
+  "description": "Esquentador sem água quente.",
+  "requestedStartDate": "2026-12-01",
+  "professionalProfileIds": [{{createProfile.response.body.professionalProfileId}}]
+}
+
+### E25 - The provider submits a proposal (expect 201)
+# @name submitProposal
+POST {{LocalHub.Api_HostAddress}}/api/services/{{createService.response.body.serviceId}}/proposals
+Authorization: Bearer {{loginProvider.response.body.token}}
+Content-Type: application/json
+
+{
+  "amount": 80.00,
+  "conditions": "Inclui deslocação e material."
+}
+
+### E21 - The services of the client, newest first, with pendingProposalsCount (status and proposalModel filter)
+GET {{LocalHub.Api_HostAddress}}/api/services?status=OPEN&page=1&pageSize=20
+Authorization: Bearer {{login2.response.body.token}}
+
+### E22 - The service as its client sees it: all the direct requests, each with the provider
+GET {{LocalHub.Api_HostAddress}}/api/services/{{createService.response.body.serviceId}}
+Authorization: Bearer {{login2.response.body.token}}
+
+### E23 - The direct requests of the services of the client, with the provider and its proposal
+GET {{LocalHub.Api_HostAddress}}/api/direct-requests?status=PROPOSAL_SUBMITTED
+Authorization: Bearer {{login2.response.body.token}}
+
+### E26 - The proposals of the service (status filter optional)
+GET {{LocalHub.Api_HostAddress}}/api/services/{{createService.response.body.serviceId}}/proposals
+Authorization: Bearer {{login2.response.body.token}}
+
+### E28 - Accept the proposal (expect 200 ASSIGNED; a second time gets 409 transicao-invalida)
+POST {{LocalHub.Api_HostAddress}}/api/services/{{createService.response.body.serviceId}}/proposals/{{submitProposal.response.body.proposalId}}/accept
+Authorization: Bearer {{login2.response.body.token}}
+
+### E29 - Decline the proposal (here 409, because it was accepted above; a PENDING proposal gets 200 DECLINED)
+POST {{LocalHub.Api_HostAddress}}/api/services/{{createService.response.body.serviceId}}/proposals/{{submitProposal.response.body.proposalId}}/decline
+Authorization: Bearer {{login2.response.body.token}}
+
 ### E19 - Search the published jobs of "Canalização" (category 1), ordered by the distance to the provider's location
 GET {{LocalHub.Api_HostAddress}}/api/search/services?serviceCategoryId=1
 Authorization: Bearer {{loginProvider.response.body.token}}
@@ -287,17 +341,6 @@ Authorization: Bearer {{loginProvider.response.body.token}}
 GET {{LocalHub.Api_HostAddress}}/api/direct-requests/{{createDirectService.response.body.directRequests[0].directRequestId}}
 Authorization: Bearer {{loginProvider.response.body.token}}
 
-### E25 - Submit a proposal to the direct request
-# @name submitProposal
-POST {{LocalHub.Api_HostAddress}}/api/services/{{createDirectService.response.body.serviceId}}/proposals
-Authorization: Bearer {{loginProvider.response.body.token}}
-Content-Type: application/json
-
-{
-  "amount": 80.00,
-  "conditions": "Inclui deslocação e material."
-}
-
-### E37 - The proposal above, with the summary of its service
+### E37 - The proposal submitted above, with the summary of its service
 GET {{LocalHub.Api_HostAddress}}/api/proposals/{{submitProposal.response.body.proposalId}}
 Authorization: Bearer {{loginProvider.response.body.token}}

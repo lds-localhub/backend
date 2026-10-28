@@ -11,12 +11,15 @@ public class DirectRequest
     public int DirectRequestId { get; private set; }
     public int ServiceId { get; private set; }
     public int ProfessionalProfileId { get; private set; }
-    // "= null!": always set by Service.Create or loaded by Entity Framework with Include.
-    public ProfessionalProfile ProfessionalProfile { get; private set; } = null!;
     public DirectRequestStatus Status { get; private set; }
     // Set when the provider answers (proposal submitted or declined); null while PENDING and when VOID.
     public DateTimeOffset? ResponseDate { get; private set; }
     public DateTimeOffset CreationDate { get; private set; }
+
+    // Navigations (they are not columns). "= null!": always set by Service.Create or loaded by Entity Framework with
+    // Include.
+    public Service Service { get; private set; } = null!;
+    public ProfessionalProfile ProfessionalProfile { get; private set; } = null!;
 
     // Private: Entity Framework uses this constructor when it reads a direct request.
     private DirectRequest() { }
@@ -35,6 +38,18 @@ public class DirectRequest
 
     // Section 10.4: PENDING → DECLINED, when the provider declines the request (RF-F007-02).
     internal void Decline(DateTimeOffset now) => Answer(DirectRequestStatus.Declined, now);
+
+    // Section 10.4: PENDING → VOID, when the client accepts a proposal of the service (RF-F007-03). The provider did
+    // not answer, so responseDate stays null.
+    internal void Void()
+    {
+        if (Status != DirectRequestStatus.Pending)
+        {
+            throw new DomainException(DomainErrorKind.InvalidTransition, "A solicitação direta já não está pendente.");
+        }
+
+        Status = DirectRequestStatus.Void;
+    }
 
     // The other states are final (RF-F007-08).
     private void Answer(DirectRequestStatus newStatus, DateTimeOffset now)

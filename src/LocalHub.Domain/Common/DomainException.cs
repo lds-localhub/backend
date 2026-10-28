@@ -3,10 +3,17 @@
 /// <summary>
 /// Represents an error thrown when a business rule of the domain is broken.
 /// </summary>
-public class DomainException(DomainErrorKind kind, string message, string? field = null) : Exception(message)
+public class DomainException : Exception
 {
-    public DomainErrorKind Kind { get; } = kind;
+    public DomainException(DomainErrorKind kind, string message, string? field = null)
+        : base(message)
+    {
+        Kind = kind;
+        Field = field;
+    }
+
+    public DomainErrorKind Kind { get; }
     // Name of the request field that caused the error (for example "email"), so the API can show the message
     // next to that field. It is null when the error is not about a specific field.
-    public string? Field { get; } = field;
+    public string? Field { get; }
 }

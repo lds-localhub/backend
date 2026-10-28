@@ -518,15 +518,12 @@ public class ProposalsEndpointsTests(LocalHubApiFactory factory)
 
     [Fact]
     [Trait("Requisito", "RF-F007-09")]
-    public async Task ListDirectRequests_ClienteOuPrestadorSemPerfil_Devolve403()
+    public async Task ListDirectRequests_PrestadorSemPerfil_Devolve403PerfilEmFalta()
     {
-        var client = await RegisterClientAsync(_client);
         var (token, _, _) = await RegisterProviderAsync(_client);
 
-        using var asClient = await GetAsync(client.Token, "/api/direct-requests");
         using var withoutProfile = await GetAsync(token, "/api/direct-requests");
 
-        Assert.Equal(HttpStatusCode.Forbidden, asClient.StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, withoutProfile.StatusCode);
         await AssertProblemAsync(withoutProfile, MissingProfileType, "/api/direct-requests");
     }
@@ -660,12 +657,13 @@ public class ProposalsEndpointsTests(LocalHubApiFactory factory)
 
     [Fact]
     [Trait("Requisito", "RF-F011-01")]
-    public async Task GetService_Cliente_Devolve403()
+    public async Task GetService_ClienteQueNaoEAutor_Devolve403()
     {
         var provider = await CreateProviderWithProfileAsync(_client);
-        var (client, serviceId) = await CreatePublicServiceAsync(provider.ServiceCategoryId);
+        var (_, serviceId) = await CreatePublicServiceAsync(provider.ServiceCategoryId);
+        var other = await RegisterClientAsync(_client);
 
-        using var response = await GetAsync(client.Token, $"{ServicesUrl}/{serviceId}");
+        using var response = await GetAsync(other.Token, $"{ServicesUrl}/{serviceId}");
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }

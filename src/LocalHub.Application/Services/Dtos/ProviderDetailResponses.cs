@@ -18,6 +18,7 @@ public record ProviderDirectRequestResponse(
 public record DirectRequestServiceDetail(
     int ServiceId,
     ServiceCategorySummary ServiceCategory,
+    string Title,
     string Description,
     string Location,
     decimal? DistanceKm,
@@ -52,6 +53,7 @@ public record ProposalServiceDetail(
     int ServiceId,
     ProposalModel ProposalModel,
     ServiceCategorySummary ServiceCategory,
+    string Title,
     string Description,
     string Location,
     decimal? DistanceKm,

@@ -5,21 +5,19 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace LocalHub.Infrastructure.Configurations;
 
-// Table "ServiceArea" of the data model: the categories of each profile (RF-F004-04).
-// The relationship to ProfessionalProfile (ON DELETE CASCADE) is configured in ProfessionalProfileConfiguration.
+// Table "ServiceArea" of the data model: the categories of each profile (RF-F004-04). The relationship with
+// ProfessionalProfile (ON DELETE CASCADE) is found by convention.
 public class ServiceAreaConfiguration : IEntityTypeConfiguration<ServiceArea>
 {
     public void Configure(EntityTypeBuilder<ServiceArea> builder)
     {
-        builder.HasKey(a => new { a.ServiceCategoryId, a.ProfessionalProfileId }).HasName("PK_ServiceArea");
-        builder.HasIndex(a => a.ProfessionalProfileId).HasDatabaseName("IX_ServiceArea_professionalProfileId");
-
-        builder.HasOne(a => a.ServiceCategory)
-            .WithMany()
-            .HasForeignKey(a => a.ServiceCategoryId)
-            .HasConstraintName("FK_ServiceArea_ServiceCategory")
-            .OnDelete(DeleteBehavior.Restrict);
-
         builder.ToTable("ServiceArea");
+
+        builder.HasKey(a => new { a.ServiceCategoryId, a.ProfessionalProfileId });
+
+        // The categories are never deleted, only deactivated.
+        builder.HasOne(a => a.ServiceCategory)
+            .WithMany(c => c.ServiceAreas)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

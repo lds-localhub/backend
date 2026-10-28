@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+
 using LocalHub.Api.Filters;
 using LocalHub.Application.Common;
 using LocalHub.Application.Search;
@@ -11,24 +13,32 @@ namespace LocalHub.Api.Controllers;
 // Searches by distance: F005 (E18) and F006 (E19, with the detail of each published job in E38).
 [ApiController]
 [Route("api/search")]
-public class SearchController(SearchService searchService) : ControllerBase
+public class SearchController : ControllerBase
 {
-    // E18: public (RF-F001-03, rule 3). With the token of a client, its registered location is used when the request
+    private readonly SearchService _searchService;
+
+    public SearchController(SearchService searchService)
+    {
+        _searchService = searchService;
+    }
+
+    // E18: public (RF-F001-03, rule 3). The parameters are validated by [ApiController] before the method is called
+    // (rule R17). With the token of a client, its registered location is used when the request
     // has no coordinates and no address.
     [HttpGet("providers")]
     [AllowAnonymous]
     public async Task<ActionResult<PagedResult<ProviderSearchResult>>> SearchProviders(
-        [FromQuery] int? serviceCategoryId,
-        [FromQuery] string? address,
-        [FromQuery] decimal? latitude,
-        [FromQuery] decimal? longitude,
+        [FromQuery, Required(ErrorMessage = "Indique a categoria de serviços.")] int? serviceCategoryId,
+        [FromQuery, StringLength(Domain.Accounts.User.AddressMaxLength, ErrorMessage = "A morada é demasiado longa.")] string? address,
+        [FromQuery, Range(-90.0, 90.0, ErrorMessage = "A latitude tem de estar entre -90 e 90.")] decimal? latitude,
+        [FromQuery, Range(-180.0, 180.0, ErrorMessage = "A longitude tem de estar entre -180 e 180.")] decimal? longitude,
         [FromQuery] string? name,
         CancellationToken cancellationToken,
         [FromQuery] int page = PageRequest.DefaultPage,
         [FromQuery] int pageSize = PageRequest.DefaultPageSize)
     {
         var request = new ProviderSearchRequest(serviceCategoryId, address, latitude, longitude, name);
-        return Ok(await searchService.SearchProvidersAsync(request, new PageRequest(page, pageSize), cancellationToken));
+        return Ok(await _searchService.SearchProvidersAsync(request, new PageRequest(page, pageSize), cancellationToken));
     }
 
     // E19: only providers with a profile (clients and administrators get 403). The distance is always calculated from
@@ -43,7 +53,7 @@ public class SearchController(SearchService searchService) : ControllerBase
         [FromQuery] int page = PageRequest.DefaultPage,
         [FromQuery] int pageSize = PageRequest.DefaultPageSize)
     {
-        return Ok(await searchService.SearchPublishedJobsAsync(
+        return Ok(await _searchService.SearchPublishedJobsAsync(
             serviceCategoryId, withinServiceRadius, new PageRequest(page, pageSize), cancellationToken));
     }
 
@@ -53,6 +63,6 @@ public class SearchController(SearchService searchService) : ControllerBase
     [RequiresProfessionalProfile]
     public async Task<ActionResult<PublishedJobResponse>> GetPublishedJob(int serviceId, CancellationToken cancellationToken)
     {
-        return Ok(await searchService.GetPublishedJobAsync(serviceId, cancellationToken));
+        return Ok(await _searchService.GetPublishedJobAsync(serviceId, cancellationToken));
     }
 }

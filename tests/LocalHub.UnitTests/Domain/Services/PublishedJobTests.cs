@@ -1,6 +1,5 @@
 using LocalHub.Domain.Accounts;
 using LocalHub.Domain.Categories;
-using LocalHub.Domain.Locations;
 using LocalHub.Domain.Profiles;
 using LocalHub.Domain.Services;
 
@@ -12,7 +11,8 @@ public class PublishedJobTests
 {
     private static readonly DateTimeOffset Now = new(2026, 10, 27, 9, 0, 0, TimeSpan.Zero);
     private static readonly DateOnly Today = new(2026, 10, 27);
-    private static readonly GeoPoint Porto = GeoPoint.Create(41.1579m, -8.6291m);
+    private const decimal PortoLatitude = 41.1579m;
+    private const decimal PortoLongitude = -8.6291m;
     private static readonly ServiceCategory Plumbing = ServiceCategory.Create("Canalização");
     private static readonly Func<Service, bool> IsOpenPublishedJob = Service.IsOpenPublishedJob.Compile();
 
@@ -28,8 +28,9 @@ public class PublishedJobTests
     [Trait("Requisito", "RF-F006-01")]
     public void IsOpenPublishedJob_ServicoComSolicitacoesDiretas_DevolveFalse()
     {
-        var service = Service.Create(NewClient(), Plumbing, ProposalModel.DirectRequest, "Torneira com fuga de água.",
-            Today, null, "Rua do Almada 10, Porto", Porto, [Profile()], Now);
+        var service = Service.Create(NewClient(), Plumbing, ProposalModel.DirectRequest, "Reparar torneira",
+            "Torneira com fuga de água.", Today, null, "Rua do Almada 10, Porto", PortoLatitude, PortoLongitude,
+            [Profile()], Now);
 
         Assert.False(IsOpenPublishedJob(service));
     }
@@ -67,12 +68,12 @@ public class PublishedJobTests
     private static User NewClient() => User.Register("Carla Costa", "carla@localhub.test", UserRole.Client);
 
     private static Service CreatePublic(User client) =>
-        Service.Create(client, Plumbing, ProposalModel.Public, "Substituir torneira.", Today, null,
-            "Rua do Almada 10, Porto", Porto, [], Now);
+        Service.Create(client, Plumbing, ProposalModel.Public, "Reparar torneira", "Substituir torneira.", Today, null,
+            "Rua do Almada 10, Porto", PortoLatitude, PortoLongitude, [], Now);
 
     private static ProfessionalProfile Profile()
     {
         var provider = User.Register("Prestador", "prestador@localhub.test", UserRole.Provider);
-        return ProfessionalProfile.Create(provider, "Apresentação", "Telefone", "Experiência", [Plumbing], 10m);
+        return ProfessionalProfile.Create(provider, "Apresentação", "Telefone", "Experiência", [Plumbing], 10);
     }
 }

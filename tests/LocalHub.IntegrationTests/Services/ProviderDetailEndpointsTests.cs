@@ -51,6 +51,7 @@ public class ProviderDetailEndpointsTests(LocalHubApiFactory factory)
         var service = request.GetProperty("service");
         Assert.Equal(serviceId, service.GetProperty("serviceId").GetInt32());
         Assert.Equal(provider.ServiceCategoryId, service.GetProperty("serviceCategory").GetProperty("serviceCategoryId").GetInt32());
+        Assert.Equal("Reparar fuga na torneira", service.GetProperty("title").GetString());
         Assert.Equal("Torneira da casa de banho com fuga de água.", service.GetProperty("description").GetString());
         Assert.Equal(FakeGeocodingService.AddressAt10Km, service.GetProperty("location").GetString());
         Assert.Equal(10.0m, service.GetProperty("distanceKm").GetDecimal());
@@ -150,6 +151,7 @@ public class ProviderDetailEndpointsTests(LocalHubApiFactory factory)
         var service = proposal.GetProperty("service");
         Assert.Equal(serviceId, service.GetProperty("serviceId").GetInt32());
         Assert.Equal("DIRECT_REQUEST", service.GetProperty("proposalModel").GetString());
+        Assert.Equal("Reparar fuga na torneira", service.GetProperty("title").GetString());
         Assert.Equal(provider.ServiceCategoryId, service.GetProperty("serviceCategory").GetProperty("serviceCategoryId").GetInt32());
         Assert.Equal(FakeGeocodingService.AddressAt10Km, service.GetProperty("location").GetString());
         Assert.Equal(10.0m, service.GetProperty("distanceKm").GetDecimal());

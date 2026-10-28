@@ -6,18 +6,29 @@ using LocalHub.Application.Profiles.Dtos;
 using LocalHub.Application.Search.Dtos;
 using LocalHub.Application.Services.Dtos;
 using LocalHub.Domain.Accounts;
-using LocalHub.Domain.Common;
 using LocalHub.Domain.Locations;
 using LocalHub.Domain.Services;
 using LocalHub.Infrastructure;
+using LocalHub.Infrastructure.Geocoding;
 
 using Microsoft.EntityFrameworkCore;
 
 namespace LocalHub.Application.Search;
 
-public class SearchService(LocalHubDbContext db, LocationResolver locationResolver, ICurrentUser currentUser)
+public class SearchService
 {
     private const string CategoryField = "serviceCategoryId";
+
+    private readonly LocalHubDbContext _db;
+    private readonly LocationResolver _locationResolver;
+    private readonly ICurrentUser _currentUser;
+
+    public SearchService(LocalHubDbContext db, LocationResolver locationResolver, ICurrentUser currentUser)
+    {
+        _db = db;
+        _locationResolver = locationResolver;
+        _currentUser = currentUser;
+    }
 
     // E18 (RF-F005-01, RF-F005-02, RF-F009-02): the providers of an active category, ordered by the distance to the
     // reference location. The service radius does not limit the results; each result tells whether the reference
@@ -25,12 +36,8 @@ public class SearchService(LocalHubDbContext db, LocationResolver locationResolv
     public async Task<PagedResult<ProviderSearchResult>> SearchProvidersAsync(
         ProviderSearchRequest request, PageRequest page, CancellationToken cancellationToken)
     {
+        // The category is required and the coordinates are inside their ranges (checked by the controller, rule R17).
         var errors = new Dictionary<string, string[]>();
-        if (request.ServiceCategoryId is null)
-        {
-            errors[CategoryField] = ["Indique a categoria de serviços."];
-        }
-
         page.Validate(errors);
         if (errors.Count > 0)
         {
@@ -41,13 +48,13 @@ public class SearchService(LocalHubDbContext db, LocationResolver locationResolv
         await EnsureCategoryIsActiveAsync(serviceCategoryId, cancellationToken);
 
         // Last, because an address is sent to the Nominatim: not found → 400, Nominatim down → 503.
-        GeoPoint reference = await locationResolver.ResolveReferenceAsync(
+        Coordinates reference = await _locationResolver.ResolveReferenceAsync(
             request.Address, request.Latitude, request.Longitude, await FindClientLocationAsync(cancellationToken),
             cancellationToken);
 
         // Only providers with an active account, a profile with the category and a location (the radius is always
         // defined in the profile) — RF-F005-01, rule 3; RF-F015-05.
-        var profiles = db.ProfessionalProfiles.AsNoTracking()
+        var profiles = _db.ProfessionalProfiles.AsNoTracking()
             .Where(p => p.ServiceProvider.Status == ActivationStatus.Active
                         && p.ServiceProvider.Latitude != null
                         && p.ServiceProvider.Longitude != null
@@ -123,13 +130,17 @@ public class SearchService(LocalHubDbContext db, LocationResolver locationResolv
         }
 
         // The profile always has a location (E12 and E14 require the address); without it there is no distance.
-        if (provider.Location is not { } reference)
+        if (provider.Location is null)
         {
-            throw new DomainException(DomainErrorKind.Validation,
-                "Indique a morada no seu perfil profissional para pesquisar trabalhos publicados.", "address");
+            var locationErrors = new FieldErrors();
+            locationErrors.Add("address", "Indique a morada no seu perfil profissional para pesquisar trabalhos publicados.");
+            locationErrors.ThrowIfAny();
         }
 
-        var jobs = db.Services.AsNoTracking().Where(Service.IsOpenPublishedJob);
+        // ThrowIfAny above always throws without a location.
+        Coordinates reference = provider.Location!;
+
+        var jobs = _db.Services.AsNoTracking().Where(Service.IsOpenPublishedJob);
         if (serviceCategoryId is not null)
         {
             jobs = jobs.Where(s => s.ServiceCategoryId == serviceCategoryId);
@@ -158,6 +169,7 @@ public class SearchService(LocalHubDbContext db, LocationResolver locationResolv
                 r.Service.ServiceId,
                 r.Service.ServiceCategoryId,
                 CategoryName = r.Service.ServiceCategory.Name,
+                r.Service.Title,
                 r.Service.Description,
                 r.Service.Location,
                 r.Service.RequestedStartDate,
@@ -171,6 +183,7 @@ public class SearchService(LocalHubDbContext db, LocationResolver locationResolv
             .Select(r => new PublishedJobSearchResult(
                 r.ServiceId,
                 new ServiceCategorySummary(r.ServiceCategoryId, r.CategoryName),
+                r.Title,
                 r.Description,
                 r.Location,
                 GeoDistance.RoundKm(r.DistanceKm),
@@ -189,7 +202,7 @@ public class SearchService(LocalHubDbContext db, LocationResolver locationResolv
     {
         var provider = await FindProviderAsync(cancellationToken);
 
-        var job = await db.Services.AsNoTracking()
+        var job = await _db.Services.AsNoTracking()
             .Where(s => s.ServiceId == serviceId)
             .Where(Service.IsOpenPublishedJob)
             .Select(s => new
@@ -197,6 +210,7 @@ public class SearchService(LocalHubDbContext db, LocationResolver locationResolv
                 s.ServiceId,
                 s.ServiceCategoryId,
                 CategoryName = s.ServiceCategory.Name,
+                s.Title,
                 s.Description,
                 s.Location,
                 s.Latitude,
@@ -210,17 +224,21 @@ public class SearchService(LocalHubDbContext db, LocationResolver locationResolv
                     .Select(p => (int?)p.ProposalId)
                     .FirstOrDefault(),
             })
-            .SingleOrDefaultAsync(cancellationToken)
-            ?? throw new NotFoundException("Trabalho publicado não encontrado.");
+            .SingleOrDefaultAsync(cancellationToken);
+        if (job is null)
+        {
+            throw new NotFoundException("Trabalho publicado não encontrado.");
+        }
 
-        bool withinServiceRadius = provider.Location is { } location
+        bool withinServiceRadius = provider.Location is not null
                                    && GeoDistance.HaversineKm(
-                                       location.Latitude, location.Longitude, job.Latitude, job.Longitude)
+                                       provider.Location.Latitude, provider.Location.Longitude, job.Latitude, job.Longitude)
                                    <= provider.ServiceRadiusKm;
 
         return new PublishedJobResponse(
             job.ServiceId,
             new ServiceCategorySummary(job.ServiceCategoryId, job.CategoryName),
+            job.Title,
             job.Description,
             job.Location,
             LocationQueries.DistanceKm(provider.Location, job.Latitude, job.Longitude),
@@ -235,48 +253,50 @@ public class SearchService(LocalHubDbContext db, LocationResolver locationResolv
     // filter already refuses a provider without a profile; this is the same rule in the application.
     private async Task<ProviderReference> FindProviderAsync(CancellationToken cancellationToken)
     {
-        var profile = await db.ProfessionalProfiles.AsNoTracking()
-            .Where(p => p.ServiceProviderId == currentUser.UserId)
+        var profile = await _db.ProfessionalProfiles.AsNoTracking()
+            .Where(p => p.ServiceProviderId == _currentUser.UserId)
             .Select(p => new { p.ProfessionalProfileId, p.ServiceRadiusKm })
-            .SingleOrDefaultAsync(cancellationToken)
-            ?? throw new ForbiddenException(ProfileService.MissingProfileMessage, ErrorTypes.MissingProfile);
+            .SingleOrDefaultAsync(cancellationToken);
+        if (profile is null)
+        {
+            throw new ForbiddenException(ProfileService.MissingProfileMessage, ErrorTypes.MissingProfile);
+        }
 
         return new ProviderReference(
             profile.ProfessionalProfileId,
             profile.ServiceRadiusKm,
-            await db.FindLocationAsync(currentUser.UserId, cancellationToken));
+            await _db.FindLocationAsync(_currentUser.UserId, cancellationToken));
     }
 
-    private sealed record ProviderReference(int ProfessionalProfileId, short ServiceRadiusKm, GeoPoint? Location);
+    private sealed record ProviderReference(int ProfessionalProfileId, short ServiceRadiusKm, Coordinates? Location);
 
     // RF-F005-01, rule 2: only active categories can be searched.
     private async Task EnsureCategoryIsActiveAsync(int serviceCategoryId, CancellationToken cancellationToken)
     {
-        bool isActive = await db.ServiceCategories.AnyAsync(
+        bool isActive = await _db.ServiceCategories.AnyAsync(
             c => c.ServiceCategoryId == serviceCategoryId && c.Status == ActivationStatus.Active,
             cancellationToken);
 
         if (!isActive)
         {
-            throw new DomainException(DomainErrorKind.Validation,
-                "A categoria indicada não existe ou está desativada.", CategoryField);
+            throw new ValidationException(CategoryField, "A categoria indicada não existe ou está desativada.");
         }
     }
 
     // RF-F005-02, rule 1: the registered location of a client is used when the search has no other location.
     // Visitors and the other roles always indicate it.
-    private async Task<GeoPoint?> FindClientLocationAsync(CancellationToken cancellationToken)
+    private async Task<Coordinates?> FindClientLocationAsync(CancellationToken cancellationToken)
     {
-        if (!currentUser.IsAuthenticated || currentUser.Role != UserRole.Client)
+        if (!_currentUser.IsAuthenticated || _currentUser.Role != UserRole.Client)
         {
             return null;
         }
 
-        var location = await db.Users.AsNoTracking()
-            .Where(u => u.UserId == currentUser.UserId && u.Latitude != null && u.Longitude != null)
+        var location = await _db.Users.AsNoTracking()
+            .Where(u => u.UserId == _currentUser.UserId && u.Latitude != null && u.Longitude != null)
             .Select(u => new { Latitude = u.Latitude!.Value, Longitude = u.Longitude!.Value })
             .SingleOrDefaultAsync(cancellationToken);
 
-        return location is null ? null : GeoPoint.Create(location.Latitude, location.Longitude);
+        return location is null ? null : Coordinates.Rounded(location.Latitude, location.Longitude);
     }
 }

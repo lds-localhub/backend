@@ -8,6 +8,7 @@ namespace LocalHub.Application.Search.Dtos;
 public record PublishedJobSearchResult(
     int ServiceId,
     ServiceCategorySummary ServiceCategory,
+    string Title,
     string Description,
     string Location,
     decimal DistanceKm,
@@ -21,6 +22,7 @@ public record PublishedJobSearchResult(
 public record PublishedJobResponse(
     int ServiceId,
     ServiceCategorySummary ServiceCategory,
+    string Title,
     string Description,
     string Location,
     decimal? DistanceKm,
