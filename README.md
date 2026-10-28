@@ -146,9 +146,10 @@ dados foi criada com eles) e é indicada na execução, na variável `adminPassw
 pastas F003 e F004 também a usam, para criar as categorias. A pasta F005 (pesquisa de Prestadores) usa o perfil e a
 categoria criados na F004 e o Cliente da F001, com a localização da F015, por isso só funciona depois dessas pastas.
 A pasta F009 e F010 (criar serviço) usa o Cliente da F001 e a localização definida na F015, e o perfil criado na
-F004, por isso tem de ser executada depois delas. A pasta F007 e F008 (decisões e consultas do Cliente)
-usa o serviço da F009 e F010 e a proposta e o trabalho publicado da pasta F007 e F011, por isso é a última a ser
-executada.
+F004, por isso tem de ser executada depois delas. A pasta «F006, F007 e F008 — Consultas do Prestador» (E19, E38,
+E36 e E37) usa o serviço, a solicitação direta, a proposta e o trabalho publicado da pasta F007 e F011, antes de o
+Cliente decidir sobre as propostas. A pasta F007 e F008 (decisões e consultas do Cliente) usa o serviço da F009 e
+F010 e a proposta e o trabalho publicado da pasta F007 e F011, por isso é a última a ser executada.
 
 ## Integração contínua
 

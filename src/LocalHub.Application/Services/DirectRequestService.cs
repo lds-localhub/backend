@@ -1,5 +1,6 @@
 using LocalHub.Application.Common;
 using LocalHub.Application.Common.Exceptions;
+using LocalHub.Application.Locations;
 using LocalHub.Application.Profiles;
 using LocalHub.Application.Services.Dtos;
 using LocalHub.Domain.Services;
@@ -160,6 +161,79 @@ public class DirectRequestService
             .ToList();
 
         return new PagedResult<ClientDirectRequestListItem>(page.Page, page.PageSize, total, items);
+    }
+
+    // E36 (RF-F007-09): one direct request, only for the provider that received it (another provider gets 403). There is
+    // no history of states yet (I050), so history is empty.
+    public async Task<ProviderDirectRequestResponse> GetAsync(int directRequestId, CancellationToken cancellationToken)
+    {
+        int profileId = await GetMyProfileIdAsync(cancellationToken);
+
+        var row = await _db.DirectRequests.AsNoTracking()
+            .Where(r => r.DirectRequestId == directRequestId)
+            .Select(r => new
+            {
+                r.ProfessionalProfileId,
+                r.Status,
+                r.CreationDate,
+                r.ResponseDate,
+                Service = _db.Services
+                    .Where(s => s.ServiceId == r.ServiceId)
+                    .Select(s => new
+                    {
+                        s.ServiceId,
+                        s.ServiceCategoryId,
+                        CategoryName = s.ServiceCategory.Name,
+                        s.Title,
+                        s.Description,
+                        s.Location,
+                        s.Latitude,
+                        s.Longitude,
+                        s.RequestedStartDate,
+                        s.RequestedEndDate,
+                        s.Status,
+                        s.CreationDate,
+                        ClientName = s.Client.Name,
+                    })
+                    .First(),
+                ProposalId = _db.Proposals
+                    .Where(p => p.ServiceId == r.ServiceId && p.ProfessionalProfileId == r.ProfessionalProfileId)
+                    .Select(p => (int?)p.ProposalId)
+                    .FirstOrDefault(),
+            })
+            .SingleOrDefaultAsync(cancellationToken);
+        if (row is null)
+        {
+            throw new NotFoundException("Solicitação direta não encontrada.");
+        }
+
+        if (row.ProfessionalProfileId != profileId)
+        {
+            throw new ForbiddenException("Não tem permissão para aceder a esta solicitação direta.");
+        }
+
+        var location = await _db.FindLocationAsync(_currentUser.UserId, cancellationToken);
+        var service = row.Service;
+
+        return new ProviderDirectRequestResponse(
+            directRequestId,
+            row.Status,
+            row.CreationDate,
+            row.ResponseDate,
+            new DirectRequestServiceDetail(
+                service.ServiceId,
+                new ServiceCategorySummary(service.ServiceCategoryId, service.CategoryName),
+                service.Title,
+                service.Description,
+                service.Location,
+                LocationQueries.DistanceKm(location, service.Latitude, service.Longitude),
+                service.RequestedStartDate,
+                service.RequestedEndDate,
+                service.Status,
+                service.CreationDate,
+                service.ClientName,
+                new List<ProviderServiceHistoryResponse>()),
+            row.ProposalId);
     }
 
     // E24 (RF-F007-02). The rules (recipient, OPEN service, PENDING request) are in Service.DeclineDirectRequest.

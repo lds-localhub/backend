@@ -34,4 +34,13 @@ public class ProposalsController : ControllerBase
         return Ok(await _serviceWorkflowService.ListMyProposalsAsync(
             status, proposalModel, new PageRequest(page, pageSize), cancellationToken));
     }
+
+    // E37: only the provider that presented the proposal.
+    [HttpGet("{proposalId:int}")]
+    [Authorize(Roles = "PROVIDER")]
+    [RequiresProfessionalProfile]
+    public async Task<ActionResult<ProviderProposalResponse>> Get(int proposalId, CancellationToken cancellationToken)
+    {
+        return Ok(await _serviceWorkflowService.GetMyProposalAsync(proposalId, cancellationToken));
+    }
 }

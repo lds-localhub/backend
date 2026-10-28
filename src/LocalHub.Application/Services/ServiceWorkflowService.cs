@@ -246,6 +246,77 @@ public class ServiceWorkflowService
         return new PagedResult<MyProposalListItem>(page.Page, page.PageSize, total, items);
     }
 
+    // E37 (RF-F008-07): one proposal, only for the provider that presented it (another provider gets 403).
+    public async Task<ProviderProposalResponse> GetMyProposalAsync(int proposalId, CancellationToken cancellationToken)
+    {
+        int? profileId = await _db.FindProfileIdAsync(_currentUser.UserId, cancellationToken);
+        if (profileId is null)
+        {
+            throw new ForbiddenException(ProfileService.MissingProfileMessage, ErrorTypes.MissingProfile);
+        }
+
+        var row = await _db.Proposals.AsNoTracking()
+            .Where(p => p.ProposalId == proposalId)
+            .Join(_db.Services, p => p.ServiceId, s => s.ServiceId, (p, s) => new
+            {
+                p.ProfessionalProfileId,
+                p.Amount,
+                p.Conditions,
+                p.Obs,
+                p.Status,
+                p.CreationDate,
+                p.DecisionDate,
+                s.ServiceId,
+                s.ProposalModel,
+                s.ServiceCategoryId,
+                CategoryName = s.ServiceCategory.Name,
+                s.Title,
+                s.Description,
+                s.Location,
+                s.Latitude,
+                s.Longitude,
+                s.RequestedStartDate,
+                s.RequestedEndDate,
+                ServiceStatus = s.Status,
+                ServiceCreationDate = s.CreationDate,
+                ClientName = s.Client.Name,
+            })
+            .SingleOrDefaultAsync(cancellationToken);
+        if (row is null)
+        {
+            throw new NotFoundException("Proposta não encontrada.");
+        }
+
+        if (row.ProfessionalProfileId != profileId.Value)
+        {
+            throw new ForbiddenException("Não tem permissão para aceder a esta proposta.");
+        }
+
+        var location = await _db.FindLocationAsync(_currentUser.UserId, cancellationToken);
+
+        return new ProviderProposalResponse(
+            proposalId,
+            row.Amount,
+            row.Conditions,
+            row.Obs,
+            row.Status,
+            row.CreationDate,
+            row.DecisionDate,
+            new ProposalServiceDetail(
+                row.ServiceId,
+                row.ProposalModel,
+                new ServiceCategorySummary(row.ServiceCategoryId, row.CategoryName),
+                row.Title,
+                row.Description,
+                row.Location,
+                LocationQueries.DistanceKm(location, row.Latitude, row.Longitude),
+                row.RequestedStartDate,
+                row.RequestedEndDate,
+                row.ServiceStatus,
+                row.ServiceCreationDate,
+                row.ClientName));
+    }
+
     // E22 (RF-F007-09, RF-F008-01, RF-F011-01), provider side. Access: the provider has a direct request or a proposal
     // in the service, or the service is a PUBLIC job that is OPEN and whose Client is ACTIVE. The response has only the
     // own direct request and proposal, and no data of the Client (RNF-06). There are no reviews or history of states yet
