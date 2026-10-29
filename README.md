@@ -149,7 +149,9 @@ A pasta F009 e F010 (criar serviço) usa o Cliente da F001 e a localização def
 F004, por isso tem de ser executada depois delas. A pasta «F006, F007 e F008 — Consultas do Prestador» (E19, E38,
 E36 e E37) usa o serviço, a solicitação direta, a proposta e o trabalho publicado da pasta F007 e F011, antes de o
 Cliente decidir sobre as propostas. A pasta F007 e F008 (decisões e consultas do Cliente) usa o serviço da F009 e
-F010 e a proposta e o trabalho publicado da pasta F007 e F011, por isso é a última a ser executada.
+F010 e a proposta e o trabalho publicado da pasta F007 e F011, por isso tem de ser executada depois delas. A pasta
+«F007 e F008 — Cancelar e concluir serviços» (E30 e E31) cancela o trabalho publicado e marca como realizado o serviço
+atribuído na pasta anterior, por isso é a última a ser executada.
 
 ## Integração contínua
 

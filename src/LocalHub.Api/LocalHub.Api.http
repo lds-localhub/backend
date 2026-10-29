@@ -317,6 +317,14 @@ Authorization: Bearer {{login2.response.body.token}}
 POST {{LocalHub.Api_HostAddress}}/api/services/{{createService.response.body.serviceId}}/proposals/{{submitProposal.response.body.proposalId}}/decline
 Authorization: Bearer {{login2.response.body.token}}
 
+### E31 - Mark the service as completed (expect 200 COMPLETED with actualCompletionDate; only the client, only ASSIGNED)
+POST {{LocalHub.Api_HostAddress}}/api/services/{{createService.response.body.serviceId}}/complete
+Authorization: Bearer {{login2.response.body.token}}
+
+### E30 - Cancel the service (here 409 transicao-invalida, because it is COMPLETED; an OPEN or ASSIGNED service gets 200 CANCELLED)
+POST {{LocalHub.Api_HostAddress}}/api/services/{{createService.response.body.serviceId}}/cancel
+Authorization: Bearer {{login2.response.body.token}}
+
 ### E19 - Search the published jobs of "Canalização" (category 1), ordered by the distance to the provider's location
 GET {{LocalHub.Api_HostAddress}}/api/search/services?serviceCategoryId=1
 Authorization: Bearer {{loginProvider.response.body.token}}
