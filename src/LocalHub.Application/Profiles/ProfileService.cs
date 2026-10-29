@@ -3,6 +3,7 @@ using LocalHub.Application.Common.Exceptions;
 using LocalHub.Application.Locations;
 using LocalHub.Application.Locations.Dtos;
 using LocalHub.Application.Profiles.Dtos;
+using LocalHub.Application.Reviews;
 using LocalHub.Domain.Accounts;
 using LocalHub.Domain.Categories;
 using LocalHub.Domain.Common;
@@ -65,7 +66,8 @@ public class ProfileService
         _db.ProfessionalProfiles.Add(profile);
         await SaveNewProfileAsync(cancellationToken);
 
-        return ProfileResponse.From(profile);
+        // A new profile has no reviews.
+        return ProfileResponse.From(profile, reviewCount: 0);
     }
 
     // E13 (RF-F004-03): a client sees the profile of an active provider; a provider only sees its own profile.
@@ -87,7 +89,7 @@ public class ProfileService
                 throw new ForbiddenException("Só pode consultar o seu próprio perfil.");
             }
 
-            return ProfileResponse.From(profile);
+            return await ToResponseAsync(profile, cancellationToken);
         }
 
         // The profile of a provider with a deactivated account is not shown to the client (RF-F004-03, rule 2).
@@ -96,7 +98,7 @@ public class ProfileService
             throw new NotFoundException("Perfil não encontrado.");
         }
 
-        return ProfileResponse.From(profile);
+        return await ToResponseAsync(profile, cancellationToken);
     }
 
     // E14 (RF-F004-02, RF-F004-04): the list of categories replaces the previous one.
@@ -110,7 +112,14 @@ public class ProfileService
         profile.ReplaceCategories(categories);
         await _db.SaveChangesAsync(cancellationToken);
 
-        return ProfileResponse.From(profile);
+        return await ToResponseAsync(profile, cancellationToken);
+    }
+
+    // The profile with the number of reviews received (F012), shown in the summary of the reviews (RF-F004-03).
+    private async Task<ProfileResponse> ToResponseAsync(ProfessionalProfile profile, CancellationToken cancellationToken)
+    {
+        int reviewCount = await _db.ReviewsOf(profile.ProfessionalProfileId).CountAsync(cancellationToken);
+        return ProfileResponse.From(profile, reviewCount);
     }
 
     // E17 (RF-F015-01): the new radius replaces the previous one. The range was validated by the DTO.
