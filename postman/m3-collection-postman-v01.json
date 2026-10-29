@@ -6856,6 +6856,303 @@
           ]
         }
       ]
+    },
+    {
+      "name": "F013 — Relatório do Cliente",
+      "description": "Endpoint E33 (API v03, secção 8). Usa o Cliente (token) e o serviço realizado da pasta «F007 e F008 — Cancelar e concluir serviços» (serviceId); executar depois dessa pasta.",
+      "item": [
+        {
+          "name": "E33 — Relatório de toda a atividade (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/reports/client",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reports",
+                "client"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F013-01. Serviços contratados (que chegaram a ASSIGNED), distribuição por categoria e por estado, valor total das propostas aceites e histórico dos realizados."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "const serviceId = Number(pm.collectionVariables.get(\"serviceId\"));",
+                  "pm.test(\"Indicadores do relatório\", () => {",
+                  "    pm.expect(body.contractedServices).to.be.at.least(1);",
+                  "    pm.expect(body.byStatus.map(s => s.status)).to.eql([\"ASSIGNED\", \"COMPLETED\", \"CANCELLED\"]);",
+                  "    pm.expect(body.byStatus.reduce((total, s) => total + s.count, 0)).to.eql(body.contractedServices);",
+                  "    pm.expect(body.totalAcceptedAmount).to.be.above(0);",
+                  "    pm.expect(body.period.startDate).to.eql(null);",
+                  "});",
+                  "pm.test(\"O serviço realizado está no histórico\", () => {",
+                  "    const item = body.completedHistory.find(s => s.serviceId === serviceId);",
+                  "    pm.expect(item).to.not.eql(undefined);",
+                  "    pm.expect(item.actualCompletionDate).to.not.eql(null);",
+                  "    pm.expect(item.provider).to.be.a(\"string\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E33 — Período de um dia sem serviços (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/reports/client?startDate=2000-01-01&endDate=2000-01-01",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reports",
+                "client"
+              ],
+              "query": [
+                {
+                  "key": "startDate",
+                  "value": "2000-01-01"
+                },
+                {
+                  "key": "endDate",
+                  "value": "2000-01-01"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F013-02. As duas datas estão incluídas; um período sem serviços criados devolve os indicadores a zero."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Indicadores a zero\", () => {",
+                  "    pm.expect(body.period).to.eql({ startDate: \"2000-01-01\", endDate: \"2000-01-01\" });",
+                  "    pm.expect(body.contractedServices).to.eql(0);",
+                  "    pm.expect(body.totalAcceptedAmount).to.eql(0);",
+                  "    pm.expect(body.completedHistory).to.eql([]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E33 — Data inicial posterior à final (400)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/reports/client?startDate=2026-10-31&endDate=2026-10-01",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reports",
+                "client"
+              ],
+              "query": [
+                {
+                  "key": "startDate",
+                  "value": "2026-10-31"
+                },
+                {
+                  "key": "endDate",
+                  "value": "2026-10-01"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F013-02, regra 3. Erro global da operação."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 400\", () => pm.response.to.have.status(400));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Erro global, sem errors\", () => {",
+                  "    pm.expect(body.detail).to.eql(\"A data inicial não pode ser posterior à data final.\");",
+                  "    pm.expect(body).to.not.have.property(\"errors\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E33 — Data inválida (400)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/reports/client?startDate=31-10-2026",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reports",
+                "client"
+              ],
+              "query": [
+                {
+                  "key": "startDate",
+                  "value": "31-10-2026"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F013-02. As datas usam o formato AAAA-MM-DD."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 400\", () => pm.response.to.have.status(400));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Erro global, sem errors\", () => {",
+                  "    pm.expect(body.detail).to.eql(\"As datas do período têm de estar no formato AAAA-MM-DD.\");",
+                  "    pm.expect(body).to.not.have.property(\"errors\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E33 — Pedido de um Prestador (403)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/reports/client",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reports",
+                "client"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{profileToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F013-01, regra 5. Só o Cliente consulta o seu relatório."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 403\", () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E33 — Sem token (401)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/reports/client",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reports",
+                "client"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "RF-F001-03."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 401\", () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
     }
   ],
   "variable": [
