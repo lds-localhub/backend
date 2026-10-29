@@ -124,6 +124,19 @@ public class AccountService
         return new PagedResult<AccountResponse>(page.Page, page.PageSize, total, items);
     }
 
+    // E39: the counters of the administrator's home page (W50), without the administrator accounts (as in E05).
+    public async Task<AdminSummaryResponse> GetAdminSummaryAsync(CancellationToken cancellationToken)
+    {
+        var accounts = _db.Users.AsNoTracking().Where(u => u.Role != UserRole.Admin);
+
+        int activeAccounts = await accounts.CountAsync(u => u.Status == ActivationStatus.Active, cancellationToken);
+        int inactiveAccounts = await accounts.CountAsync(u => u.Status == ActivationStatus.Inactive, cancellationToken);
+        int activeCategories = await _db.ServiceCategories.AsNoTracking()
+            .CountAsync(c => c.Status == ActivationStatus.Active, cancellationToken);
+
+        return new AdminSummaryResponse(activeAccounts, inactiveAccounts, activeCategories);
+    }
+
     // E06: the account becomes INACTIVE and its sessions are revoked (RF-F002-02).
     public async Task<AccountResponse> DeactivateAsync(int userId, CancellationToken cancellationToken)
     {

@@ -48,6 +48,7 @@ public class AccessControlTests(LocalHubApiFactory factory)
         { "POST", "/api/services/1/complete" },
         { "PUT", "/api/users/me/password" },
         { "POST", "/api/accounts/1/reset-password" },
+        { "GET", "/api/admin/summary" },
     };
 
     // Add each endpoint restricted to the administrator here, once for each role that is not authorized.
@@ -67,6 +68,8 @@ public class AccessControlTests(LocalHubApiFactory factory)
         { "POST", "/api/categories/1/deactivate", "PROVIDER" },
         { "POST", "/api/accounts/1/reset-password", "CLIENT" },
         { "POST", "/api/accounts/1/reset-password", "PROVIDER" },
+        { "GET", "/api/admin/summary", "CLIENT" },
+        { "GET", "/api/admin/summary", "PROVIDER" },
     };
 
     [Theory]
@@ -147,5 +150,18 @@ public class AccessControlTests(LocalHubApiFactory factory)
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         await AssertProblemAsync(response, "https://tools.ietf.org/html/rfc9110#section-15.5.1", "/api/search/providers");
+    }
+
+    // E35 is public (RF-F001-03, rule 3; RF-F015-06): without coordinates the request reaches the validation (400),
+    // not the authentication.
+    [Fact]
+    [Trait("Requisito", "RF-F001-03")]
+    [Trait("Requisito", "RF-F015-06")]
+    public async Task ObterMoradaDasCoordenadas_SemToken_NaoDevolve401()
+    {
+        using var response = await SendWithTokenAsync(_client, HttpMethod.Get, "/api/geocoding/reverse", token: null);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        await AssertProblemAsync(response, "https://tools.ietf.org/html/rfc9110#section-15.5.1", "/api/geocoding/reverse");
     }
 }

@@ -6856,6 +6856,261 @@
           ]
         }
       ]
+    },
+    {
+      "name": "F015, F002 e F003 — Morada das coordenadas e resumo da administração",
+      "description": "Endpoints E35 e E39 (API v04). E35 é público e chama o Nominatim (requer acesso à Internet); E39 usa o adminToken da pasta F002 e o token do Cliente da F001.",
+      "item": [
+        {
+          "name": "E35 — Obter a morada de coordenadas (200, público)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/geocoding/reverse?latitude=41.146800&longitude=-8.606800",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "geocoding",
+                "reverse"
+              ],
+              "query": [
+                {
+                  "key": "latitude",
+                  "value": "41.146800"
+                },
+                {
+                  "key": "longitude",
+                  "value": "-8.606800"
+                }
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "RF-F015-06. Devolve a morada da posição do dispositivo, sem gravar nada. A morada é obtida pelo Nominatim (requer acesso à Internet)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Devolve a morada\", () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.address).to.be.a(\"string\").and.not.be.empty;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E35 — Latitude fora do intervalo (400)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/geocoding/reverse?latitude=91&longitude=-8.606800",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "geocoding",
+                "reverse"
+              ],
+              "query": [
+                {
+                  "key": "latitude",
+                  "value": "91"
+                },
+                {
+                  "key": "longitude",
+                  "value": "-8.606800"
+                }
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "RF-F015-04. A latitude tem de estar entre -90 e 90; o erro é indicado em errors.latitude."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"Erro no campo latitude\", () => pm.expect(pm.response.json().errors).to.have.property(\"latitude\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E35 — Sem coordenadas (400)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/geocoding/reverse",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "geocoding",
+                "reverse"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "RF-F015-04. A latitude e a longitude são obrigatórias."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"Erros nos dois campos\", () => {",
+                  "    const errors = pm.response.json().errors;",
+                  "    pm.expect(errors).to.have.property(\"latitude\");",
+                  "    pm.expect(errors).to.have.property(\"longitude\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E39 — Resumo da administração (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/summary",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "summary"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "F002 e F003. Contas de Clientes e Prestadores ativas e desativadas e categorias ativas; as contas de Administrador não são contadas."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Devolve os três contadores\", () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(Object.keys(body)).to.eql([\"activeAccounts\", \"inactiveAccounts\", \"activeCategories\"]);",
+                  "    pm.expect(body.activeAccounts).to.be.a(\"number\").and.at.least(1);",
+                  "    pm.expect(body.inactiveAccounts).to.be.a(\"number\").and.at.least(0);",
+                  "    pm.expect(body.activeCategories).to.be.a(\"number\").and.at.least(1);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E39 — Pedido de um Cliente (403)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/summary",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "summary"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RNF-03. O resumo é reservado ao Administrador."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 403\", () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E39 — Sem sessão (401)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/summary",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "summary"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "RF-F001-03. O resumo exige uma sessão válida."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 401\", () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
     }
   ],
   "variable": [
