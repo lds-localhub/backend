@@ -151,7 +151,9 @@ E36 e E37) usa o serviço, a solicitação direta, a proposta e o trabalho publi
 Cliente decidir sobre as propostas. A pasta F007 e F008 (decisões e consultas do Cliente) usa o serviço da F009 e
 F010 e a proposta e o trabalho publicado da pasta F007 e F011, por isso tem de ser executada depois delas. A pasta
 «F007 e F008 — Cancelar e concluir serviços» (E30 e E31) cancela o trabalho publicado e marca como realizado o serviço
-atribuído na pasta anterior, por isso é a última a ser executada.
+atribuído na pasta anterior. A pasta «F015, F002 e F003 — Morada das coordenadas e resumo da administração» (E35 e
+E39) usa o `adminToken` da F002 e o Cliente da F001, e E35 chama o Nominatim (requer acesso à Internet); é a última a
+ser executada.
 
 ## Integração contínua
 

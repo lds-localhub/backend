@@ -20,6 +20,10 @@ public class FakeGeocodingService : IGeocodingService
     // Any address with this text simulates Nominatim being down (503).
     public const string UnavailableMarker = "[indisponivel]";
 
+    // These coordinates simulate Nominatim being down in the reverse geocoding (503).
+    public const decimal UnavailableLatitude = -89m;
+    public const decimal UnavailableLongitude = 0m;
+
     private static readonly Coordinates Known = Coordinates.Rounded(KnownLatitude, KnownLongitude);
 
     private static readonly Dictionary<string, Coordinates> Addresses = new()
@@ -42,6 +46,11 @@ public class FakeGeocodingService : IGeocodingService
 
     public Task<string?> ReverseGeocodeAsync(Coordinates coordinates, CancellationToken cancellationToken = default)
     {
+        if (coordinates == Coordinates.Rounded(UnavailableLatitude, UnavailableLongitude))
+        {
+            throw new GeocodingUnavailableException();
+        }
+
         return Task.FromResult(coordinates == Known ? ReverseAddress : null);
     }
 }

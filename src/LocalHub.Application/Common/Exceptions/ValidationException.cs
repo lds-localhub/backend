@@ -16,5 +16,12 @@ public class ValidationException : Exception
     {
     }
 
+    // An error of the whole request, explained only in "detail", without "errors" (API documentation, section 4.6).
+    public ValidationException(string detail)
+        : base(detail)
+    {
+        Errors = new Dictionary<string, string[]>();
+    }
+
     public IReadOnlyDictionary<string, string[]> Errors { get; }
 }
