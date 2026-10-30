@@ -117,7 +117,8 @@ public class ErrorHandlingMiddleware : IMiddleware
 
             default:
                 return ProblemResponses.WriteAsync(
-                    context, StatusCodes.Status409Conflict, "Conflito", exception.Message, errors: errors);
+                    context, StatusCodes.Status409Conflict, "Conflito", exception.Message, errors: errors,
+                    type: exception.ErrorType);
         }
     }
 }

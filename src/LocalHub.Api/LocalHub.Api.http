@@ -364,3 +364,26 @@ Authorization: Bearer {{loginProvider.response.body.token}}
 ### E37 - The proposal submitted above, with the summary of its service
 GET {{LocalHub.Api_HostAddress}}/api/proposals/{{submitProposal.response.body.proposalId}}
 Authorization: Bearer {{loginProvider.response.body.token}}
+
+### E32 - Review the service marked as completed above (expect 201; a second review gets 409 avaliacao-existente)
+POST {{LocalHub.Api_HostAddress}}/api/services/{{createService.response.body.serviceId}}/review
+Authorization: Bearer {{login2.response.body.token}}
+Content-Type: application/json
+
+{
+  "rating": 4,
+  "comment": "Rápido e cuidadoso."
+}
+
+### E32 - The provider cannot review the client (expect 403)
+POST {{LocalHub.Api_HostAddress}}/api/services/{{createService.response.body.serviceId}}/review
+Authorization: Bearer {{loginProvider.response.body.token}}
+Content-Type: application/json
+
+{
+  "rating": 5
+}
+
+### E15 - The reviews of the provider, newest first (the profile of E13 shows averageRating and reviewCount)
+GET {{LocalHub.Api_HostAddress}}/api/profiles/{{createProfile.response.body.professionalProfileId}}/reviews?page=1&pageSize=20
+Authorization: Bearer {{login2.response.body.token}}

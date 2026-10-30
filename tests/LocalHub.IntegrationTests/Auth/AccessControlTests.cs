@@ -46,6 +46,8 @@ public class AccessControlTests(LocalHubApiFactory factory)
         { "POST", "/api/services/1/proposals/1/decline" },
         { "POST", "/api/services/1/cancel" },
         { "POST", "/api/services/1/complete" },
+        { "POST", "/api/services/1/review" },
+        { "GET", "/api/profiles/1/reviews" },
         { "GET", "/api/reports/client" },
         { "PUT", "/api/users/me/password" },
         { "POST", "/api/accounts/1/reset-password" },

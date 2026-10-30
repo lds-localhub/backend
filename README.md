@@ -151,7 +151,9 @@ E36 e E37) usa o serviço, a solicitação direta, a proposta e o trabalho publi
 Cliente decidir sobre as propostas. A pasta F007 e F008 (decisões e consultas do Cliente) usa o serviço da F009 e
 F010 e a proposta e o trabalho publicado da pasta F007 e F011, por isso tem de ser executada depois delas. A pasta
 «F007 e F008 — Cancelar e concluir serviços» (E30 e E31) cancela o trabalho publicado e marca como realizado o serviço
-atribuído na pasta anterior. A pasta «F013 — Relatório do Cliente» (E33) procura esse serviço realizado no histórico do
+atribuído na pasta anterior, por isso tem de ser executada depois dela. A pasta «F012 — Avaliação do
+serviço» (E32 e E15) avalia o serviço realizado na pasta anterior e confirma a classificação média do perfil
+(E13). A pasta «F013 — Relatório do Cliente» (E33) procura esse serviço realizado no histórico do
 relatório, por isso é a última a ser executada.
 
 ## Integração contínua

@@ -6858,6 +6858,546 @@
       ]
     },
     {
+      "name": "F012 — Avaliação do serviço",
+      "description": "Endpoints E32 e E15 (API v04, F012 e F004). Usa o Cliente (token), o Prestador com perfil (profileToken, profileId), o Administrador (adminToken), o serviço realizado da pasta F007 e F008 — Cancelar e concluir serviços (serviceId) e o trabalho publicado cancelado (publicServiceId); executar depois dessa pasta.",
+      "item": [
+        {
+          "name": "E15 — Avaliações do Prestador antes de avaliar (200, lista vazia)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/profiles/{{profileId}}/reviews",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "profiles",
+                "{{profileId}}",
+                "reviews"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F004-03. Lista paginada das avaliações do perfil; ainda sem avaliações."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Sem avaliações\", () => {",
+                  "    pm.expect(pm.response.json().total).to.eql(0);",
+                  "    pm.expect(pm.response.json().items).to.eql([]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E32 — Pedido do Prestador contratado (403)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/services/{{serviceId}}/review",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "services",
+                "{{serviceId}}",
+                "review"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{profileToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F012-01, regra 7. A avaliação é unidirecional: o Prestador não avalia.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rating\": 5\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 403\", () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E32 — Avaliar um trabalho cancelado (409 transicao-invalida)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/services/{{publicServiceId}}/review",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "services",
+                "{{publicServiceId}}",
+                "review"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F012-01, regra 2. Só um serviço COMPLETED pode ser avaliado.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rating\": 4\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 409\", () => pm.response.to.have.status(409));",
+                  "pm.test(\"Tipo transicao-invalida\", () => pm.expect(pm.response.json().type).to.eql(\"https://localhub.local/erros/transicao-invalida\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E32 — Classificação fora do intervalo (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/services/{{serviceId}}/review",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "services",
+                "{{serviceId}}",
+                "review"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F012-01, regra 4. A classificação é um inteiro de 1 a 5.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rating\": 6\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"Erro no campo rating\", () => pm.expect(pm.response.json().errors).to.have.property(\"rating\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E32 — Avaliar o serviço realizado (201)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/services/{{serviceId}}/review",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "services",
+                "{{serviceId}}",
+                "review"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F012-01 e RF-F012-02. A avaliação fica associada ao Prestador da proposta aceite; sem Location.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rating\": 4,\n  \"comment\": \"Rápido e cuidadoso.\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 201\", () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Avaliação criada\", () => {",
+                  "    pm.expect(body.reviewId).to.be.a(\"number\");",
+                  "    pm.expect(body.rating).to.eql(4);",
+                  "    pm.expect(body.comment).to.eql(\"Rápido e cuidadoso.\");",
+                  "    pm.expect(body.creationDate).to.be.a(\"string\");",
+                  "});",
+                  "pm.collectionVariables.set(\"reviewId\", body.reviewId);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E32 — Segunda avaliação do mesmo serviço (409 avaliacao-existente)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/services/{{serviceId}}/review",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "services",
+                "{{serviceId}}",
+                "review"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F012-01, regra 3. Cada serviço só é avaliado uma vez.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rating\": 1\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 409\", () => pm.response.to.have.status(409));",
+                  "pm.test(\"Tipo avaliacao-existente\", () => pm.expect(pm.response.json().type).to.eql(\"https://localhub.local/erros/avaliacao-existente\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E13 — Perfil com a classificação média recalculada (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/profiles/{{profileId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "profiles",
+                "{{profileId}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F012-02. averageRating com uma casa decimal e reviewCount aumentado em 1."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Média e número de avaliações\", () => {",
+                  "    pm.expect(pm.response.json().averageRating).to.eql(4);",
+                  "    pm.expect(pm.response.json().reviewCount).to.eql(1);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E22 — Serviço marcado como avaliado (200, reviewed)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/services/{{serviceId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "services",
+                "{{serviceId}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "API v04, E32. O serviço mantém-se COMPLETED, com reviewed = true."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Serviço avaliado\", () => {",
+                  "    pm.expect(pm.response.json().status).to.eql(\"COMPLETED\");",
+                  "    pm.expect(pm.response.json().reviewed).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E15 — Avaliações do Prestador pelo Cliente (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/profiles/{{profileId}}/reviews?page=1&pageSize=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "profiles",
+                "{{profileId}}",
+                "reviews"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F004-03. Por creationDate decrescente, com o nome do Cliente que avaliou."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Uma avaliação, com o Cliente\", () => {",
+                  "    pm.expect(body.total).to.eql(1);",
+                  "    pm.expect(body.items[0].reviewId).to.eql(pm.collectionVariables.get(\"reviewId\"));",
+                  "    pm.expect(body.items[0].rating).to.eql(4);",
+                  "    pm.expect(body.items[0].clientName).to.be.a(\"string\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E15 — Prestador consulta as avaliações do próprio perfil (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/profiles/{{profileId}}/reviews",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "profiles",
+                "{{profileId}}",
+                "reviews"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{profileToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F004-03. O Prestador só consulta as avaliações do seu perfil."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E15 — Administrador (403)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/profiles/{{profileId}}/reviews",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "profiles",
+                "{{profileId}}",
+                "reviews"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "API v04, secção 6. Só Cliente e Prestador."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 403\", () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
       "name": "F013 — Relatório do Cliente",
       "description": "Endpoint E33 (API v03, secção 8). Usa o Cliente (token) e o serviço realizado da pasta «F007 e F008 — Cancelar e concluir serviços» (serviceId); executar depois dessa pasta.",
       "item": [
@@ -7278,6 +7818,10 @@
     },
     {
       "key": "publicProposalId",
+      "value": ""
+    },
+    {
+      "key": "reviewId",
       "value": ""
     }
   ]

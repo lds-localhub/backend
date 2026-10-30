@@ -11,6 +11,9 @@ public class Review
     public const int RatingMin = 1;
     public const int RatingMax = 5;
 
+    // Error type of the API (section 4.6) for a second review of the same service (E32; RF-F012-01, rule 3).
+    public const string AlreadyExistsErrorType = "avaliacao-existente";
+
     public int ReviewId { get; private set; }
     public int ServiceId { get; private set; }
     public short Rating { get; private set; }
@@ -24,11 +27,13 @@ public class Review
     private Review() { }
 
     // Only the Service creates its review, so the rules of F012 are always applied. The fields were validated by the
-    // DTO; a blank comment arrives as null (rule R17).
-    internal Review(short rating, string? comment, DateTimeOffset now)
+    // DTO; a blank comment is saved as null (API documentation, E32).
+    internal Review(Service service, short rating, string? comment, DateTimeOffset now)
     {
+        Service = service;
+        ServiceId = service.ServiceId;
         Rating = rating;
-        Comment = comment?.Trim();
+        Comment = string.IsNullOrWhiteSpace(comment) ? null : comment.Trim();
         CreationDate = now;
     }
 }
