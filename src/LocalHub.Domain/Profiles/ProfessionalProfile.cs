@@ -103,7 +103,13 @@ public class ProfessionalProfile
     // without reviews ("Sem avaliações", not 0). Called whenever a review is added (E32).
     public void RecalculateAverageRating(IReadOnlyCollection<short> ratings)
     {
-        AverageRating = ratings.Count == 0
+        AverageRating = CalculateAverageRating(ratings);
+    }
+
+    // The same rounding in the evolution of the report of the provider (RF-F014-01, rule 5).
+    public static decimal? CalculateAverageRating(IReadOnlyCollection<short> ratings)
+    {
+        return ratings.Count == 0
             ? null
             : Math.Round((decimal)ratings.Sum(r => (int)r) / ratings.Count, 1, MidpointRounding.AwayFromZero);
     }

@@ -325,6 +325,30 @@ Authorization: Bearer {{login2.response.body.token}}
 POST {{LocalHub.Api_HostAddress}}/api/services/{{createService.response.body.serviceId}}/cancel
 Authorization: Bearer {{login2.response.body.token}}
 
+### E33 - Activity report of the client (all the activity; the service above appears in completedHistory)
+GET {{LocalHub.Api_HostAddress}}/api/reports/client
+Authorization: Bearer {{login2.response.body.token}}
+
+### E33 - Only the services created in October 2026 (both dates included, in UTC)
+GET {{LocalHub.Api_HostAddress}}/api/reports/client?startDate=2026-10-01&endDate=2026-10-31
+Authorization: Bearer {{login2.response.body.token}}
+
+### E33 - Start date after the end date (expect 400 with only "detail"; an invalid date gets 400 with errors.startDate or errors.endDate)
+GET {{LocalHub.Api_HostAddress}}/api/reports/client?startDate=2026-10-31&endDate=2026-10-01
+Authorization: Bearer {{login2.response.body.token}}
+
+### E34 - Activity report of the provider (all the activity; ratingEvolution goes from the first review to the current month)
+GET {{LocalHub.Api_HostAddress}}/api/reports/provider
+Authorization: Bearer {{loginProvider.response.body.token}}
+
+### E34 - Only the services created in October 2026 (ratingEvolution shows only the months of the period)
+GET {{LocalHub.Api_HostAddress}}/api/reports/provider?startDate=2026-10-01&endDate=2026-10-31
+Authorization: Bearer {{loginProvider.response.body.token}}
+
+### E34 - Start date after the end date (expect 400 with only "detail"; an invalid date gets 400 with errors.startDate or errors.endDate)
+GET {{LocalHub.Api_HostAddress}}/api/reports/provider?startDate=2026-10-31&endDate=2026-10-01
+Authorization: Bearer {{loginProvider.response.body.token}}
+
 ### E19 - Search the published jobs of "Canalização" (category 1), ordered by the distance to the provider's location
 GET {{LocalHub.Api_HostAddress}}/api/search/services?serviceCategoryId=1
 Authorization: Bearer {{loginProvider.response.body.token}}
