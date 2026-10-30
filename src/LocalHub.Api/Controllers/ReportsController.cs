@@ -1,3 +1,4 @@
+using LocalHub.Api.Filters;
 using LocalHub.Application.Reports;
 using LocalHub.Application.Reports.Dtos;
 
@@ -6,7 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace LocalHub.Api.Controllers;
 
-// Activity reports: F013 (E33).
+// Activity reports: F013 (E33) and F014 (E34).
 [ApiController]
 [Route("api/reports")]
 public class ReportsController : ControllerBase
@@ -29,5 +30,18 @@ public class ReportsController : ControllerBase
         [FromQuery] string? endDate = null)
     {
         return Ok(await _reportService.GetClientReportAsync(startDate, endDate, cancellationToken));
+    }
+
+    // E34: only providers, with their own data (clients and administrators get 403); a provider without a profile gets
+    // 403 perfil-em-falta. The dates are read as in E33.
+    [HttpGet("provider")]
+    [Authorize(Roles = "PROVIDER")]
+    [RequiresProfessionalProfile]
+    public async Task<ActionResult<ProviderReportResponse>> GetProviderReport(
+        CancellationToken cancellationToken,
+        [FromQuery] string? startDate = null,
+        [FromQuery] string? endDate = null)
+    {
+        return Ok(await _reportService.GetProviderReportAsync(startDate, endDate, cancellationToken));
     }
 }
