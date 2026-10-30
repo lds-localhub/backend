@@ -1,5 +1,7 @@
 using LocalHub.Api.Filters;
 using LocalHub.Application.Common;
+using LocalHub.Application.Reviews;
+using LocalHub.Application.Reviews.Dtos;
 using LocalHub.Application.Services;
 using LocalHub.Application.Services.Dtos;
 using LocalHub.Domain.Accounts;
@@ -9,18 +11,32 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace LocalHub.Api.Controllers;
 
-// F007 to F011: the services with direct requests and the published jobs.
+// F007 to F012: the services with direct requests, the published jobs and their reviews.
 [ApiController]
 [Route("api/services")]
 public class ServicesController : ControllerBase
 {
     private readonly ServiceWorkflowService _serviceWorkflowService;
+    private readonly ReviewService _reviewService;
     private readonly ICurrentUser _currentUser;
 
-    public ServicesController(ServiceWorkflowService serviceWorkflowService, ICurrentUser currentUser)
+    public ServicesController(
+        ServiceWorkflowService serviceWorkflowService, ReviewService reviewService, ICurrentUser currentUser)
     {
         _serviceWorkflowService = serviceWorkflowService;
+        _reviewService = reviewService;
         _currentUser = currentUser;
+    }
+
+    // E32: only the client that created the service (providers and administrators get 403). 201 without Location:
+    // the reviews are consulted in E15.
+    [HttpPost("{serviceId:int}/review")]
+    [Authorize(Roles = "CLIENT")]
+    public async Task<ActionResult<ReviewResponse>> Review(
+        int serviceId, CreateReviewRequest request, CancellationToken cancellationToken)
+    {
+        var review = await _reviewService.CreateAsync(serviceId, request, cancellationToken);
+        return StatusCode(StatusCodes.Status201Created, review);
     }
 
     // E20: only clients (providers and administrators get 403).
