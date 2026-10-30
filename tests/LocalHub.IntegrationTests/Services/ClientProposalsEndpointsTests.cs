@@ -80,7 +80,10 @@ public class ClientProposalsEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal("ASSIGNED", service.GetProperty("status").GetString());
         Assert.Empty(service.GetProperty("directRequests").EnumerateArray());
         Assert.False(service.GetProperty("reviewed").GetBoolean());
-        Assert.Empty(service.GetProperty("history").EnumerateArray());
+        var change = Assert.Single(service.GetProperty("history").EnumerateArray());
+        Assert.Equal("OPEN", change.GetProperty("previousStatus").GetString());
+        Assert.Equal("ASSIGNED", change.GetProperty("newStatus").GetString());
+        Assert.Equal("CLIENT", change.GetProperty("changedByRole").GetString());
     }
 
     // ---------- E28: criteria 2 and 5 ----------

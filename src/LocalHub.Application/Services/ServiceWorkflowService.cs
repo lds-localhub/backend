@@ -591,7 +591,7 @@ public class ServiceWorkflowService
 
     // The service with everything the client sees (E22, E26, E28). 404 when it does not exist; 403 when it was created
     // by another client (API documentation, section 7). The client is loaded, because it is recorded in the history of
-    // the changes of state that it makes (E28, E30 and E31).
+    // the changes of state that it makes (E28, E30 and E31), and the history with the user of each change (E22).
     private async Task<Service> FindOwnServiceAsync(
         IQueryable<Service> services, int serviceId, CancellationToken cancellationToken)
     {
@@ -600,6 +600,7 @@ public class ServiceWorkflowService
             .Include(s => s.Client)
             .Include(s => s.DirectRequests).ThenInclude(r => r.ProfessionalProfile).ThenInclude(p => p.ServiceProvider)
             .Include(s => s.Proposals).ThenInclude(p => p.ProfessionalProfile).ThenInclude(p => p.ServiceProvider)
+            .Include(s => s.StatusHistory).ThenInclude(h => h.ChangedBy)
             .AsSplitQuery()
             .SingleOrDefaultAsync(s => s.ServiceId == serviceId, cancellationToken);
         if (service is null)
