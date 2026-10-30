@@ -4,24 +4,30 @@ using LocalHub.Application.Common.Exceptions;
 
 namespace LocalHub.Application.Reports;
 
-// Period of the reports (RF-F013-02, RF-F014-02): optional dates, both included, compared with the creation date of the
-// service in Portugal. Without dates, the report covers all the activity.
+// Period of the reports (RF-F013-02, RF-F014-02): optional and independent dates, both included, compared with the
+// creation date of the service in UTC (API documentation v04, section 4.3). Without dates, the report covers all the
+// activity.
 public record ReportPeriod(DateOnly? StartDate, DateOnly? EndDate)
 {
-    public const string InvalidDateMessage = "As datas do período têm de estar no formato AAAA-MM-DD.";
+    public const string StartDateField = "startDate";
+    public const string EndDateField = "endDate";
+    public const string InvalidDateMessage = "Indique uma data válida no formato AAAA-MM-DD.";
     public const string InvertedMessage = "A data inicial não pode ser posterior à data final.";
 
     private const string DateFormat = "yyyy-MM-dd";
 
-    // The day of a service is the day in Portugal, as in the requested dates of E20 (RF-F010-01, rule 5).
-    private static readonly TimeZoneInfo Portugal = TimeZoneInfo.FindSystemTimeZoneById("Europe/Lisbon");
-
-    // The values of the query string. An invalid date or an inverted period is a global error of the operation
-    // (API documentation, E33 and E34), so the 400 has only "detail".
+    // The values of the query string. A date in an invalid format is an error of its parameter, in "errors" (section
+    // 4.6); a start date after the end date is a global error of the operation, only in "detail" (E33, E34).
     public static ReportPeriod Parse(string? startDate, string? endDate)
     {
-        var start = ParseDate(startDate);
-        var end = ParseDate(endDate);
+        var errors = new Dictionary<string, string[]>();
+        var start = ParseDate(startDate, StartDateField, errors);
+        var end = ParseDate(endDate, EndDateField, errors);
+        if (errors.Count > 0)
+        {
+            throw new ValidationException(errors);
+        }
+
         if (start is not null && end is not null && start > end)
         {
             throw new ValidationException(InvertedMessage);
@@ -30,13 +36,16 @@ public record ReportPeriod(DateOnly? StartDate, DateOnly? EndDate)
         return new ReportPeriod(start, end);
     }
 
-    // First instant of the start date in Portugal, in UTC; null without start date.
-    public DateTimeOffset? From => StartDate is null ? null : StartOfDayUtc(StartDate.Value);
+    // First instant of the start date in UTC; null without start date.
+    public DateTimeOffset? From => StartDate is null ? null : StartOfDay(StartDate.Value);
 
-    // First instant of the day after the end date in Portugal, in UTC (exclusive limit); null without end date.
-    public DateTimeOffset? Until => EndDate is null ? null : StartOfDayUtc(EndDate.Value.AddDays(1));
+    // First instant of the day after the end date in UTC (exclusive limit); null without end date. The last day that
+    // DateOnly represents (9999-12-31) has no day after it, so it does not limit the period either.
+    public DateTimeOffset? Until => EndDate is null || EndDate.Value == DateOnly.MaxValue
+        ? null
+        : StartOfDay(EndDate.Value.AddDays(1));
 
-    private static DateOnly? ParseDate(string? value)
+    private static DateOnly? ParseDate(string? value, string field, Dictionary<string, string[]> errors)
     {
         if (string.IsNullOrEmpty(value))
         {
@@ -45,16 +54,16 @@ public record ReportPeriod(DateOnly? StartDate, DateOnly? EndDate)
 
         if (!DateOnly.TryParseExact(value, DateFormat, CultureInfo.InvariantCulture, DateTimeStyles.None, out var date))
         {
-            throw new ValidationException(InvalidDateMessage);
+            errors[field] = new[] { InvalidDateMessage };
+            return null;
         }
 
         return date;
     }
 
     // PostgreSQL only accepts instants in UTC for timestamptz, so the offset is 0.
-    private static DateTimeOffset StartOfDayUtc(DateOnly date)
+    private static DateTimeOffset StartOfDay(DateOnly date)
     {
-        var utc = TimeZoneInfo.ConvertTimeToUtc(date.ToDateTime(TimeOnly.MinValue), Portugal);
-        return new DateTimeOffset(utc, TimeSpan.Zero);
+        return new DateTimeOffset(date.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
     }
 }

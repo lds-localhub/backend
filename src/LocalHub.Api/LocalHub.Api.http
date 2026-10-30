@@ -329,11 +329,11 @@ Authorization: Bearer {{login2.response.body.token}}
 GET {{LocalHub.Api_HostAddress}}/api/reports/client
 Authorization: Bearer {{login2.response.body.token}}
 
-### E33 - Only the services created in October 2026 (both dates included, in the time of Portugal)
+### E33 - Only the services created in October 2026 (both dates included, in UTC)
 GET {{LocalHub.Api_HostAddress}}/api/reports/client?startDate=2026-10-01&endDate=2026-10-31
 Authorization: Bearer {{login2.response.body.token}}
 
-### E33 - Start date after the end date (expect 400 with only "detail")
+### E33 - Start date after the end date (expect 400 with only "detail"; an invalid date gets 400 with errors.startDate or errors.endDate)
 GET {{LocalHub.Api_HostAddress}}/api/reports/client?startDate=2026-10-31&endDate=2026-10-01
 Authorization: Bearer {{login2.response.body.token}}
 

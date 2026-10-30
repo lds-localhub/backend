@@ -8,7 +8,6 @@ namespace LocalHub.UnitTests.Application.Reports;
 [Trait("Category", "Unit")]
 public class ClientReportTests
 {
-    private static readonly ReportPeriod AllActivity = new(null, null);
     private static readonly DateTimeOffset Completion = new(2026, 10, 9, 18, 40, 0, TimeSpan.Zero);
 
     // ---------- Indicators (RF-F013-01) ----------
@@ -25,7 +24,7 @@ public class ClientReportTests
             Contracted(3, ServiceStatus.Cancelled),
         };
 
-        var report = ClientReport.Build(AllActivity, services);
+        var report = ClientReport.Build(services);
 
         Assert.Equal(3, report.ContractedServices);
         Assert.Equal(
@@ -38,7 +37,7 @@ public class ClientReportTests
     [Trait("Requisito", "RF-F013-01")]
     public void Build_SemServicos_DevolveZerosEListasVazias()
     {
-        var report = ClientReport.Build(AllActivity, Array.Empty<ContractedService>());
+        var report = ClientReport.Build(Array.Empty<ContractedService>());
 
         Assert.Equal(0, report.ContractedServices);
         Assert.Empty(report.ByCategory);
@@ -60,7 +59,7 @@ public class ClientReportTests
             Contracted(3, ServiceStatus.Cancelled),
         };
 
-        var report = ClientReport.Build(AllActivity, services);
+        var report = ClientReport.Build(services);
 
         Assert.Equal(
             new[] { (3, "Canalização", 2), (5, "Jardinagem", 1) },
@@ -78,7 +77,7 @@ public class ClientReportTests
             Contracted(2, ServiceStatus.Cancelled, amount: 150.00m),
         };
 
-        var report = ClientReport.Build(AllActivity, services);
+        var report = ClientReport.Build(services);
 
         Assert.Equal(230.00m, report.TotalAcceptedAmount);
     }
@@ -97,30 +96,19 @@ public class ClientReportTests
             Contracted(4, ServiceStatus.Cancelled),
         };
 
-        var report = ClientReport.Build(AllActivity, services);
+        var report = ClientReport.Build(services);
 
         Assert.Collection(report.CompletedHistory,
             first =>
             {
                 Assert.Equal(3, first.ServiceId);
-                Assert.Equal("Canalização", first.ServiceCategory);
-                Assert.Equal("Águas & Companhia", first.Provider);
+                Assert.Equal(3, first.ServiceCategory.ServiceCategoryId);
+                Assert.Equal("Canalização", first.ServiceCategory.Name);
+                Assert.Equal("Águas & Companhia", first.ProviderName);
                 Assert.Equal(120.50m, first.Amount);
                 Assert.Equal(Completion, first.ActualCompletionDate);
             },
             second => Assert.Equal(1, second.ServiceId));
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F013-02")]
-    public void Build_DevolveOPeriodoPedido()
-    {
-        var period = new ReportPeriod(new DateOnly(2026, 10, 1), null);
-
-        var report = ClientReport.Build(period, Array.Empty<ContractedService>());
-
-        Assert.Equal(new DateOnly(2026, 10, 1), report.Period.StartDate);
-        Assert.Null(report.Period.EndDate);
     }
 
     // ---------- Period (RF-F013-02) ----------
@@ -138,14 +126,14 @@ public class ClientReportTests
         Assert.Null(period.Until);
     }
 
-    // Rules 1 and 2: both dates included, in the time of Portugal (UTC+1 on 1 October, UTC+0 on 1 November).
+    // Rules 1 and 2: both dates included, in UTC (API documentation v04, section 4.3).
     [Fact]
     [Trait("Requisito", "RF-F013-02")]
-    public void Parse_Outubro_IncluiODiaInteiroDeAmbasAsDatasEmPortugal()
+    public void Parse_Outubro_IncluiODiaInteiroDeAmbasAsDatasEmUtc()
     {
         var period = ReportPeriod.Parse("2026-10-01", "2026-10-31");
 
-        Assert.Equal(new DateTimeOffset(2026, 9, 30, 23, 0, 0, TimeSpan.Zero), period.From);
+        Assert.Equal(new DateTimeOffset(2026, 10, 1, 0, 0, 0, TimeSpan.Zero), period.From);
         Assert.Equal(new DateTimeOffset(2026, 11, 1, 0, 0, 0, TimeSpan.Zero), period.Until);
         Assert.Equal(TimeSpan.Zero, period.From!.Value.Offset);
     }
@@ -160,6 +148,33 @@ public class ClientReportTests
         Assert.Equal(TimeSpan.FromDays(1), period.Until - period.From);
     }
 
+    // The dates are independent: only one of them limits the period on one side.
+    [Fact]
+    [Trait("Requisito", "RF-F013-02")]
+    public void Parse_SoUmaData_LimitaSoEsseLado()
+    {
+        var fromOnly = ReportPeriod.Parse("2026-10-01", null);
+        var untilOnly = ReportPeriod.Parse(null, "2026-10-31");
+
+        Assert.Equal(new DateTimeOffset(2026, 10, 1, 0, 0, 0, TimeSpan.Zero), fromOnly.From);
+        Assert.Null(fromOnly.Until);
+        Assert.Null(untilOnly.From);
+        Assert.Equal(new DateTimeOffset(2026, 11, 1, 0, 0, 0, TimeSpan.Zero), untilOnly.Until);
+    }
+
+    // The last and the first days of DateOnly: 9999-12-31 has no day after it, so it does not limit the period
+    // (before, AddDays(1) threw ArgumentOutOfRangeException and the request got 500).
+    [Fact]
+    [Trait("Requisito", "RF-F013-02")]
+    public void Parse_DatasExtremas_NaoLancamExcecao()
+    {
+        var period = ReportPeriod.Parse("0001-01-01", "9999-12-31");
+
+        Assert.Equal(new DateTimeOffset(1, 1, 1, 0, 0, 0, TimeSpan.Zero), period.From);
+        Assert.Null(period.Until);
+        Assert.Equal(DateOnly.MaxValue, period.EndDate);
+    }
+
     // Rule 3 (criterion 2).
     [Fact]
     [Trait("Requisito", "RF-F013-02")]
@@ -171,18 +186,31 @@ public class ClientReportTests
         Assert.Empty(exception.Errors);
     }
 
+    // An invalid format is an error of the parameter, in "errors" (API documentation v04, section 4.6).
     [Theory]
     [Trait("Requisito", "RF-F013-02")]
-    [InlineData("2026-13-01", null)]
-    [InlineData("01/10/2026", null)]
-    [InlineData(null, "2026-02-30")]
-    [InlineData(null, "ontem")]
-    public void Parse_DataInvalida_LancaErroGlobal(string? startDate, string? endDate)
+    [InlineData("2026-13-01", null, "startDate")]
+    [InlineData("01/10/2026", null, "startDate")]
+    [InlineData(null, "2026-02-30", "endDate")]
+    [InlineData(null, "ontem", "endDate")]
+    public void Parse_DataInvalida_LancaErroDoParametro(string? startDate, string? endDate, string field)
     {
         var exception = Assert.Throws<ValidationException>(() => ReportPeriod.Parse(startDate, endDate));
 
-        Assert.Equal(ReportPeriod.InvalidDateMessage, exception.Message);
-        Assert.Empty(exception.Errors);
+        var error = Assert.Single(exception.Errors);
+        Assert.Equal(field, error.Key);
+        Assert.Equal(new[] { ReportPeriod.InvalidDateMessage }, error.Value);
+    }
+
+    // Both invalid: both errors in the same response.
+    [Fact]
+    [Trait("Requisito", "RF-F013-02")]
+    public void Parse_DuasDatasInvalidas_IndicaOsDoisParametros()
+    {
+        var exception = Assert.Throws<ValidationException>(() => ReportPeriod.Parse("x", "y"));
+
+        Assert.Contains(ReportPeriod.StartDateField, exception.Errors.Keys);
+        Assert.Contains(ReportPeriod.EndDateField, exception.Errors.Keys);
     }
 
     // ---------- Helpers ----------

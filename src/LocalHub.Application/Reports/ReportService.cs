@@ -58,7 +58,7 @@ public class ReportService
             })
             .ToListAsync(cancellationToken);
 
-        return ClientReport.Build(period, contracted
+        return ClientReport.Build(contracted
             .Select(s => new ContractedService(
                 s.ServiceId,
                 s.ServiceCategoryId,

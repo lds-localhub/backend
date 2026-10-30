@@ -7399,7 +7399,7 @@
     },
     {
       "name": "F013 — Relatório do Cliente",
-      "description": "Endpoint E33 (API v03, secção 8). Usa o Cliente (token) e o serviço realizado da pasta «F007 e F008 — Cancelar e concluir serviços» (serviceId); executar depois dessa pasta.",
+      "description": "Endpoint E33 (API v04, secção 8). Usa o Cliente (token) e o serviço realizado da pasta «F007 e F008 — Cancelar e concluir serviços» (serviceId); executar depois dessa pasta.",
       "item": [
         {
           "name": "E33 — Relatório de toda a atividade (200)",
@@ -7443,13 +7443,14 @@
                   "    pm.expect(body.byStatus.map(s => s.status)).to.eql([\"ASSIGNED\", \"COMPLETED\", \"CANCELLED\"]);",
                   "    pm.expect(body.byStatus.reduce((total, s) => total + s.count, 0)).to.eql(body.contractedServices);",
                   "    pm.expect(body.totalAcceptedAmount).to.be.above(0);",
-                  "    pm.expect(body.period.startDate).to.eql(null);",
+                  "    pm.expect(body).to.not.have.property(\"period\");",
                   "});",
                   "pm.test(\"O serviço realizado está no histórico\", () => {",
                   "    const item = body.completedHistory.find(s => s.serviceId === serviceId);",
                   "    pm.expect(item).to.not.eql(undefined);",
                   "    pm.expect(item.actualCompletionDate).to.not.eql(null);",
-                  "    pm.expect(item.provider).to.be.a(\"string\");",
+                  "    pm.expect(item.providerName).to.be.a(\"string\");",
+                  "    pm.expect(item.serviceCategory).to.have.keys(\"serviceCategoryId\", \"name\");",
                   "});"
                 ]
               }
@@ -7492,7 +7493,7 @@
                 }
               ]
             },
-            "description": "RF-F013-02. As duas datas estão incluídas; um período sem serviços criados devolve os indicadores a zero."
+            "description": "RF-F013-02. As duas datas estão incluídas (dias em UTC); um período sem serviços criados devolve os indicadores a zero."
           },
           "event": [
             {
@@ -7503,7 +7504,6 @@
                   "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
                   "const body = pm.response.json();",
                   "pm.test(\"Indicadores a zero\", () => {",
-                  "    pm.expect(body.period).to.eql({ startDate: \"2000-01-01\", endDate: \"2000-01-01\" });",
                   "    pm.expect(body.contractedServices).to.eql(0);",
                   "    pm.expect(body.totalAcceptedAmount).to.eql(0);",
                   "    pm.expect(body.completedHistory).to.eql([]);",
@@ -7569,7 +7569,7 @@
           ]
         },
         {
-          "name": "E33 — Data inválida (400)",
+          "name": "E33 — Data inválida (400, errors.startDate)",
           "request": {
             "method": "GET",
             "header": [],
@@ -7600,7 +7600,7 @@
                 }
               ]
             },
-            "description": "RF-F013-02. As datas usam o formato AAAA-MM-DD."
+            "description": "RF-F013-02; API v04, secção 4.6. Um formato inválido é um erro do parâmetro, em errors."
           },
           "event": [
             {
@@ -7609,11 +7609,56 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test(\"Devolve 400\", () => pm.response.to.have.status(400));",
-                  "const body = pm.response.json();",
-                  "pm.test(\"Erro global, sem errors\", () => {",
-                  "    pm.expect(body.detail).to.eql(\"As datas do período têm de estar no formato AAAA-MM-DD.\");",
-                  "    pm.expect(body).to.not.have.property(\"errors\");",
+                  "pm.test(\"Erro associado a startDate\", () => {",
+                  "    pm.expect(pm.response.json().errors.startDate).to.eql([\"Indique uma data válida no formato AAAA-MM-DD.\"]);",
                   "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E33 — Data final máxima (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/reports/client?endDate=9999-12-31",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reports",
+                "client"
+              ],
+              "query": [
+                {
+                  "key": "endDate",
+                  "value": "9999-12-31"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F013-02. A última data possível não limita o período (não devolve 500)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Toda a atividade\", () => pm.expect(pm.response.json().contractedServices).to.be.at.least(1));"
                 ]
               }
             }

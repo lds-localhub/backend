@@ -1,4 +1,5 @@
 using LocalHub.Application.Reports.Dtos;
+using LocalHub.Application.Services.Dtos;
 using LocalHub.Domain.Services;
 
 namespace LocalHub.Application.Reports;
@@ -14,7 +15,8 @@ public record ContractedService(
     decimal AcceptedAmount,
     string ProviderName);
 
-// The indicators of E33 (RF-F013-01), calculated from the contracted services already filtered by client and period.
+// The indicators of E33 (RF-F013-01; API documentation v04), calculated from the contracted services already filtered
+// by client and period.
 public static class ClientReport
 {
     // The states that a contracted service can have, in the order of the life cycle (section 10).
@@ -25,7 +27,7 @@ public static class ClientReport
         ServiceStatus.Cancelled,
     };
 
-    public static ClientReportResponse Build(ReportPeriod period, IReadOnlyCollection<ContractedService> services)
+    public static ClientReportResponse Build(IReadOnlyCollection<ContractedService> services)
     {
         // Rule 1: one line per category with contracted services, the most frequent first.
         var byCategory = services
@@ -46,11 +48,14 @@ public static class ClientReport
             .OrderByDescending(s => s.ActualCompletionDate)
             .ThenByDescending(s => s.ServiceId)
             .Select(s => new CompletedServiceItem(
-                s.ServiceId, s.CategoryName, s.ProviderName, s.AcceptedAmount, s.ActualCompletionDate!.Value))
+                s.ServiceId,
+                s.ActualCompletionDate!.Value,
+                new ServiceCategorySummary(s.ServiceCategoryId, s.CategoryName),
+                s.ProviderName,
+                s.AcceptedAmount))
             .ToList();
 
         return new ClientReportResponse(
-            new ReportPeriodResponse(period.StartDate, period.EndDate),
             services.Count,
             byCategory,
             byStatus,

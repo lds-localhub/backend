@@ -113,8 +113,9 @@ public class ReportsEndpointsTests(LocalHubApiFactory factory)
 
         var item = Assert.Single(report.GetProperty("completedHistory").EnumerateArray());
         Assert.Equal(completed, item.GetProperty("serviceId").GetInt32());
-        Assert.Equal(categoryName, item.GetProperty("serviceCategory").GetString());
-        Assert.Equal("Prestador Teste", item.GetProperty("provider").GetString());
+        Assert.Equal(provider.ServiceCategoryId, item.GetProperty("serviceCategory").GetProperty("serviceCategoryId").GetInt32());
+        Assert.Equal(categoryName, item.GetProperty("serviceCategory").GetProperty("name").GetString());
+        Assert.Equal("Prestador Teste", item.GetProperty("providerName").GetString());
         Assert.Equal(80.00m, item.GetProperty("amount").GetDecimal());
         Assert.Equal(completion.GetProperty("actualCompletionDate").GetDateTimeOffset(),
             item.GetProperty("actualCompletionDate").GetDateTimeOffset());
@@ -158,10 +159,11 @@ public class ReportsEndpointsTests(LocalHubApiFactory factory)
 
     // ---------- RF-F013-02 ----------
 
-    // Criteria 1 and 3: the day of creation is the day in Portugal (UTC+1 on 1 October, UTC+0 on 31 October).
+    // Criteria 1 and 3: the day of creation is the day in UTC (API documentation v04, section 4.3), so a service created
+    // at 2026-09-30T23:30Z belongs to September, although it is already 1 October in Portugal.
     [Fact]
     [Trait("Requisito", "RF-F013-02")]
-    public async Task Relatorio_PeriodoDeOutubro_SoContaOsServicosCriadosNesseMesEmPortugal()
+    public async Task Relatorio_PeriodoDeOutubro_SoContaOsServicosCriadosNesseMesEmUtc()
     {
         var provider = await CreateProviderAsync();
         var client = await RegisterClientAsync(_client);
@@ -169,8 +171,8 @@ public class ReportsEndpointsTests(LocalHubApiFactory factory)
         int firstOfOctober = await CreateContractedAsync(client, provider, 20.00m);
         int lastOfOctober = await CreateContractedAsync(client, provider, 40.00m);
         int november = await CreateContractedAsync(client, provider, 80.00m);
-        await SetCreationDateAsync(september, new DateTimeOffset(2026, 9, 30, 22, 59, 0, TimeSpan.Zero));
-        await SetCreationDateAsync(firstOfOctober, new DateTimeOffset(2026, 9, 30, 23, 0, 0, TimeSpan.Zero));
+        await SetCreationDateAsync(september, new DateTimeOffset(2026, 9, 30, 23, 30, 0, TimeSpan.Zero));
+        await SetCreationDateAsync(firstOfOctober, new DateTimeOffset(2026, 10, 1, 0, 0, 0, TimeSpan.Zero));
         await SetCreationDateAsync(lastOfOctober, new DateTimeOffset(2026, 10, 31, 23, 59, 0, TimeSpan.Zero));
         await SetCreationDateAsync(november, new DateTimeOffset(2026, 11, 1, 0, 0, 0, TimeSpan.Zero));
 
@@ -179,10 +181,8 @@ public class ReportsEndpointsTests(LocalHubApiFactory factory)
 
         Assert.Equal(2, october.GetProperty("contractedServices").GetInt32());
         Assert.Equal(60.00m, october.GetProperty("totalAcceptedAmount").GetDecimal());
-        Assert.Equal("2026-10-01", october.GetProperty("period").GetProperty("startDate").GetString());
-        Assert.Equal("2026-10-31", october.GetProperty("period").GetProperty("endDate").GetString());
         Assert.Equal(4, all.GetProperty("contractedServices").GetInt32());
-        Assert.Equal(JsonValueKind.Null, all.GetProperty("period").GetProperty("startDate").ValueKind);
+        Assert.False(october.TryGetProperty("period", out _));
     }
 
     // Only one of the dates: the period is open on the other side.
@@ -202,13 +202,62 @@ public class ReportsEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal(20.00m, report.GetProperty("totalAcceptedAmount").GetDecimal());
     }
 
-    // Criterion 2 and the invalid dates: a global error of the operation, without "errors".
+    [Fact]
+    [Trait("Requisito", "RF-F013-02")]
+    public async Task Relatorio_SoComDataFinal_ContaOsServicosAteEssaData()
+    {
+        var provider = await CreateProviderAsync();
+        var client = await RegisterClientAsync(_client);
+        int old = await CreateContractedAsync(client, provider, 10.00m);
+        await CreateContractedAsync(client, provider, 20.00m);
+        await SetCreationDateAsync(old, new DateTimeOffset(2026, 1, 15, 12, 0, 0, TimeSpan.Zero));
+
+        var report = await GetReportAsync(client.Token, "?endDate=2026-01-31");
+
+        Assert.Equal(1, report.GetProperty("contractedServices").GetInt32());
+        Assert.Equal(10.00m, report.GetProperty("totalAcceptedAmount").GetDecimal());
+    }
+
+    // The first and the last days that the dates can have: no 500 (before, endDate=9999-12-31 threw
+    // ArgumentOutOfRangeException when the day after was calculated).
     [Theory]
     [Trait("Requisito", "RF-F013-02")]
-    [InlineData("?startDate=2026-10-31&endDate=2026-10-01", "A data inicial não pode ser posterior à data final.")]
-    [InlineData("?startDate=2026-13-01", "As datas do período têm de estar no formato AAAA-MM-DD.")]
-    [InlineData("?endDate=01-10-2026", "As datas do período têm de estar no formato AAAA-MM-DD.")]
-    public async Task Relatorio_PeriodoInvalido_Devolve400ComErroGlobal(string query, string detail)
+    [InlineData("?endDate=9999-12-31")]
+    [InlineData("?startDate=0001-01-01&endDate=9999-12-31")]
+    public async Task Relatorio_DatasExtremas_Devolve200ComTodaAAtividade(string query)
+    {
+        var provider = await CreateProviderAsync();
+        var client = await RegisterClientAsync(_client);
+        await CreateContractedAsync(client, provider, 80.00m);
+
+        var report = await GetReportAsync(client.Token, query);
+
+        Assert.Equal(1, report.GetProperty("contractedServices").GetInt32());
+    }
+
+    // Criterion 2: a start date after the end date is a global error of the operation, only in "detail".
+    [Fact]
+    [Trait("Requisito", "RF-F013-02")]
+    public async Task Relatorio_DataInicialPosteriorAFinal_Devolve400ComErroGlobal()
+    {
+        var client = await RegisterClientAsync(_client, withLocation: false);
+
+        using var response = await SendWithTokenAsync(
+            _client, HttpMethod.Get, ReportUrl + "?startDate=2026-10-31&endDate=2026-10-01", client.Token);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var problem = await AssertProblemAsync(response, BadRequestType, ReportUrl);
+        Assert.Equal("A data inicial não pode ser posterior à data final.", problem.GetProperty("detail").GetString());
+        Assert.False(problem.TryGetProperty("errors", out _));
+    }
+
+    // An invalid format is an error of the parameter, in "errors" (API documentation v04, section 4.6).
+    [Theory]
+    [Trait("Requisito", "RF-F013-02")]
+    [InlineData("?startDate=2026-13-01", "startDate")]
+    [InlineData("?endDate=01-10-2026", "endDate")]
+    [InlineData("?startDate=2026-10-01&endDate=ontem", "endDate")]
+    public async Task Relatorio_DataInvalida_Devolve400ComOErroNoParametro(string query, string field)
     {
         var client = await RegisterClientAsync(_client, withLocation: false);
 
@@ -216,8 +265,9 @@ public class ReportsEndpointsTests(LocalHubApiFactory factory)
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         var problem = await AssertProblemAsync(response, BadRequestType, ReportUrl);
-        Assert.Equal(detail, problem.GetProperty("detail").GetString());
-        Assert.False(problem.TryGetProperty("errors", out _));
+        var error = Assert.Single(problem.GetProperty("errors").EnumerateObject());
+        Assert.Equal(field, error.Name);
+        Assert.Equal("Indique uma data válida no formato AAAA-MM-DD.", error.Value[0].GetString());
     }
 
     // ---------- Helpers ----------
