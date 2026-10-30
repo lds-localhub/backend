@@ -319,8 +319,9 @@ public class ServiceWorkflowService
 
     // E22 (RF-F007-09, RF-F008-01, RF-F011-01), provider side. Access: the provider has a direct request or a proposal
     // in the service, or the service is a PUBLIC job that is OPEN and whose Client is ACTIVE. The response has only the
-    // own direct request and proposal, and no data of the Client (RNF-06). There are no reviews or history of states yet
-    // (later issues), so reviewed is false and history is empty.
+    // own direct request and proposal, and no data of the Client (RNF-06). The history of states is in chronological
+    // order, only with the role of the author of each change (as in E36). There are no reviews yet (later issues), so
+    // reviewed is false.
     public async Task<ProviderServiceResponse> GetForProviderAsync(int serviceId, CancellationToken cancellationToken)
     {
         int? profileId = await _db.FindProfileIdAsync(_currentUser.UserId, cancellationToken);
@@ -358,6 +359,13 @@ public class ServiceWorkflowService
             : GeoDistance.RoundKm(
                 GeoDistance.HaversineKm(location.Latitude, location.Longitude, service.Latitude, service.Longitude));
 
+        var history = await _db.ServiceStatusHistories.AsNoTracking()
+            .Where(h => h.ServiceId == serviceId)
+            .OrderBy(h => h.ChangedAt)
+            .ThenBy(h => h.ServiceStatusHistoryId)
+            .Select(h => new ProviderServiceHistoryResponse(h.PreviousStatus, h.NewStatus, h.ChangedAt, h.ChangedBy.Role))
+            .ToListAsync(cancellationToken);
+
         var myProposal = service.Proposals.SingleOrDefault();
         var myResponse = myProposal is null ? null : MyProposalResponse.From(myProposal);
 
@@ -380,7 +388,7 @@ public class ServiceWorkflowService
             service.DirectRequests.Select(DirectRequestResponse.From).ToList(),
             myResponse,
             myProposal?.Status == ProposalStatus.Accepted ? myResponse : null,
-            History: new List<ServiceHistoryResponse>());
+            history);
     }
 
     // E21 (RF-F008-01): the client sees the services it created; the provider, the services in which its proposal was
