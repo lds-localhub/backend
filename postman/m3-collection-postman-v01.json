@@ -6524,7 +6524,7 @@
     },
     {
       "name": "F007 e F008 — Cancelar e concluir serviços",
-      "description": "Endpoints E30 e E31 (API v03, secção 8). Usa o Cliente (token), o Prestador com perfil (profileToken), o serviço atribuído da pasta F007 e F008 — Decisões e consultas do Cliente (serviceId) e o trabalho publicado ainda aberto (publicServiceId); executar depois dessa pasta.",
+      "description": "Endpoints E30 e E31, e o histórico de estados (history) em E22 e E36 (API v03, secção 8). Usa o Cliente (token), o Prestador com perfil (profileToken), o serviço atribuído da pasta F007 e F008 — Decisões e consultas do Cliente (serviceId) e o trabalho publicado ainda aberto (publicServiceId); executar depois dessa pasta.",
       "item": [
         {
           "name": "E30 — Prestador sem proposta aceite num trabalho aberto (403)",
@@ -6738,6 +6738,110 @@
                   "    pm.expect(body.actualCompletionDate).to.not.eql(null);",
                   "    pm.expect(body.acceptedProposal.status).to.eql(\"ACCEPTED\");",
                   "    pm.expect(body.reviewed).to.eql(false);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E22 — Histórico de estados do serviço realizado (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/services/{{serviceId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "services",
+                "{{serviceId}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F007-09, RF-F008-01. O history tem as alterações de estado por ordem cronológica, com o autor: OPEN → ASSIGNED (E28) e ASSIGNED → COMPLETED (E31), ambas feitas pelo Cliente. A criação do serviço não gera registo."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Duas alterações de estado por ordem cronológica\", () => {",
+                  "    pm.expect(body.history.map(h => [h.previousStatus, h.newStatus])).to.eql([[\"OPEN\", \"ASSIGNED\"], [\"ASSIGNED\", \"COMPLETED\"]]);",
+                  "    pm.expect(Date.parse(body.history[0].changedAt)).to.be.at.most(Date.parse(body.history[1].changedAt));",
+                  "});",
+                  "pm.test(\"Cada alteração com o autor, feita pelo Cliente\", () => {",
+                  "    body.history.forEach(h => {",
+                  "        pm.expect(h).to.have.all.keys(\"previousStatus\", \"newStatus\", \"changedAt\", \"changedByUserId\", \"changedByName\", \"changedByRole\");",
+                  "        pm.expect(h.changedByRole).to.eql(\"CLIENT\");",
+                  "        pm.expect(h.changedByName).to.be.a(\"string\");",
+                  "        pm.expect(h.changedAt).to.match(/Z$/);",
+                  "    });",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E36 — Histórico de estados sem identificar o autor (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/direct-requests/{{directRequestId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "direct-requests",
+                "{{directRequestId}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{profileToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F007-09, RNF-06. O Prestador vê as mesmas alterações de estado de E22, mas só com changedByRole: sem changedByUserId nem changedByName."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
+                  "const history = pm.response.json().service.history;",
+                  "pm.test(\"Duas alterações de estado por ordem cronológica\", () => {",
+                  "    pm.expect(history.map(h => h.newStatus)).to.eql([\"ASSIGNED\", \"COMPLETED\"]);",
+                  "});",
+                  "pm.test(\"Só com o papel do autor\", () => {",
+                  "    history.forEach(h => {",
+                  "        pm.expect(h).to.have.all.keys(\"previousStatus\", \"newStatus\", \"changedAt\", \"changedByRole\");",
+                  "        pm.expect(h).to.not.have.property(\"changedByName\");",
+                  "        pm.expect(h).to.not.have.property(\"changedByUserId\");",
+                  "    });",
                   "});"
                 ]
               }
