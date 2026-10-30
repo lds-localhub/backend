@@ -188,7 +188,7 @@ public class Service
     // PENDING proposal of an OPEN service. The service becomes ASSIGNED, the other PENDING proposals DECLINED and the
     // direct requests still PENDING become VOID. The provider of the proposal must have an ACTIVE account
     // (RF-F002-02, rule 7). The proposals must be loaded with the profile and its provider, and all the direct requests.
-    // PENDING: the change of state of the service is not recorded in ServiceStatusHistory yet (I050).
+    // The change OPEN → ASSIGNED is recorded in the history, made by the client (loaded with the service).
     public Proposal AcceptProposal(int proposalId, int clientId, DateTimeOffset now)
     {
         var proposal = FindProposal(proposalId, clientId);
@@ -208,7 +208,7 @@ public class Service
                 "Não é possível aceitar a proposta de um Prestador com a conta desativada.");
         }
 
-        Status = ServiceStatus.Assigned;
+        ChangeStatus(ServiceStatus.Assigned, Client, now);
         proposal.Accept(now);
         foreach (var other in _proposals.Where(p => p != proposal && p.Status == ProposalStatus.Pending))
         {
@@ -240,8 +240,8 @@ public class Service
     // RF-F007-05 and RF-F008-04 (E30), sections 10.1 to 10.4: the client that created the service cancels it while it is
     // OPEN or ASSIGNED. In OPEN, the PENDING proposals and the PENDING direct requests become VOID; in ASSIGNED, the
     // ACCEPTED proposal stays ACCEPTED. The DECLINED proposals and the answered direct requests do not change.
-    // The proposals and the direct requests must be loaded.
-    // PENDING: the change of state of the service is not recorded in ServiceStatusHistory yet (I050).
+    // The proposals and the direct requests must be loaded, and the client too: the change to CANCELLED is recorded in
+    // the history, made by the client.
     public void CancelByClient(int clientId, DateTimeOffset now)
     {
         if (clientId != ClientId)
@@ -264,14 +264,14 @@ public class Service
             }
         }
 
-        Status = ServiceStatus.Cancelled;
+        ChangeStatus(ServiceStatus.Cancelled, Client, now);
     }
 
     // RF-F007-05 and RF-F008-04 (E30), sections 10.1 and 10.2: the provider whose proposal was accepted cancels the
     // service, only while it is ASSIGNED; the ACCEPTED proposal stays ACCEPTED. A provider that only received a direct
-    // request or whose proposal was not accepted cannot cancel (403). The proposals must be loaded.
-    // PENDING: the change of state of the service is not recorded in ServiceStatusHistory yet (I050).
-    public void CancelByProvider(int professionalProfileId)
+    // request or whose proposal was not accepted cannot cancel (403). The proposals must be loaded with the profile and
+    // its provider: the change ASSIGNED → CANCELLED is recorded in the history, made by the provider.
+    public void CancelByProvider(int professionalProfileId, DateTimeOffset now)
     {
         var accepted = _proposals.SingleOrDefault(p => p.Status == ProposalStatus.Accepted);
         if (accepted is null || accepted.ProfessionalProfileId != professionalProfileId)
@@ -281,13 +281,13 @@ public class Service
         }
 
         EnsureCanBeCancelled();
-        Status = ServiceStatus.Cancelled;
+        ChangeStatus(ServiceStatus.Cancelled, accepted.ProfessionalProfile.ServiceProvider, now);
     }
 
     // RF-F007-06 and RF-F008-05 (E31), sections 10.1 and 10.2: only the client that created the service marks it as
     // completed, only while it is ASSIGNED. The date of completion is recorded and the service can then be reviewed
-    // (RF-F012-01). The ACCEPTED proposal stays ACCEPTED.
-    // PENDING: the change of state of the service is not recorded in ServiceStatusHistory yet (I050).
+    // (RF-F012-01). The ACCEPTED proposal stays ACCEPTED. The change ASSIGNED → COMPLETED is recorded in the history,
+    // made by the client (loaded with the service).
     public void Complete(int clientId, DateTimeOffset now)
     {
         if (clientId != ClientId)
@@ -302,8 +302,16 @@ public class Service
                 "Só é possível marcar como realizado um serviço no estado atribuído.");
         }
 
-        Status = ServiceStatus.Completed;
+        ChangeStatus(ServiceStatus.Completed, Client, now);
         ActualCompletionDate = now;
+    }
+
+    // RF-F007-09 and RF-F008-01 (E22): every change of state of the service is recorded with the date and the user that
+    // made it. The creation of the service is not a change of state, so it has no record.
+    private void ChangeStatus(ServiceStatus newStatus, User changedBy, DateTimeOffset now)
+    {
+        _statusHistory.Add(new ServiceStatusHistory(Status, newStatus, changedBy, now));
+        Status = newStatus;
     }
 
     // COMPLETED and CANCELLED are final states (RF-F007-07, RF-F008-06).

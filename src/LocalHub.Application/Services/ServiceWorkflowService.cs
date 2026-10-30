@@ -548,15 +548,16 @@ public class ServiceWorkflowService
         {
             await LockServiceAsync(serviceId, cancellationToken);
 
+            // With the provider of each proposal, who is recorded in the history when the service is cancelled.
             var service = await _db.Services
-                .Include(s => s.Proposals)
+                .Include(s => s.Proposals).ThenInclude(p => p.ProfessionalProfile).ThenInclude(p => p.ServiceProvider)
                 .SingleOrDefaultAsync(s => s.ServiceId == serviceId, cancellationToken);
             if (service is null)
             {
                 throw new NotFoundException("Serviço não encontrado.");
             }
 
-            service.CancelByProvider(profileId.Value);
+            service.CancelByProvider(profileId.Value, Now());
             await SaveDecisionAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
         }
@@ -589,12 +590,14 @@ public class ServiceWorkflowService
     }
 
     // The service with everything the client sees (E22, E26, E28). 404 when it does not exist; 403 when it was created
-    // by another client (API documentation, section 7).
+    // by another client (API documentation, section 7). The client is loaded, because it is recorded in the history of
+    // the changes of state that it makes (E28, E30 and E31).
     private async Task<Service> FindOwnServiceAsync(
         IQueryable<Service> services, int serviceId, CancellationToken cancellationToken)
     {
         var service = await services
             .Include(s => s.ServiceCategory)
+            .Include(s => s.Client)
             .Include(s => s.DirectRequests).ThenInclude(r => r.ProfessionalProfile).ThenInclude(p => p.ServiceProvider)
             .Include(s => s.Proposals).ThenInclude(p => p.ProfessionalProfile).ThenInclude(p => p.ServiceProvider)
             .AsSplitQuery()
