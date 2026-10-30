@@ -2,6 +2,7 @@ using LocalHub.Application.Accounts;
 using LocalHub.Application.Categories;
 using LocalHub.Application.Locations;
 using LocalHub.Application.Profiles;
+using LocalHub.Application.Reports;
 using LocalHub.Application.Reviews;
 using LocalHub.Application.Search;
 using LocalHub.Application.Services;
@@ -34,6 +35,7 @@ public static class DependencyInjection
         services.AddScoped<DirectRequestService>();
         services.AddScoped<SearchService>();
         services.AddScoped<ReviewService>();
+        services.AddScoped<ReportService>();
 
         return services;
     }

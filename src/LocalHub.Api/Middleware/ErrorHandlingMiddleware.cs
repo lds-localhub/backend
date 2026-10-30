@@ -42,7 +42,7 @@ public class ErrorHandlingMiddleware : IMiddleware
                     StatusCodes.Status400BadRequest,
                     "Dados inválidos",
                     validation.Message,
-                    errors: validation.Errors.ToDictionary());
+                    errors: validation.Errors.Count > 0 ? validation.Errors.ToDictionary() : null);
 
             case InvalidCredentialsException credentials:
                 return ProblemResponses.WriteAsync(
