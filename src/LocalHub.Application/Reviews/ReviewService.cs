@@ -50,11 +50,13 @@ public class ReviewService
 
         // RF-F012-01, rule 6: the review is of the provider whose proposal was accepted. The row of its profile stays
         // locked until the end of the transaction, so two reviews of the same provider at the same time are counted
-        // one after the other and the second one reads the rating of the first.
+        // one after the other and the second one reads the rating of the first. The profile is read again after the
+        // lock: if EF kept the average read before it, a new average equal to that one would not be saved.
         var provider = service.Proposals.Single().ProfessionalProfile;
         await _db.Database.ExecuteSqlAsync(
             $"SELECT 1 FROM \"ProfessionalProfile\" WHERE \"professionalProfileId\" = {provider.ProfessionalProfileId} FOR UPDATE",
             cancellationToken);
+        await _db.Entry(provider).ReloadAsync(cancellationToken);
 
         var ratings = await _db.ReviewsOf(provider.ProfessionalProfileId)
             .Select(r => r.Rating)

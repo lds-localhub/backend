@@ -2,7 +2,11 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 
+using LocalHub.Infrastructure;
 using LocalHub.IntegrationTests.Fixtures;
+
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 using static LocalHub.IntegrationTests.Fixtures.AuthRequests;
 using static LocalHub.IntegrationTests.Fixtures.ProfileRequests;
@@ -257,6 +261,49 @@ public class ReviewsEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal(1, profile.GetProperty("reviewCount").GetInt32());
     }
 
+    // Criterion 6 of RF-F012-01: two reviews of the same provider at the same time are both counted. The test holds the
+    // lock of the profile until both requests have read it and are waiting, so the average of the second one (4.0) is
+    // the same that it read at the start and must still replace the average saved by the first one.
+    [Fact]
+    [Trait("Requisito", "RF-F012-01")]
+    [Trait("Requisito", "RF-F012-02")]
+    public async Task Review_DuasAvaliacoesDoMesmoPrestadorEmSimultaneo_ContaAsDuasNaMedia()
+    {
+        var provider = await CreateProviderWithProfileAsync(_client);
+        await ReviewAsync(await CreateCompletedServiceAsync(provider), 4);
+        var first = await CreateCompletedServiceAsync(provider);
+        var second = await CreateCompletedServiceAsync(provider);
+
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<LocalHubDbContext>();
+        await using var transaction = await db.Database.BeginTransactionAsync();
+        await db.Database.ExecuteSqlAsync(
+            $"SELECT 1 FROM \"ProfessionalProfile\" WHERE \"professionalProfileId\" = {provider.ProfessionalProfileId} FOR UPDATE");
+
+        var requests = Task.WhenAll(
+            SendJsonAsync(_client, HttpMethod.Post, ReviewUrl(first.ServiceId), first.Client.Token, new { rating = 5 }),
+            SendJsonAsync(_client, HttpMethod.Post, ReviewUrl(second.ServiceId), second.Client.Token, new { rating = 3 }));
+        await WaitForRequestsBlockedOnProfileAsync(expected: 2);
+        await transaction.CommitAsync();
+
+        var responses = await requests;
+        try
+        {
+            Assert.All(responses, r => Assert.Equal(HttpStatusCode.Created, r.StatusCode));
+        }
+        finally
+        {
+            foreach (var response in responses)
+            {
+                response.Dispose();
+            }
+        }
+
+        var profile = await GetJsonAsync(first.Client.Token, ProfileUrl(provider.ProfessionalProfileId));
+        Assert.Equal(4.0m, profile.GetProperty("averageRating").GetDecimal());
+        Assert.Equal(3, profile.GetProperty("reviewCount").GetInt32());
+    }
+
     // ---------- E32: other actors (criterion 4) ----------
 
     [Fact]
@@ -476,6 +523,27 @@ public class ReviewsEndpointsTests(LocalHubApiFactory factory)
         using var response = await GetAsync(token, url);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         return await response.Content.ReadFromJsonAsync<JsonElement>();
+    }
+
+    // Uses its own connection, without a transaction, because PostgreSQL keeps the same pg_stat_activity inside one.
+    private async Task WaitForRequestsBlockedOnProfileAsync(int expected)
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<LocalHubDbContext>();
+        int blocked = 0;
+        for (int attempt = 0; attempt < 200 && blocked < expected; attempt++)
+        {
+            blocked = await db.Database.SqlQuery<int>($"""
+                SELECT count(*)::int AS "Value" FROM pg_stat_activity
+                WHERE datname = current_database() AND wait_event_type = 'Lock' AND query LIKE '%FOR UPDATE%'
+                """).SingleAsync();
+            if (blocked < expected)
+            {
+                await Task.Delay(50);
+            }
+        }
+
+        Assert.Equal(expected, blocked);
     }
 
     private async Task<int> ReviewAsync(TestService service, int rating, string? comment = null)
