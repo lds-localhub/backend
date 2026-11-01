@@ -154,7 +154,8 @@ F010 e a proposta e o trabalho publicado da pasta F007 e F011, por isso tem de s
 atribuído na pasta anterior, por isso tem de ser executada depois dela. A pasta «F012 — Avaliação do
 serviço» (E32 e E15) avalia o serviço realizado na pasta anterior e confirma a classificação média do perfil
 (E13). A pasta «F013 — Relatório do Cliente» (E33) procura esse serviço realizado no histórico do
-relatório, por isso é a última a ser executada.
+relatório. A pasta «F014 — Relatório do Prestador» (E34) confirma esse serviço e a avaliação recebida nos indicadores
+do Prestador, por isso é a última a ser executada.
 
 ## Integração contínua
 

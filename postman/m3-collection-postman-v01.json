@@ -7738,6 +7738,357 @@
           ]
         }
       ]
+    },
+    {
+      "name": "F014 — Relatório do Prestador",
+      "description": "Endpoint E34 (API v04, secção 8). Usa o Prestador (profileToken), o serviço realizado e a avaliação das pastas «F007 e F008 — Cancelar e concluir serviços» e «F012 — Avaliação do serviço»; executar depois delas.",
+      "item": [
+        {
+          "name": "E34 — Relatório de toda a atividade (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/reports/provider",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reports",
+                "provider"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{profileToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F014-01. Serviços realizados, distribuição por categoria e por estado, solicitações diretas recebidas, propostas aceites e recusadas, valor total das propostas aceites e evolução mensal da classificação."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Indicadores do relatório\", () => {",
+                  "    pm.expect(body.completedServices).to.be.at.least(1);",
+                  "    pm.expect(body.byStatus.map(s => s.status)).to.eql([\"ASSIGNED\", \"COMPLETED\", \"CANCELLED\"]);",
+                  "    pm.expect(body.byStatus.reduce((total, s) => total + s.count, 0)).to.eql(body.proposals.accepted);",
+                  "    pm.expect(body.directRequestsReceived).to.be.at.least(1);",
+                  "    pm.expect(body.proposals).to.have.keys(\"accepted\", \"declined\");",
+                  "    pm.expect(body.totalAcceptedAmount).to.be.above(0);",
+                  "    pm.expect(body).to.not.have.property(\"period\");",
+                  "});",
+                  "pm.test(\"A evolução acaba no mês atual, em UTC, com a avaliação recebida\", () => {",
+                  "    const month = body.ratingEvolution[body.ratingEvolution.length - 1];",
+                  "    pm.expect(month.month).to.eql(new Date().toISOString().slice(0, 7));",
+                  "    pm.expect(month.reviewCount).to.be.at.least(1);",
+                  "    pm.expect(month.averageRating).to.be.within(1, 5);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E34 — Período de um dia sem serviços (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/reports/provider?startDate=2000-01-01&endDate=2000-01-01",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reports",
+                "provider"
+              ],
+              "query": [
+                {
+                  "key": "startDate",
+                  "value": "2000-01-01"
+                },
+                {
+                  "key": "endDate",
+                  "value": "2000-01-01"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{profileToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F014-02. O período aplica-se à data de criação do serviço; as solicitações diretas, as propostas e os valores seguem essa data. A evolução só apresenta meses do período a partir da primeira avaliação."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Indicadores a zero\", () => {",
+                  "    pm.expect(body.completedServices).to.eql(0);",
+                  "    pm.expect(body.directRequestsReceived).to.eql(0);",
+                  "    pm.expect(body.proposals).to.eql({ accepted: 0, declined: 0 });",
+                  "    pm.expect(body.totalAcceptedAmount).to.eql(0);",
+                  "    pm.expect(body.ratingEvolution).to.eql([]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E34 — Data inicial posterior à final (400)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/reports/provider?startDate=2026-10-31&endDate=2026-10-01",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reports",
+                "provider"
+              ],
+              "query": [
+                {
+                  "key": "startDate",
+                  "value": "2026-10-31"
+                },
+                {
+                  "key": "endDate",
+                  "value": "2026-10-01"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{profileToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F014-02, regra 1. Erro global da operação."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 400\", () => pm.response.to.have.status(400));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Erro global, sem errors\", () => {",
+                  "    pm.expect(body.detail).to.eql(\"A data inicial não pode ser posterior à data final.\");",
+                  "    pm.expect(body).to.not.have.property(\"errors\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E34 — Data inválida (400, errors.endDate)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/reports/provider?endDate=31-10-2026",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reports",
+                "provider"
+              ],
+              "query": [
+                {
+                  "key": "endDate",
+                  "value": "31-10-2026"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{profileToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F014-02; API v04, secção 4.6. Um formato inválido é um erro do parâmetro, em errors."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"Erro associado a endDate\", () => {",
+                  "    pm.expect(pm.response.json().errors.endDate).to.eql([\"Indique uma data válida no formato AAAA-MM-DD.\"]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E34 — Datas extremas (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/reports/provider?startDate=0001-01-01&endDate=9999-12-31",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reports",
+                "provider"
+              ],
+              "query": [
+                {
+                  "key": "startDate",
+                  "value": "0001-01-01"
+                },
+                {
+                  "key": "endDate",
+                  "value": "9999-12-31"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{profileToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F014-02. As datas extremas não limitam o período e a evolução não gera milhares de meses."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Evolução limitada ao mês atual\", () => {",
+                  "    const evolution = pm.response.json().ratingEvolution;",
+                  "    pm.expect(evolution[evolution.length - 1].month).to.eql(new Date().toISOString().slice(0, 7));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E34 — Pedido de um Cliente (403)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/reports/provider",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reports",
+                "provider"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F014-01, regra 6. Só o Prestador consulta o seu relatório."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 403\", () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E34 — Sem token (401)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/reports/provider",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reports",
+                "provider"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "RF-F001-03."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 401\", () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
     }
   ],
   "variable": [
