@@ -26,8 +26,7 @@ public record ClientServiceResponse(
     IReadOnlyList<ServiceHistoryResponse> History)
 {
     // The service must be loaded with its category, its direct requests and its proposals, each with the profile and
-    // the provider. There are no reviews nor history of states yet (I052 and I050), so reviewed is false and history
-    // is empty.
+    // the provider, and its review (reviewed). There is no history of states yet (I050), so history is empty.
     public static ClientServiceResponse From(Service service)
     {
         var accepted = service.Proposals.SingleOrDefault(p => p.Status == ProposalStatus.Accepted);
@@ -47,7 +46,7 @@ public record ClientServiceResponse(
             service.Longitude,
             service.CreationDate,
             service.ActualCompletionDate,
-            Reviewed: false,
+            Reviewed: service.Review is not null,
             service.DirectRequests.OrderBy(r => r.DirectRequestId).Select(ClientDirectRequestResponse.From).ToList(),
             accepted is null ? null : ClientProposalResponse.From(accepted),
             History: new List<ServiceHistoryResponse>());

@@ -16,12 +16,13 @@ public class ValidationException : Exception
     {
     }
 
-    // An error of the whole request, explained only in "detail", without "errors" (API documentation, section 4.6).
-    public ValidationException(string detail)
-        : base(detail)
+    // A global error of the operation, not tied to a field: the response has only "detail" (API documentation, 4.6).
+    public ValidationException(string message)
+        : base(message)
     {
         Errors = new Dictionary<string, string[]>();
     }
 
+    // Empty for a global error of the operation.
     public IReadOnlyDictionary<string, string[]> Errors { get; }
 }

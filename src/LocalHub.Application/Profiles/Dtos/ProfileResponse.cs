@@ -13,10 +13,12 @@ public record ProfileResponse(
     IReadOnlyList<ProfileCategoryResponse> ServiceCategories,
     string? Address,
     short ServiceRadiusKm,
-    decimal? AverageRating)
+    decimal? AverageRating,
+    int ReviewCount)
 {
-    // The profile must be loaded with its provider and the categories of its areas.
-    public static ProfileResponse From(ProfessionalProfile profile)
+    // The profile must be loaded with its provider and the categories of its areas. reviewCount is the number of
+    // reviews received (0 without reviews), counted with ReviewQueries.ReviewsOf.
+    public static ProfileResponse From(ProfessionalProfile profile, int reviewCount)
     {
         var categories = ProfileCategoryResponse.InDisplayOrder(
             profile.ServiceAreas.Select(a => new ProfileCategoryResponse(a.ServiceCategoryId, a.ServiceCategory.Name)));
@@ -31,7 +33,8 @@ public record ProfileResponse(
             categories,
             profile.ServiceProvider.Address,
             profile.ServiceRadiusKm,
-            profile.AverageRating);
+            profile.AverageRating,
+            reviewCount);
     }
 }
 

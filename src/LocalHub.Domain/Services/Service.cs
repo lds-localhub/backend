@@ -306,6 +306,33 @@ public class Service
         ActualCompletionDate = now;
     }
 
+    // RF-F012-01 (E32): only the client that created the service reviews it, only while it is COMPLETED and only once.
+    // The review is of the provider whose proposal was accepted (rule 6), so a COMPLETED service always has one
+    // (sections 10.1 and 10.2). The service stays COMPLETED. The review must be loaded.
+    public Review AddReview(int clientId, short rating, string? comment, DateTimeOffset now)
+    {
+        if (clientId != ClientId)
+        {
+            throw new DomainException(DomainErrorKind.Forbidden,
+                "Só o Cliente que criou o serviço pode avaliá-lo.");
+        }
+
+        if (Status != ServiceStatus.Completed)
+        {
+            throw new DomainException(DomainErrorKind.InvalidTransition,
+                "Só é possível avaliar um serviço no estado realizado.");
+        }
+
+        if (Review is not null)
+        {
+            throw new DomainException(DomainErrorKind.Conflict, "Este serviço já foi avaliado.",
+                errorType: Review.AlreadyExistsErrorType);
+        }
+
+        Review = new Review(this, rating, comment, now);
+        return Review;
+    }
+
     // COMPLETED and CANCELLED are final states (RF-F007-07, RF-F008-06).
     private void EnsureCanBeCancelled()
     {
