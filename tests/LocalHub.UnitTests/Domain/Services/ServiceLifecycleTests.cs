@@ -131,7 +131,7 @@ public class ServiceLifecycleTests
     {
         var service = AssignedService(out var accepted);
 
-        service.CancelByProvider(12);
+        service.CancelByProvider(12, Decision);
 
         Assert.Equal(ServiceStatus.Cancelled, service.Status);
         Assert.Equal(ProposalStatus.Accepted, accepted.Status);
@@ -144,7 +144,7 @@ public class ServiceLifecycleTests
     {
         var service = CreateDirect([Profile(12)]);
 
-        var exception = Assert.Throws<DomainException>(() => service.CancelByProvider(12));
+        var exception = Assert.Throws<DomainException>(() => service.CancelByProvider(12, Decision));
 
         Assert.Equal(DomainErrorKind.Forbidden, exception.Kind);
         Assert.Equal(ServiceStatus.Open, service.Status);
@@ -159,7 +159,7 @@ public class ServiceLifecycleTests
         var service = CreatePublic();
         var proposal = Submit(service, Profile(12), 101);
 
-        var exception = Assert.Throws<DomainException>(() => service.CancelByProvider(12));
+        var exception = Assert.Throws<DomainException>(() => service.CancelByProvider(12, Decision));
 
         Assert.Equal(DomainErrorKind.Forbidden, exception.Kind);
         Assert.Equal(ServiceStatus.Open, service.Status);
@@ -174,7 +174,7 @@ public class ServiceLifecycleTests
     {
         var service = AssignedService(out _);
 
-        var exception = Assert.Throws<DomainException>(() => service.CancelByProvider(17));
+        var exception = Assert.Throws<DomainException>(() => service.CancelByProvider(17, Decision));
 
         Assert.Equal(DomainErrorKind.Forbidden, exception.Kind);
         Assert.Equal(ServiceStatus.Assigned, service.Status);
@@ -190,7 +190,7 @@ public class ServiceLifecycleTests
         var service = AssignedService(out _);
         MoveTo(service, state);
 
-        var exception = Assert.Throws<DomainException>(() => service.CancelByProvider(12));
+        var exception = Assert.Throws<DomainException>(() => service.CancelByProvider(12, Decision));
 
         Assert.Equal(DomainErrorKind.InvalidTransition, exception.Kind);
         Assert.Equal(state, service.Status);
