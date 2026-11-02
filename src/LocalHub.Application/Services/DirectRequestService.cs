@@ -163,8 +163,9 @@ public class DirectRequestService
         return new PagedResult<ClientDirectRequestListItem>(page.Page, page.PageSize, total, items);
     }
 
-    // E36 (RF-F007-09): one direct request, only for the provider that received it (another provider gets 403). There is
-    // no history of states yet (I050), so history is empty.
+    // E36 (RF-F007-09): one direct request, only for the provider that received it (another provider gets 403). The
+    // history of states of the service is in chronological order, only with the role of the author of each change, so
+    // the hired provider is not identified (RNF-06).
     public async Task<ProviderDirectRequestResponse> GetAsync(int directRequestId, CancellationToken cancellationToken)
     {
         int profileId = await GetMyProfileIdAsync(cancellationToken);
@@ -200,6 +201,13 @@ public class DirectRequestService
                     .Where(p => p.ServiceId == r.ServiceId && p.ProfessionalProfileId == r.ProfessionalProfileId)
                     .Select(p => (int?)p.ProposalId)
                     .FirstOrDefault(),
+                History = _db.ServiceStatusHistories
+                    .Where(h => h.ServiceId == r.ServiceId)
+                    .OrderBy(h => h.ChangedAt)
+                    .ThenBy(h => h.ServiceStatusHistoryId)
+                    .Select(h => new ProviderServiceHistoryResponse(
+                        h.PreviousStatus, h.NewStatus, h.ChangedAt, h.ChangedBy.Role))
+                    .ToList(),
             })
             .SingleOrDefaultAsync(cancellationToken);
         if (row is null)
@@ -232,7 +240,7 @@ public class DirectRequestService
                 service.Status,
                 service.CreationDate,
                 service.ClientName,
-                new List<ProviderServiceHistoryResponse>()),
+                row.History),
             row.ProposalId);
     }
 
