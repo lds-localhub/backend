@@ -125,6 +125,50 @@ public class ProfessionalProfileTests
         Assert.Equal((short)km, profile.ServiceRadiusKm);
     }
 
+    // ---------- RecalculateAverageRating (RF-F012-02) ----------
+
+    // Criteria 1 and 2: 5, 4 and 4 give 4.3; with a new review of 1, 3.5.
+    [Theory]
+    [Trait("Requisito", "RF-F012-02")]
+    [InlineData(new short[] { 5, 4, 4 }, 4.3)]
+    [InlineData(new short[] { 5, 4, 4, 1 }, 3.5)]
+    [InlineData(new short[] { 3 }, 3.0)]
+    [InlineData(new short[] { 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 4 }, 5.0)]
+    public void RecalculateAverageRating_ComAvaliacoes_MediaComUmaCasaDecimal(short[] ratings, double expected)
+    {
+        var profile = CreateValid(Provider);
+
+        profile.RecalculateAverageRating(ratings);
+
+        Assert.Equal((decimal)expected, profile.AverageRating);
+    }
+
+    // Rule 1: 0.05 rounds up (4.05 → 4.1, not 4.0 as with the rounding to even of Math.Round).
+    [Fact]
+    [Trait("Requisito", "RF-F012-02")]
+    public void RecalculateAverageRating_MediaTerminadaEm005_ArredondaParaCima()
+    {
+        var profile = CreateValid(Provider);
+        // 20 ratings with a sum of 81: 81 / 20 = 4.05.
+        short[] ratings = [.. Enumerable.Repeat((short)4, 19), 5];
+
+        profile.RecalculateAverageRating(ratings);
+
+        Assert.Equal(4.1m, profile.AverageRating);
+    }
+
+    // Criterion 3: without reviews there is no average ("Sem avaliações", not 0).
+    [Fact]
+    [Trait("Requisito", "RF-F012-02")]
+    public void RecalculateAverageRating_SemAvaliacoes_FicaSemMedia()
+    {
+        var profile = CreateValid(Provider);
+
+        profile.RecalculateAverageRating([]);
+
+        Assert.Null(profile.AverageRating);
+    }
+
     private static ProfessionalProfile CreateValid(User provider) =>
         ProfessionalProfile.Create(provider, "Apresentação", "Telefone", "Experiência", [Category(1, "A")], 10);
 

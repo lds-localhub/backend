@@ -99,6 +99,21 @@ public class ProfessionalProfile
         }
     }
 
+    // RF-F012-02: the arithmetic mean of all the ratings received, with one decimal place (0.05 rounds up); null
+    // without reviews ("Sem avaliações", not 0). Called whenever a review is added (E32).
+    public void RecalculateAverageRating(IReadOnlyCollection<short> ratings)
+    {
+        AverageRating = CalculateAverageRating(ratings);
+    }
+
+    // The same rounding in the evolution of the report of the provider (RF-F014-01, rule 5).
+    public static decimal? CalculateAverageRating(IReadOnlyCollection<short> ratings)
+    {
+        return ratings.Count == 0
+            ? null
+            : Math.Round((decimal)ratings.Sum(r => (int)r) / ratings.Count, 1, MidpointRounding.AwayFromZero);
+    }
+
     // RF-F015-01 (E17): a new radius replaces the previous one. The range is validated by the DTO.
     public void SetServiceRadius(short serviceRadiusKm)
     {

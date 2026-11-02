@@ -320,8 +320,7 @@ public class ServiceWorkflowService
     // E22 (RF-F007-09, RF-F008-01, RF-F011-01), provider side. Access: the provider has a direct request or a proposal
     // in the service, or the service is a PUBLIC job that is OPEN and whose Client is ACTIVE. The response has only the
     // own direct request and proposal, and no data of the Client (RNF-06). The history of states is in chronological
-    // order, only with the role of the author of each change (as in E36). There are no reviews yet (later issues), so
-    // reviewed is false.
+    // order, only with the role of the author of each change (as in E36).
     public async Task<ProviderServiceResponse> GetForProviderAsync(int serviceId, CancellationToken cancellationToken)
     {
         int? profileId = await _db.FindProfileIdAsync(_currentUser.UserId, cancellationToken);
@@ -333,6 +332,7 @@ public class ServiceWorkflowService
         var service = await _db.Services.AsNoTracking()
             .Include(s => s.ServiceCategory)
             .Include(s => s.Client)
+            .Include(s => s.Review)
             .Include(s => s.DirectRequests.Where(r => r.ProfessionalProfileId == profileId))
             .Include(s => s.Proposals.Where(p => p.ProfessionalProfileId == profileId))
             .SingleOrDefaultAsync(s => s.ServiceId == serviceId, cancellationToken);
@@ -384,7 +384,7 @@ public class ServiceWorkflowService
             distanceKm,
             service.CreationDate,
             service.ActualCompletionDate,
-            Reviewed: false,
+            Reviewed: service.Review is not null,
             service.DirectRequests.Select(DirectRequestResponse.From).ToList(),
             myResponse,
             myProposal?.Status == ProposalStatus.Accepted ? myResponse : null,
@@ -606,6 +606,7 @@ public class ServiceWorkflowService
         var service = await services
             .Include(s => s.ServiceCategory)
             .Include(s => s.Client)
+            .Include(s => s.Review)
             .Include(s => s.DirectRequests).ThenInclude(r => r.ProfessionalProfile).ThenInclude(p => p.ServiceProvider)
             .Include(s => s.Proposals).ThenInclude(p => p.ProfessionalProfile).ThenInclude(p => p.ServiceProvider)
             .Include(s => s.StatusHistory).ThenInclude(h => h.ChangedBy)
