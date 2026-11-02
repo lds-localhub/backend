@@ -84,6 +84,16 @@ Content-Type: application/json
 POST {{LocalHub.Api_HostAddress}}/api/accounts/{{register.response.body.userId}}/activate
 Authorization: Bearer {{login.response.body.token}}
 
+### E39 - Summary of the administration: active and inactive accounts of clients and providers, and active categories
+GET {{LocalHub.Api_HostAddress}}/api/admin/summary
+Authorization: Bearer {{login.response.body.token}}
+
+### E35 - The address of the position of the device (public, reverse geocoded by Nominatim, needs Internet access; nothing is saved)
+GET {{LocalHub.Api_HostAddress}}/api/geocoding/reverse?latitude=41.146800&longitude=-8.606800
+
+### E35 - Latitude out of range (expect 400 on "latitude")
+GET {{LocalHub.Api_HostAddress}}/api/geocoding/reverse?latitude=91&longitude=-8.606800
+
 ### E03 - Log out (expect 204); afterwards the same token gets 401 on E04
 POST {{LocalHub.Api_HostAddress}}/api/auth/logout
 Authorization: Bearer {{login.response.body.token}}

@@ -75,6 +75,7 @@ public sealed partial class NominatimGeocodingService : IGeocodingService
             ["lat"] = coordinates.Latitude.ToString(CultureInfo.InvariantCulture),
             ["lon"] = coordinates.Longitude.ToString(CultureInfo.InvariantCulture),
             ["format"] = "jsonv2",
+            ["addressdetails"] = "1",
             ["accept-language"] = _options.Language,
             ["email"] = _options.Email,
         };
@@ -91,13 +92,46 @@ public sealed partial class NominatimGeocodingService : IGeocodingService
             return null;
         }
 
-        string address = displayName.GetString()!.Trim();
+        // E35 (API v04): street, number, postal code and locality, so that converting it back into coordinates
+        // (E12, E14, E16, E18, E20) gives the same position. Without a street, the full display_name is used.
+        string address = (ComposeAddress(root) ?? displayName.GetString()!).Trim();
         if (address.Length == 0)
         {
             return null;
         }
 
         return address.Length <= AddressMaxLength ? address : address.Substring(0, AddressMaxLength);
+    }
+
+    // "Rua de Santa Catarina 74, 4000-441 Porto", from the "address" object returned with addressdetails=1.
+    private static string? ComposeAddress(JsonElement root)
+    {
+        if (!root.TryGetProperty("address", out JsonElement details) || details.ValueKind != JsonValueKind.Object)
+        {
+            return null;
+        }
+
+        string? road = ReadString(details, "road");
+        if (road is null)
+        {
+            return null;
+        }
+
+        string street = ReadString(details, "house_number") is { } number ? $"{road} {number}" : road;
+        string? locality = ReadString(details, "city") ?? ReadString(details, "town")
+            ?? ReadString(details, "village") ?? ReadString(details, "municipality");
+        string place = string.Join(' ', new[] { ReadString(details, "postcode"), locality }.Where(p => p is not null));
+
+        return place.Length == 0 ? street : $"{street}, {place}";
+    }
+
+    private static string? ReadString(JsonElement element, string property)
+    {
+        return element.TryGetProperty(property, out JsonElement value)
+            && value.ValueKind == JsonValueKind.String
+            && !string.IsNullOrWhiteSpace(value.GetString())
+            ? value.GetString()!.Trim()
+            : null;
     }
 
     private async Task<JsonDocument> SendAsync(string path, Dictionary<string, string?> query, CancellationToken cancellationToken)
