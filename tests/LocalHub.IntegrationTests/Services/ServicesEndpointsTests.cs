@@ -518,7 +518,7 @@ public class ServicesEndpointsTests(LocalHubApiFactory factory)
 
     private async Task<JsonElement> GetMeAsync(string token)
     {
-        using var response = await SendWithTokenAsync(_client, HttpMethod.Get, "/api/users/me", token);
+        using var response = await SendWithTokenAsync(_client, HttpMethod.Get, "/api/auth/me", token);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         return await response.Content.ReadFromJsonAsync<JsonElement>();
     }

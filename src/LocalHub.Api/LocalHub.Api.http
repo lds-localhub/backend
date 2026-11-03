@@ -48,11 +48,11 @@ Content-Type: application/json
 }
 
 ### E04 - Authenticated user
-GET {{LocalHub.Api_HostAddress}}/api/users/me
+GET {{LocalHub.Api_HostAddress}}/api/auth/me
 Authorization: Bearer {{login.response.body.token}}
 
 ### E04 - Without token (expect 401)
-GET {{LocalHub.Api_HostAddress}}/api/users/me
+GET {{LocalHub.Api_HostAddress}}/api/auth/me
 
 ### E05 - List the accounts of clients and providers (administrator)
 GET {{LocalHub.Api_HostAddress}}/api/accounts?page=1&pageSize=20

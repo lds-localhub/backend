@@ -20,7 +20,7 @@ namespace LocalHub.IntegrationTests.Accounts;
 public class AccountsEndpointsTests(LocalHubApiFactory factory)
 {
     private const string AccountsUrl = "/api/accounts";
-    private const string MeUrl = "/api/users/me";
+    private const string MeUrl = "/api/auth/me";
     private const string BadRequestType = "https://tools.ietf.org/html/rfc9110#section-15.5.1";
     private const string NotFoundType = "https://tools.ietf.org/html/rfc9110#section-15.5.5";
     private const string ConflictType = "https://tools.ietf.org/html/rfc9110#section-15.5.10";

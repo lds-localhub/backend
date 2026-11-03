@@ -56,7 +56,7 @@ public class ProfilesEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal(JsonValueKind.Null, profile.GetProperty("averageRating").ValueKind);
 
         // The address is saved in User with its coordinates, and E04 and E02 return the professionalProfileId.
-        var me = await GetJsonAsync("/api/users/me", token);
+        var me = await GetJsonAsync("/api/auth/me", token);
         Assert.Equal(profileId, me.GetProperty("professionalProfileId").GetInt32());
         Assert.Equal(FakeGeocodingService.KnownLatitude, me.GetProperty("latitude").GetDecimal());
         Assert.Equal(FakeGeocodingService.KnownLongitude, me.GetProperty("longitude").GetDecimal());
@@ -360,7 +360,7 @@ public class ProfilesEndpointsTests(LocalHubApiFactory factory)
         var profile = await response.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal(FakeGeocodingService.AddressAt2Km, profile.GetProperty("address").GetString());
         Assert.Equal(40, profile.GetProperty("serviceRadiusKm").GetInt32());
-        var me = await GetJsonAsync("/api/users/me", provider.Token);
+        var me = await GetJsonAsync("/api/auth/me", provider.Token);
         Assert.Equal(41.175886m, me.GetProperty("latitude").GetDecimal());
         Assert.Equal(FakeGeocodingService.KnownLongitude, me.GetProperty("longitude").GetDecimal());
     }
@@ -586,7 +586,7 @@ public class ProfilesEndpointsTests(LocalHubApiFactory factory)
         Assert.NotEqual("Nova apresentação", profile.GetProperty("introduction").GetString());
         Assert.Equal(FakeGeocodingService.KnownAddress, profile.GetProperty("address").GetString());
         Assert.Equal(15, profile.GetProperty("serviceRadiusKm").GetInt32());
-        var me = await GetJsonAsync("/api/users/me", provider.Token);
+        var me = await GetJsonAsync("/api/auth/me", provider.Token);
         Assert.Equal(FakeGeocodingService.KnownLatitude, me.GetProperty("latitude").GetDecimal());
     }
 
@@ -604,7 +604,7 @@ public class ProfilesEndpointsTests(LocalHubApiFactory factory)
 
     private async Task AssertHasNoProfileAsync(string token)
     {
-        var me = await GetJsonAsync("/api/users/me", token);
+        var me = await GetJsonAsync("/api/auth/me", token);
         Assert.Equal(JsonValueKind.Null, me.GetProperty("professionalProfileId").ValueKind);
     }
 

@@ -18,7 +18,7 @@ namespace LocalHub.IntegrationTests.Auth;
 [Trait("Category", "Integration")]
 public class SessionTests(LocalHubApiFactory factory)
 {
-    private const string MeUrl = "/api/users/me";
+    private const string MeUrl = "/api/auth/me";
 
     private readonly HttpClient _client = factory.CreateClient();
 

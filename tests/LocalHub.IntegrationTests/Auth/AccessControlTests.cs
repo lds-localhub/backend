@@ -18,7 +18,7 @@ public class AccessControlTests(LocalHubApiFactory factory)
     public static TheoryData<string, string> ProtectedEndpoints => new()
     {
         { "POST", "/api/auth/logout" },
-        { "GET", "/api/users/me" },
+        { "GET", "/api/auth/me" },
         { "GET", "/api/accounts" },
         { "POST", "/api/accounts/1/deactivate" },
         { "POST", "/api/accounts/1/activate" },

@@ -189,7 +189,7 @@ public class SearchEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal([at30.ProfessionalProfileId, at2.ProfessionalProfileId], ProfileIds(items));
         Assert.Equal([0.0m, 28.0m], Distances(items));
 
-        using var meResponse = await SendWithTokenAsync(_client, HttpMethod.Get, "/api/users/me", clientToken);
+        using var meResponse = await SendWithTokenAsync(_client, HttpMethod.Get, "/api/auth/me", clientToken);
         var me = await meResponse.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal(FakeGeocodingService.KnownAddress, me.GetProperty("address").GetString());
         Assert.Equal(FakeGeocodingService.KnownLatitude, me.GetProperty("latitude").GetDecimal());
@@ -452,7 +452,7 @@ public class SearchEndpointsTests(LocalHubApiFactory factory)
 
     private async Task<int> GetUserIdAsync(string token)
     {
-        using var response = await SendWithTokenAsync(_client, HttpMethod.Get, "/api/users/me", token);
+        using var response = await SendWithTokenAsync(_client, HttpMethod.Get, "/api/auth/me", token);
         var me = await response.Content.ReadFromJsonAsync<JsonElement>();
         return me.GetProperty("userId").GetInt32();
     }

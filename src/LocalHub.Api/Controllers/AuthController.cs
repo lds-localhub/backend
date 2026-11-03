@@ -11,10 +11,12 @@ namespace LocalHub.Api.Controllers;
 public class AuthController : ControllerBase
 {
     private readonly AuthService _authService;
+    private readonly AccountService _accountService;
 
-    public AuthController(AuthService authService)
+    public AuthController(AuthService authService, AccountService accountService)
     {
         _authService = authService;
+        _accountService = accountService;
     }
 
     // E01
@@ -23,7 +25,7 @@ public class AuthController : ControllerBase
     public async Task<ActionResult<RegisterResponse>> Register(RegisterRequest request, CancellationToken cancellationToken)
     {
         var response = await _authService.RegisterAsync(request, cancellationToken);
-        return Created("/api/users/me", response);
+        return Created("/api/auth/me", response);
     }
 
     // E02
@@ -42,4 +44,9 @@ public class AuthController : ControllerBase
         await _authService.LogoutAsync(cancellationToken);
         return NoContent();
     }
+
+    // E04
+    [HttpGet("me")]
+    public async Task<ActionResult<UserResponse>> GetMe(CancellationToken cancellationToken) =>
+        Ok(await _accountService.GetMeAsync(cancellationToken));
 }

@@ -93,7 +93,7 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test(\"Devolve 201\", () => pm.response.to.have.status(201));",
-                  "pm.test(\"Location aponta para /api/users/me\", () => pm.expect(pm.response.headers.get(\"Location\")).to.eql(\"/api/users/me\"));",
+                  "pm.test(\"Location aponta para /api/auth/me\", () => pm.expect(pm.response.headers.get(\"Location\")).to.eql(\"/api/auth/me\"));",
                   "pm.test(\"Conta ativa com o papel pedido\", () => {",
                   "    const body = pm.response.json();",
                   "    pm.expect(body.email).to.eql(pm.collectionVariables.get(\"email\"));",
@@ -343,13 +343,13 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/users/me",
+              "raw": "{{baseUrl}}/api/auth/me",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
-                "users",
+                "auth",
                 "me"
               ]
             },
@@ -390,13 +390,13 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/users/me",
+              "raw": "{{baseUrl}}/api/auth/me",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
-                "users",
+                "auth",
                 "me"
               ]
             },
@@ -469,13 +469,13 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/users/me",
+              "raw": "{{baseUrl}}/api/auth/me",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
-                "users",
+                "auth",
                 "me"
               ]
             },
@@ -937,13 +937,13 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/users/me",
+              "raw": "{{baseUrl}}/api/auth/me",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
-                "users",
+                "auth",
                 "me"
               ]
             },
@@ -2703,13 +2703,13 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/users/me",
+              "raw": "{{baseUrl}}/api/auth/me",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
-                "users",
+                "auth",
                 "me"
               ]
             },
@@ -3465,13 +3465,13 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/users/me",
+              "raw": "{{baseUrl}}/api/auth/me",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
-                "users",
+                "auth",
                 "me"
               ]
             },

@@ -32,7 +32,7 @@ public class AuthEndpointsTests(LocalHubApiFactory factory)
         using var response = await RegisterAsync(_client, "Ana Costa", email, ValidPassword, "CLIENT");
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-        Assert.Equal("/api/users/me", response.Headers.Location?.OriginalString);
+        Assert.Equal("/api/auth/me", response.Headers.Location?.OriginalString);
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal(email, body.GetProperty("email").GetString());
         Assert.Equal("CLIENT", body.GetProperty("role").GetString());
@@ -202,7 +202,7 @@ public class AuthEndpointsTests(LocalHubApiFactory factory)
         string email = NewEmail();
         string token = await RegisterAndLoginAsync(_client, email);
 
-        using var response = await SendWithTokenAsync(_client, HttpMethod.Get, "/api/users/me", token);
+        using var response = await SendWithTokenAsync(_client, HttpMethod.Get, "/api/auth/me", token);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
@@ -343,9 +343,9 @@ public class AuthEndpointsTests(LocalHubApiFactory factory)
         using var response = await ChangePasswordAsync(tokenA, ValidPassword, "jardim2027");
 
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
-        using var meB = await SendWithTokenAsync(_client, HttpMethod.Get, "/api/users/me", tokenB);
+        using var meB = await SendWithTokenAsync(_client, HttpMethod.Get, "/api/auth/me", tokenB);
         Assert.Equal(HttpStatusCode.Unauthorized, meB.StatusCode);
-        using var meA = await SendWithTokenAsync(_client, HttpMethod.Get, "/api/users/me", tokenA);
+        using var meA = await SendWithTokenAsync(_client, HttpMethod.Get, "/api/auth/me", tokenA);
         Assert.Equal(HttpStatusCode.OK, meA.StatusCode);
     }
 

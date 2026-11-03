@@ -12,21 +12,14 @@ namespace LocalHub.Api.Controllers;
 [Route("api/users")]
 public class UsersController : ControllerBase
 {
-    private readonly AccountService _accountService;
     private readonly AuthService _authService;
     private readonly LocationService _locationService;
 
-    public UsersController(AccountService accountService, AuthService authService, LocationService locationService)
+    public UsersController(AuthService authService, LocationService locationService)
     {
-        _accountService = accountService;
         _authService = authService;
         _locationService = locationService;
     }
-
-    // E04
-    [HttpGet("me")]
-    public async Task<ActionResult<UserResponse>> GetMe(CancellationToken cancellationToken) =>
-        Ok(await _accountService.GetMeAsync(cancellationToken));
 
     // E16. Only clients; administrators and providers get 403 (the address of a provider is set in E12 and E14,
     // RF-F015-01, rule 3).
