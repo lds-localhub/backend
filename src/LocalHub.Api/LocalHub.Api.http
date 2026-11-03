@@ -196,7 +196,7 @@ Authorization: Bearer {{login2.response.body.token}}
 
 ### E18 - Search providers of "Canalização" (category 1) near the given address (public, ordered by distance; the
 ### address is geocoded by Nominatim, needs Internet access, and is not saved). In the mobile application the address
-### can be filled with E35; coordinates are not received.
+### can be filled with E35; coordinates are not received. Each result has averageRating and reviewCount.
 GET {{LocalHub.Api_HostAddress}}/api/search/providers?serviceCategoryId=1&address=Avenida%20dos%20Aliados%2C%20Porto
 
 ### E18 - A client without an address: its registered location is used

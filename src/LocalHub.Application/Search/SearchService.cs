@@ -3,6 +3,7 @@ using LocalHub.Application.Common.Exceptions;
 using LocalHub.Application.Locations;
 using LocalHub.Application.Profiles;
 using LocalHub.Application.Profiles.Dtos;
+using LocalHub.Application.Reviews;
 using LocalHub.Application.Search.Dtos;
 using LocalHub.Application.Services.Dtos;
 using LocalHub.Domain.Accounts;
@@ -93,12 +94,17 @@ public class SearchService
             .Take(page.PageSize)
             .ToListAsync(cancellationToken);
 
+        // Only for the providers of the page, in a single query.
+        var reviewCounts = await _db.CountReviewsAsync(
+            rows.Select(r => r.ProfessionalProfileId).ToList(), cancellationToken);
+
         var items = rows
             .Select(r => new ProviderSearchResult(
                 r.ProfessionalProfileId,
                 r.Name,
                 ProfileCategoryResponse.InDisplayOrder(r.Categories),
                 r.AverageRating,
+                reviewCounts.GetValueOrDefault(r.ProfessionalProfileId),
                 GeoDistance.RoundKm(r.DistanceKm),
                 r.ServiceRadiusKm,
                 // The exact distance, not the rounded one.

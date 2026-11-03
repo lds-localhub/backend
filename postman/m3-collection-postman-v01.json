@@ -3144,6 +3144,7 @@
                   "    pm.expect(profile.name).to.eql(\"Canalizações Silva\");",
                   "    pm.expect(profile.serviceCategories.map(c => c.serviceCategoryId)).to.include(Number(pm.collectionVariables.get(\"profileCategoryId\")));",
                   "    pm.expect(profile.averageRating).to.eql(null);",
+                  "    pm.expect(profile.reviewCount).to.eql(0);",
                   "    pm.expect(profile.distanceKm).to.be.below(5);",
                   "    pm.expect(profile.serviceRadiusKm).to.eql(25);",
                   "    pm.expect(profile.withinServiceRadius).to.eql(true);",

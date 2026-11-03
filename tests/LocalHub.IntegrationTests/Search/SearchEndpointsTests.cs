@@ -11,6 +11,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 using static LocalHub.IntegrationTests.Fixtures.AuthRequests;
 using static LocalHub.IntegrationTests.Fixtures.ProfileRequests;
+using static LocalHub.IntegrationTests.Fixtures.ServiceRequests;
 using static LocalHub.IntegrationTests.Fixtures.UserLocations;
 
 namespace LocalHub.IntegrationTests.Search;
@@ -112,8 +113,33 @@ public class SearchEndpointsTests(LocalHubApiFactory factory)
         var category = Assert.Single(items[0].GetProperty("serviceCategories").EnumerateArray());
         Assert.Equal(categoryId, category.GetProperty("serviceCategoryId").GetInt32());
         Assert.Equal(categoryName, category.GetProperty("name").GetString());
-        // Without reviews the average rating is null, not 0 (RF-F012-02, rule 3).
+        // Without reviews the average rating is null, not 0 (RF-F012-02, rule 3), and reviewCount is 0.
         Assert.Equal(JsonValueKind.Null, items[0].GetProperty("averageRating").ValueKind);
+        Assert.Equal(0, items[0].GetProperty("reviewCount").GetInt32());
+    }
+
+    // reviewCount (API documentation, E18): the reviews of the services in which the proposal of the provider was
+    // accepted; a completed service without a review does not count.
+    [Fact]
+    [Trait("Requisito", "RF-F005-01")]
+    [Trait("Requisito", "RF-F012-02")]
+    public async Task SearchProviders_PrestadorComAvaliacoes_DevolveONumeroDeAvaliacoesEAMedia()
+    {
+        int categoryId = await NewCategoryAsync();
+        var reviewed = await CreateProviderAsync("Com avaliações", FakeGeocodingService.AddressAt2Km, 15, categoryId);
+        var notReviewed = await CreateProviderAsync("Sem avaliações", FakeGeocodingService.AddressAt10Km, 15, categoryId);
+        await CompleteServiceAsync(reviewed, categoryId, rating: 5);
+        await CompleteServiceAsync(reviewed, categoryId, rating: 4);
+        await CompleteServiceAsync(reviewed, categoryId, rating: null);
+        await CompleteServiceAsync(notReviewed, categoryId, rating: null);
+
+        using var response = await SearchAsync($"serviceCategoryId={categoryId}&{KnownAddressQuery}");
+
+        var items = await ItemsAsync(response);
+        Assert.Equal([reviewed.ProfessionalProfileId, notReviewed.ProfessionalProfileId], ProfileIds(items));
+        Assert.Equal([2, 0], items.Select(i => i.GetProperty("reviewCount").GetInt32()));
+        Assert.Equal(4.5m, items[0].GetProperty("averageRating").GetDecimal());
+        Assert.Equal(JsonValueKind.Null, items[1].GetProperty("averageRating").ValueKind);
     }
 
     // CA4 (RF-F005-01, rule 7 and criterion 7): the service radius does not limit the results.
@@ -449,6 +475,36 @@ public class SearchEndpointsTests(LocalHubApiFactory factory)
 
         return new Provider(
             account.GetProperty("userId").GetInt32(), profile.GetProperty("professionalProfileId").GetInt32(), token);
+    }
+
+    // A published job of a new client, with the proposal of the provider accepted (E20, E25, E28) and the service
+    // completed (E31); reviewed by the client (E32) when a rating is given.
+    private async Task CompleteServiceAsync(Provider provider, int serviceCategoryId, int? rating)
+    {
+        var client = await RegisterClientAsync(_client);
+        using var create = await SendJsonAsync(
+            _client, HttpMethod.Post, ServicesUrl, client.Token, PublicBody(serviceCategoryId));
+        Assert.Equal(HttpStatusCode.Created, create.StatusCode);
+        int serviceId = (await create.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("serviceId").GetInt32();
+
+        using var submit = await SendJsonAsync(_client, HttpMethod.Post, $"{ServicesUrl}/{serviceId}/proposals",
+            provider.Token, new { amount = 80.00m, conditions = "Material incluído." });
+        Assert.Equal(HttpStatusCode.Created, submit.StatusCode);
+        int proposalId = (await submit.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("proposalId").GetInt32();
+
+        using var accept = await SendWithTokenAsync(
+            _client, HttpMethod.Post, $"/api/proposals/{proposalId}/accept", client.Token);
+        Assert.Equal(HttpStatusCode.OK, accept.StatusCode);
+        using var complete = await SendWithTokenAsync(
+            _client, HttpMethod.Post, $"{ServicesUrl}/{serviceId}/complete", client.Token);
+        Assert.Equal(HttpStatusCode.OK, complete.StatusCode);
+
+        if (rating is not null)
+        {
+            using var review = await SendJsonAsync(
+                _client, HttpMethod.Post, $"{ServicesUrl}/{serviceId}/review", client.Token, new { rating });
+            Assert.Equal(HttpStatusCode.Created, review.StatusCode);
+        }
     }
 
     private async Task<int> GetUserIdAsync(string token)

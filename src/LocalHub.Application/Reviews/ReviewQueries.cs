@@ -15,8 +15,8 @@ public static class ReviewQueries
             p => p.ProfessionalProfileId == professionalProfileId && p.Status == ProposalStatus.Accepted));
     }
 
-    // The reviewCount of several providers at once (E22): the same reviews as ReviewsOf, counted by profile. A profile
-    // without reviews is not in the dictionary.
+    // The reviewCount of several providers at once (E18 and E22): the same reviews as ReviewsOf, counted by profile. A
+    // profile without reviews is not in the dictionary.
     public static async Task<Dictionary<int, int>> CountReviewsAsync(
         this LocalHubDbContext db, IReadOnlyCollection<int> professionalProfileIds, CancellationToken cancellationToken)
     {
