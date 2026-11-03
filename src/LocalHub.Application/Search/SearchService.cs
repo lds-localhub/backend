@@ -36,7 +36,7 @@ public class SearchService
     public async Task<PagedResult<ProviderSearchResult>> SearchProvidersAsync(
         ProviderSearchRequest request, PageRequest page, CancellationToken cancellationToken)
     {
-        // The category is required and the coordinates are inside their ranges (checked by the controller, rule R17).
+        // The category is required (checked by the controller, rule R17).
         var errors = new Dictionary<string, string[]>();
         page.Validate(errors);
         if (errors.Count > 0)
@@ -49,8 +49,7 @@ public class SearchService
 
         // Last, because an address is sent to the Nominatim: not found → 400, Nominatim down → 503.
         Coordinates reference = await _locationResolver.ResolveReferenceAsync(
-            request.Address, request.Latitude, request.Longitude, await FindClientLocationAsync(cancellationToken),
-            cancellationToken);
+            request.Address, await FindClientLocationAsync(cancellationToken), cancellationToken);
 
         // Only providers with an active account, a profile with the category and a location (the radius is always
         // defined in the profile) — RF-F005-01, rule 3; RF-F015-05.

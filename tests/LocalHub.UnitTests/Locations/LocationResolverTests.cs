@@ -10,10 +10,9 @@ public class LocationResolverTests
     private const string KnownAddress = "Rua do Almada 10, Porto";
     private static readonly Coordinates Porto = Coordinates.Rounded(41.1579m, -8.6291m);
 
-    // Registered location of a client and coordinates given in a search (ResolveReferenceAsync), both different from
-    // Porto, so the tests can tell which one was used.
+    // Registered location of a client (ResolveReferenceAsync), different from Porto, so the tests can tell which one
+    // was used.
     private static readonly Coordinates Braga = Coordinates.Rounded(41.5454m, -8.4265m);
-    private static readonly Coordinates Coimbra = Coordinates.Rounded(40.2033m, -8.4103m);
 
     private readonly FakeGeocoding _geocoding = new();
     private readonly LocationResolver _resolver;
@@ -60,24 +59,12 @@ public class LocationResolverTests
 
     // ---------- ResolveReferenceAsync: reference location of the search of providers (E18) ----------
 
-    // The coordinates come first, before the address and the registered location, and need no address.
-    [Fact]
-    [Trait("Requisito", "RF-F005-02")]
-    public async Task ResolveReferenceAsync_Coordenadas_UsaAsCoordenadasSemChamarOGeocodificador()
-    {
-        Coordinates reference = await _resolver.ResolveReferenceAsync(
-            KnownAddress, Coimbra.Latitude, Coimbra.Longitude, Braga, default);
-
-        Assert.Equal(Coimbra, reference);
-        Assert.Equal(0, _geocoding.Calls);
-    }
-
     // RF-F005-02, rule 2: an address given in the search replaces the registered location.
     [Fact]
     [Trait("Requisito", "RF-F005-02")]
     public async Task ResolveReferenceAsync_Morada_UsaAMoradaConvertidaEmVezDaLocalizacaoRegistada()
     {
-        Coordinates reference = await _resolver.ResolveReferenceAsync($"  {KnownAddress} ", null, null, Braga, default);
+        Coordinates reference = await _resolver.ResolveReferenceAsync($"  {KnownAddress} ", Braga, default);
 
         Assert.Equal(Porto, reference);
         Assert.Equal(KnownAddress, _geocoding.LastAddress);
@@ -88,9 +75,9 @@ public class LocationResolverTests
     [Trait("Requisito", "RF-F005-02")]
     [InlineData(null)]
     [InlineData("   ")]
-    public async Task ResolveReferenceAsync_SemMoradaNemCoordenadas_UsaALocalizacaoRegistada(string? address)
+    public async Task ResolveReferenceAsync_SemMorada_UsaALocalizacaoRegistada(string? address)
     {
-        Coordinates reference = await _resolver.ResolveReferenceAsync(address, null, null, Braga, default);
+        Coordinates reference = await _resolver.ResolveReferenceAsync(address, Braga, default);
 
         Assert.Equal(Braga, reference);
         Assert.Equal(0, _geocoding.Calls);
@@ -103,7 +90,7 @@ public class LocationResolverTests
     public async Task ResolveReferenceAsync_SemNenhumaLocalizacao_LancaErroNaMorada()
     {
         var exception = await Assert.ThrowsAsync<ValidationException>(
-            () => _resolver.ResolveReferenceAsync(null, null, null, null, default));
+            () => _resolver.ResolveReferenceAsync(null, null, default));
 
         Assert.Equal("address", Assert.Single(exception.Errors).Key);
     }
@@ -114,23 +101,9 @@ public class LocationResolverTests
     public async Task ResolveReferenceAsync_MoradaNaoEncontrada_LancaErroNaMorada()
     {
         var exception = await Assert.ThrowsAsync<ValidationException>(
-            () => _resolver.ResolveReferenceAsync("Rua Que Não Existe", null, null, Braga, default));
+            () => _resolver.ResolveReferenceAsync("Rua Que Não Existe", Braga, default));
 
         Assert.Equal("address", Assert.Single(exception.Errors).Key);
-    }
-
-    [Theory]
-    [Trait("Requisito", "RF-F015-04")]
-    [InlineData(41.1579, null, "longitude")]
-    [InlineData(null, -8.6291, "latitude")]
-    public async Task ResolveReferenceAsync_SoUmaCoordenada_LancaErroNoCampoSemChamarOGeocodificador(
-        double? latitude, double? longitude, string field)
-    {
-        var exception = await Assert.ThrowsAsync<ValidationException>(() => _resolver.ResolveReferenceAsync(
-            KnownAddress, (decimal?)latitude, (decimal?)longitude, Braga, default));
-
-        Assert.Equal(field, Assert.Single(exception.Errors).Key);
-        Assert.Equal(0, _geocoding.Calls);
     }
 
     [Fact]
@@ -140,7 +113,7 @@ public class LocationResolverTests
         _geocoding.Unavailable = true;
 
         await Assert.ThrowsAsync<GeocodingUnavailableException>(
-            () => _resolver.ResolveReferenceAsync(KnownAddress, null, null, Braga, default));
+            () => _resolver.ResolveReferenceAsync(KnownAddress, Braga, default));
     }
 
     private sealed class FakeGeocoding : IGeocodingService
@@ -163,10 +136,10 @@ public class LocationResolverTests
             return Task.FromResult<Coordinates?>(address == KnownAddress ? Porto : null);
         }
 
+        // Not used by the resolver: the location is always received as an address (rule R3).
         public Task<string?> ReverseGeocodeAsync(Coordinates coordinates, CancellationToken cancellationToken = default)
         {
-            Calls++;
-            return Task.FromResult(coordinates == Porto ? KnownAddress : null);
+            throw new NotSupportedException();
         }
     }
 }

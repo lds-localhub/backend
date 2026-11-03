@@ -17,68 +17,36 @@ public class LocationResolver
     }
 
     // The errors are reported in the given field ("address", or "location" in E20) (RF-F015-03).
-    public Task<ResolvedLocation> ResolveAddressAsync(string address, string field, CancellationToken cancellationToken)
-    {
-        return FromAddressAsync(address, field, "Não foi possível encontrar esta morada. Confirme-a.", cancellationToken);
-    }
-
-    // E18 (RF-F005-02): the reference location of a search, in this order: the coordinates, the address or the
-    // registered location of the client. Nothing is saved. Unlike E16, the coordinates do not need an address, so
-    // they are not sent to the geocoding service.
-    public async Task<Coordinates> ResolveReferenceAsync(
-        string? address,
-        decimal? latitude,
-        decimal? longitude,
-        Coordinates? registeredLocation,
-        CancellationToken cancellationToken)
-    {
-        if (latitude is not null || longitude is not null)
-        {
-            return ToPoint(latitude, longitude);
-        }
-
-        if (!string.IsNullOrWhiteSpace(address))
-        {
-            var location = await FromAddressAsync(address, "address",
-                "Não foi possível encontrar esta morada. Confirme-a ou indique as coordenadas.", cancellationToken);
-            return location.Coordinates;
-        }
-
-        if (registeredLocation is null)
-        {
-            throw new ValidationException(
-                "address", "Indique uma morada ou as coordenadas da localização de referência.");
-        }
-
-        return registeredLocation;
-    }
-
-    private async Task<ResolvedLocation> FromAddressAsync(
-        string address, string field, string notFoundMessage, CancellationToken cancellationToken)
+    public async Task<ResolvedLocation> ResolveAddressAsync(
+        string address, string field, CancellationToken cancellationToken)
     {
         string trimmed = address.Trim();
         Coordinates? coordinates = await _geocodingService.GeocodeAsync(trimmed, cancellationToken);
         if (coordinates is null)
         {
-            throw new ValidationException(field, notFoundMessage);
+            throw new ValidationException(field, "Não foi possível encontrar esta morada. Confirme-a.");
         }
 
         return new ResolvedLocation(trimmed, coordinates);
     }
 
-    // Both coordinates are required (RF-F015-04); their ranges were validated by the DTO.
-    private static Coordinates ToPoint(decimal? latitude, decimal? longitude)
+    // E18 (RF-F005-02): the reference location of a search, in this order: the address or the registered location of
+    // the client. Nothing is saved. In the mobile application the address can be filled from the position of the
+    // device with E35 (RF-F015-06).
+    public async Task<Coordinates> ResolveReferenceAsync(
+        string? address, Coordinates? registeredLocation, CancellationToken cancellationToken)
     {
-        if (latitude is null)
+        if (!string.IsNullOrWhiteSpace(address))
         {
-            throw new ValidationException("latitude", "Indique a latitude.");
+            var location = await ResolveAddressAsync(address, "address", cancellationToken);
+            return location.Coordinates;
         }
 
-        if (longitude is null)
+        if (registeredLocation is null)
         {
-            throw new ValidationException("longitude", "Indique a longitude.");
+            throw new ValidationException("address", "Indique a morada da localização de referência.");
         }
 
-        return Coordinates.Rounded(latitude.Value, longitude.Value);
+        return registeredLocation;
     }
 }

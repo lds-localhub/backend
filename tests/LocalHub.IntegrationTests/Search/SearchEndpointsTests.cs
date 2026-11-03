@@ -25,7 +25,8 @@ public class SearchEndpointsTests(LocalHubApiFactory factory)
     private const string BadRequestType = "https://tools.ietf.org/html/rfc9110#section-15.5.1";
 
     // The coordinates of FakeGeocodingService.KnownAddress.
-    private const string KnownCoordinates = "latitude=41.1579&longitude=-8.6291";
+    // FakeGeocodingService.KnownAddress, "Rua do Almada 10, Porto".
+    private const string KnownAddressQuery = "address=Rua%20do%20Almada%2010%2C%20Porto";
 
     private readonly HttpClient _client = factory.CreateClient();
 
@@ -75,7 +76,7 @@ public class SearchEndpointsTests(LocalHubApiFactory factory)
         var withoutLocation = await CreateProviderAsync("Sem localização", FakeGeocodingService.AddressAt2Km, 15, categoryId);
         await ClearLocationAsync(withoutLocation.UserId);
 
-        using var response = await SearchAsync($"serviceCategoryId={categoryId}&{KnownCoordinates}");
+        using var response = await SearchAsync($"serviceCategoryId={categoryId}&{KnownAddressQuery}");
 
         var items = await ItemsAsync(response);
         Assert.Equal([eligible.ProfessionalProfileId, withBoth.ProfessionalProfileId], ProfileIds(items));
@@ -98,7 +99,7 @@ public class SearchEndpointsTests(LocalHubApiFactory factory)
         var at2 = await CreateProviderAsync("A 2 km", FakeGeocodingService.AddressAt2Km, 15, categoryId);
         var at10 = await CreateProviderAsync("A 10 km", FakeGeocodingService.AddressAt10Km, 15, categoryId);
 
-        using var response = await SearchAsync($"serviceCategoryId={categoryId}&{KnownCoordinates}");
+        using var response = await SearchAsync($"serviceCategoryId={categoryId}&{KnownAddressQuery}");
 
         var items = await ItemsAsync(response);
         Assert.Equal([at2.ProfessionalProfileId, at10.ProfessionalProfileId, at30.ProfessionalProfileId], ProfileIds(items));
@@ -122,7 +123,7 @@ public class SearchEndpointsTests(LocalHubApiFactory factory)
         int categoryId = await NewCategoryAsync();
         var provider = await CreateProviderAsync("A 30 km", FakeGeocodingService.AddressAt30Km, 25, categoryId);
 
-        using var response = await SearchAsync($"serviceCategoryId={categoryId}&{KnownCoordinates}");
+        using var response = await SearchAsync($"serviceCategoryId={categoryId}&{KnownAddressQuery}");
 
         var item = Assert.Single(await ItemsAsync(response));
         Assert.Equal(provider.ProfessionalProfileId, item.GetProperty("professionalProfileId").GetInt32());
@@ -144,7 +145,7 @@ public class SearchEndpointsTests(LocalHubApiFactory factory)
         using var move = await SendJsonAsync(_client, HttpMethod.Put, $"{ProfilesUrl}/me", provider.Token, update);
         Assert.Equal(HttpStatusCode.OK, move.StatusCode);
 
-        using var response = await SearchAsync($"serviceCategoryId={categoryId}&{KnownCoordinates}");
+        using var response = await SearchAsync($"serviceCategoryId={categoryId}&{KnownAddressQuery}");
 
         var item = Assert.Single(await ItemsAsync(response));
         Assert.Equal(2.0m, item.GetProperty("distanceKm").GetDecimal());
@@ -195,20 +196,18 @@ public class SearchEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal(FakeGeocodingService.KnownLongitude, me.GetProperty("longitude").GetDecimal());
     }
 
-    // The coordinates come first (API documentation, E18), so the address is not sent to the Nominatim: here it would
-    // answer 503.
+    // Rule R3: the reference location is received as an address (in the mobile application, filled with E35), so
+    // coordinates in the query are not used.
     [Fact]
     [Trait("Requisito", "RF-F005-02")]
-    public async Task SearchProviders_CoordenadasEMorada_UsaAsCoordenadas()
+    public async Task SearchProviders_SoCoordenadas_NaoSaoUsadasEDevolve400NaMorada()
     {
         int categoryId = await NewCategoryAsync();
         await CreateProviderAsync("A 2 km", FakeGeocodingService.AddressAt2Km, 15, categoryId);
-        string address = Uri.EscapeDataString($"Rua do Almada {FakeGeocodingService.UnavailableMarker}");
 
-        using var response = await SearchAsync($"serviceCategoryId={categoryId}&{KnownCoordinates}&address={address}");
+        using var response = await SearchAsync($"serviceCategoryId={categoryId}&latitude=41.1579&longitude=-8.6291");
 
-        var item = Assert.Single(await ItemsAsync(response));
-        Assert.Equal(2.0m, item.GetProperty("distanceKm").GetDecimal());
+        await AssertFieldErrorAsync(response, "address");
     }
 
     // CA6 (RF-F005-01, rule 5 and criterion 5). Only the registered location of a client is used by default: a provider
@@ -263,25 +262,6 @@ public class SearchEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal(GeocodingUnavailableException.UserMessage, body.GetProperty("detail").GetString());
     }
 
-    // CA6 (RF-F015-04, criterion 2): coordinates outside the valid ranges, missing or not a number.
-    [Theory]
-    [InlineData("latitude=95&longitude=10", "latitude")]
-    [InlineData("latitude=-90.5&longitude=0", "latitude")]
-    [InlineData("latitude=0&longitude=181", "longitude")]
-    [InlineData("latitude=0&longitude=-180.000001", "longitude")]
-    [InlineData("latitude=41.1579", "longitude")]
-    [InlineData("longitude=-8.6291", "latitude")]
-    [InlineData("latitude=abc&longitude=-8.6291", "latitude")]
-    [Trait("Requisito", "RF-F015-04")]
-    public async Task SearchProviders_CoordenadasInvalidas_Devolve400NoCampo(string coordinates, string field)
-    {
-        int categoryId = await NewCategoryAsync();
-
-        using var response = await SearchAsync($"serviceCategoryId={categoryId}&{coordinates}");
-
-        await AssertFieldErrorAsync(response, field);
-    }
-
     // ---------- Category (RF-F005-01, rule 2) ----------
 
     // CA6
@@ -289,7 +269,7 @@ public class SearchEndpointsTests(LocalHubApiFactory factory)
     [Trait("Requisito", "RF-F005-01")]
     public async Task SearchProviders_SemCategoria_Devolve400NaCategoria()
     {
-        using var response = await SearchAsync(KnownCoordinates);
+        using var response = await SearchAsync(KnownAddressQuery);
 
         await AssertFieldErrorAsync(response, "serviceCategoryId");
     }
@@ -299,7 +279,7 @@ public class SearchEndpointsTests(LocalHubApiFactory factory)
     [Trait("Requisito", "RF-F005-01")]
     public async Task SearchProviders_CategoriaInexistente_Devolve400NaCategoria()
     {
-        using var response = await SearchAsync($"serviceCategoryId={int.MaxValue}&{KnownCoordinates}");
+        using var response = await SearchAsync($"serviceCategoryId={int.MaxValue}&{KnownAddressQuery}");
 
         await AssertFieldErrorAsync(response, "serviceCategoryId");
     }
@@ -316,7 +296,7 @@ public class SearchEndpointsTests(LocalHubApiFactory factory)
             _client, HttpMethod.Post, $"/api/categories/{categoryId}/deactivate", adminToken);
         Assert.Equal(HttpStatusCode.OK, deactivate.StatusCode);
 
-        using var response = await SearchAsync($"serviceCategoryId={categoryId}&{KnownCoordinates}");
+        using var response = await SearchAsync($"serviceCategoryId={categoryId}&{KnownAddressQuery}");
 
         await AssertFieldErrorAsync(response, "serviceCategoryId");
     }
@@ -336,7 +316,7 @@ public class SearchEndpointsTests(LocalHubApiFactory factory)
         await CreateProviderAsync("Jardins do Norte", FakeGeocodingService.AddressAt2Km, 15, categoryId);
 
         using var response = await SearchAsync(
-            $"serviceCategoryId={categoryId}&{KnownCoordinates}&name={Uri.EscapeDataString(name)}");
+            $"serviceCategoryId={categoryId}&{KnownAddressQuery}&name={Uri.EscapeDataString(name)}");
 
         var item = Assert.Single(await ItemsAsync(response));
         Assert.Equal(silva.ProfessionalProfileId, item.GetProperty("professionalProfileId").GetInt32());
@@ -355,7 +335,7 @@ public class SearchEndpointsTests(LocalHubApiFactory factory)
         await CreateProviderAsync("Canalizações Silva", FakeGeocodingService.AddressAt2Km, 15, categoryId);
 
         using var response = await SearchAsync(
-            $"serviceCategoryId={categoryId}&{KnownCoordinates}&name={Uri.EscapeDataString(name)}");
+            $"serviceCategoryId={categoryId}&{KnownAddressQuery}&name={Uri.EscapeDataString(name)}");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
@@ -371,9 +351,10 @@ public class SearchEndpointsTests(LocalHubApiFactory factory)
     public async Task SearchProviders_UmGrauDeLatitude_DevolveADistanciaDeReferencia()
     {
         int categoryId = await NewCategoryAsync();
-        await CreateProviderAsync("No Porto", FakeGeocodingService.KnownAddress, 15, categoryId);
+        var provider = await CreateProviderAsync("Um grau a norte", FakeGeocodingService.KnownAddress, 15, categoryId);
+        await MoveAsync(provider.UserId, 42.1579m, -8.6291m);
 
-        using var response = await SearchAsync($"serviceCategoryId={categoryId}&latitude=42.1579&longitude=-8.6291");
+        using var response = await SearchAsync($"serviceCategoryId={categoryId}&{KnownAddressQuery}");
 
         var item = Assert.Single(await ItemsAsync(response));
         Assert.InRange(item.GetProperty("distanceKm").GetDecimal(), 111.19m - 0.1m, 111.19m + 0.1m);
@@ -389,8 +370,10 @@ public class SearchEndpointsTests(LocalHubApiFactory factory)
         int categoryId = await NewCategoryAsync();
         var provider = await CreateProviderAsync("Perto do polo", FakeGeocodingService.KnownAddress, 15, categoryId);
         await MoveAsync(provider.UserId, 87.5m, 180m);
+        string clientToken = await CreateClientWithLocationAsync(FakeGeocodingService.KnownAddress);
+        await MoveAsync(await GetUserIdAsync(clientToken), -87.5m, 0m);
 
-        using var response = await SearchAsync($"serviceCategoryId={categoryId}&latitude=-87.5&longitude=0");
+        using var response = await SearchAsync($"serviceCategoryId={categoryId}", clientToken);
 
         var item = Assert.Single(await ItemsAsync(response));
         Assert.InRange(item.GetProperty("distanceKm").GetDecimal(), 20015.0m, 20015.2m);
@@ -408,7 +391,7 @@ public class SearchEndpointsTests(LocalHubApiFactory factory)
         await CreateProviderAsync("A 2 km", FakeGeocodingService.AddressAt2Km, 15, categoryId);
         await CreateProviderAsync("A 10 km", FakeGeocodingService.AddressAt10Km, 15, categoryId);
 
-        using var response = await SearchAsync($"serviceCategoryId={categoryId}&{KnownCoordinates}&page=2&pageSize=2");
+        using var response = await SearchAsync($"serviceCategoryId={categoryId}&{KnownAddressQuery}&page=2&pageSize=2");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
@@ -428,7 +411,7 @@ public class SearchEndpointsTests(LocalHubApiFactory factory)
     {
         int categoryId = await NewCategoryAsync();
 
-        using var response = await SearchAsync($"serviceCategoryId={categoryId}&{KnownCoordinates}&{query}");
+        using var response = await SearchAsync($"serviceCategoryId={categoryId}&{KnownAddressQuery}&{query}");
 
         await AssertFieldErrorAsync(response, field);
     }
@@ -465,6 +448,13 @@ public class SearchEndpointsTests(LocalHubApiFactory factory)
 
         return new Provider(
             account.GetProperty("userId").GetInt32(), profile.GetProperty("professionalProfileId").GetInt32(), token);
+    }
+
+    private async Task<int> GetUserIdAsync(string token)
+    {
+        using var response = await SendWithTokenAsync(_client, HttpMethod.Get, "/api/users/me", token);
+        var me = await response.Content.ReadFromJsonAsync<JsonElement>();
+        return me.GetProperty("userId").GetInt32();
     }
 
     private async Task<string> CreateClientWithLocationAsync(string address)

@@ -23,21 +23,19 @@ public class SearchController : ControllerBase
     }
 
     // E18: public (RF-F001-03, rule 3). The parameters are validated by [ApiController] before the method is called
-    // (rule R17). With the token of a client, its registered location is used when the request
-    // has no coordinates and no address.
+    // (rule R17). The reference location is received as an address (rule R3); with the token of a client, its
+    // registered location is used when the request has no address.
     [HttpGet("providers")]
     [AllowAnonymous]
     public async Task<ActionResult<PagedResult<ProviderSearchResult>>> SearchProviders(
         [FromQuery, Required(ErrorMessage = "Indique a categoria de serviços.")] int? serviceCategoryId,
         [FromQuery, StringLength(Domain.Accounts.User.AddressMaxLength, ErrorMessage = "A morada é demasiado longa.")] string? address,
-        [FromQuery, Range(-90.0, 90.0, ErrorMessage = "A latitude tem de estar entre -90 e 90.")] decimal? latitude,
-        [FromQuery, Range(-180.0, 180.0, ErrorMessage = "A longitude tem de estar entre -180 e 180.")] decimal? longitude,
         [FromQuery] string? name,
         CancellationToken cancellationToken,
         [FromQuery] int page = PageRequest.DefaultPage,
         [FromQuery] int pageSize = PageRequest.DefaultPageSize)
     {
-        var request = new ProviderSearchRequest(serviceCategoryId, address, latitude, longitude, name);
+        var request = new ProviderSearchRequest(serviceCategoryId, address, name);
         return Ok(await _searchService.SearchProvidersAsync(request, new PageRequest(page, pageSize), cancellationToken));
     }
 
