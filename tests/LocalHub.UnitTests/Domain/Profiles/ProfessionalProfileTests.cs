@@ -8,7 +8,7 @@ namespace LocalHub.UnitTests.Domain.Profiles;
 [Trait("Category", "Unit")]
 public class ProfessionalProfileTests
 {
-    private static readonly User Provider = User.Register("Canalizações Silva", "silva@localhub.test", UserRole.Provider);
+    private static readonly User Provider = TestUsers.Register("Canalizações Silva", "silva@localhub.test", UserRole.Provider);
 
     // ---------- Create (RF-F004-01). The fields are validated by the DTO (integration tests) ----------
 
@@ -35,8 +35,8 @@ public class ProfessionalProfileTests
     public void Create_UtilizadorQueNaoEPrestador_LancaErroDeAutorizacao(UserRole role)
     {
         var user = role == UserRole.Admin
-            ? User.CreateAdministrator("Ana", "ana@localhub.test")
-            : User.Register("Carla", "carla@localhub.test", role);
+            ? TestUsers.CreateAdministrator("Ana", "ana@localhub.test")
+            : TestUsers.Register("Carla", "carla@localhub.test", role);
 
         var exception = Assert.Throws<DomainException>(() => CreateValid(user));
 

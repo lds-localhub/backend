@@ -15,7 +15,7 @@ public class ServiceTests
     private const decimal PortoLatitude = 41.1579m;
     private const decimal PortoLongitude = -8.6291m;
     private static readonly ServiceCategory Plumbing = Category(3, "Canalização");
-    private static readonly User Client = User.Register("Carla Costa", "carla@localhub.test", UserRole.Client);
+    private static readonly User Client = TestUsers.Register("Carla Costa", "carla@localhub.test", UserRole.Client);
 
     // ---------- Create (RF-F009-01, RF-F010-01) ----------
 
@@ -89,8 +89,8 @@ public class ServiceTests
     public void Create_UtilizadorQueNaoECliente_LancaErroDeAutorizacao(UserRole role)
     {
         var user = role == UserRole.Admin
-            ? User.CreateAdministrator("Ana", "ana@localhub.test")
-            : User.Register("Paulo", "paulo@localhub.test", role);
+            ? TestUsers.CreateAdministrator("Ana", "ana@localhub.test")
+            : TestUsers.Register("Paulo", "paulo@localhub.test", role);
 
         var exception = Assert.Throws<DomainException>(() => Service.Create(user, Plumbing, ProposalModel.Public,
             "Pintar a sala", "Pintar a sala.", Today, null, "Rua do Almada 10, Porto", PortoLatitude, PortoLongitude,
@@ -113,7 +113,7 @@ public class ServiceTests
 
     private static ProfessionalProfile Profile(int id, ServiceCategory category, string name = "Prestador")
     {
-        var provider = User.Register(name, $"prestador{id}@localhub.test", UserRole.Provider);
+        var provider = TestUsers.Register(name, $"prestador{id}@localhub.test", UserRole.Provider);
         var profile = ProfessionalProfile.Create(provider, "Apresentação", "Telefone", "Experiência", [category], 10);
         typeof(ProfessionalProfile).GetProperty(nameof(ProfessionalProfile.ProfessionalProfileId))!
             .SetValue(profile, id);

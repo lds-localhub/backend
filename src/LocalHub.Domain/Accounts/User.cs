@@ -46,28 +46,39 @@ public class User
     private User() { }
 
     // Used by the registration (RF-F001-01). The fields, including the role (only Client or Provider), are
-    // validated by the DTO (rule R17).
-    public static User Register(string name, string email, UserRole role) => new()
-    {
-        Name = name.Trim(),
-        // Always stored in lowercase, so "Ana@Mail.com" and "ana@mail.com" are the same e-mail (RF-F001-01).
-        Email = email.Trim().ToLowerInvariant(),
-        Role = role,
-        Status = ActivationStatus.Active,
-    };
+    // validated by the DTO (rule R17). hashPassword is IPasswordHasher.HashPassword: it receives the user, so the
+    // hash is created here and the user is never returned without it.
+    public static User Register(string name, string email, UserRole role, string password,
+        Func<User, string, string> hashPassword) => Create(name, email, role, password, hashPassword);
 
     // Administrators cannot register themselves; they are created by the DataSeeder.
-    public static User CreateAdministrator(string name, string email) => new()
-    {
-        Name = name.Trim(),
-        Email = email.Trim().ToLowerInvariant(),
-        Role = UserRole.Admin,
-        Status = ActivationStatus.Active,
-    };
+    public static User CreateAdministrator(string name, string email, string password,
+        Func<User, string, string> hashPassword) => Create(name, email, UserRole.Admin, password, hashPassword);
 
-    // Receives the hash created by IPasswordHasher, never the password itself.
+    private static User Create(string name, string email, UserRole role, string password,
+        Func<User, string, string> hashPassword)
+    {
+        var user = new User
+        {
+            Name = name.Trim(),
+            // Always stored in lowercase, so "Ana@Mail.com" and "ana@mail.com" are the same e-mail (RF-F001-01).
+            Email = email.Trim().ToLowerInvariant(),
+            Role = role,
+            Status = ActivationStatus.Active,
+        };
+        user.SetPasswordHash(hashPassword(user, password));
+        return user;
+    }
+
+    // Receives the hash created by IPasswordHasher, never the password itself. Also used to change and reset the
+    // password (E40, E41).
     public void SetPasswordHash(string passwordHash)
     {
+        if (string.IsNullOrWhiteSpace(passwordHash))
+        {
+            throw new ArgumentException("The password hash cannot be empty.", nameof(passwordHash));
+        }
+
         PasswordHash = passwordHash;
     }
 

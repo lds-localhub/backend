@@ -14,7 +14,7 @@ public class UserTests
     [Trait("Requisito", "RF-F001-01")]
     public void Register_ClienteOuPrestador_CriaContaAtivaSemLocalizacao(UserRole role)
     {
-        var user = User.Register("  Ana Costa  ", "  ana.costa@exemplo.pt ", role);
+        var user = TestUsers.Register("  Ana Costa  ", "  ana.costa@exemplo.pt ", role);
 
         Assert.Equal("Ana Costa", user.Name);
         Assert.Equal("ana.costa@exemplo.pt", user.Email);
@@ -30,22 +30,55 @@ public class UserTests
     [Trait("Requisito", "RF-F001-05")]
     public void CreateAdministrator_CriaAdministradorAtivo()
     {
-        var user = User.CreateAdministrator(" Rui Rocha ", "rui.rocha@localhub.test");
+        var user = TestUsers.CreateAdministrator(" Rui Rocha ", "rui.rocha@localhub.test");
 
         Assert.Equal("Rui Rocha", user.Name);
         Assert.Equal(UserRole.Admin, user.Role);
         Assert.Equal(ActivationStatus.Active, user.Status);
+        Assert.Equal(TestUsers.PasswordHash, user.PasswordHash);
+    }
+
+    [Fact]
+    [Trait("Requisito", "RF-F001-01")]
+    public void Register_PalavraPasse_GuardaResumoCalculadoComOProprioUtilizador()
+    {
+        User? hashedUser = null;
+        string? hashedPassword = null;
+
+        var user = User.Register("Ana Costa", "ana.costa@exemplo.pt", UserRole.Client, "casa2026",
+            (u, password) =>
+            {
+                hashedUser = u;
+                hashedPassword = password;
+                return "resumo";
+            });
+
+        Assert.Same(user, hashedUser);
+        Assert.Equal("casa2026", hashedPassword);
+        Assert.Equal("resumo", user.PasswordHash);
     }
 
     [Fact]
     [Trait("Requisito", "RF-F001-01")]
     public void SetPasswordHash_ResumoValido_GuardaResumo()
     {
-        var user = User.Register("Ana Costa", "ana.costa@exemplo.pt", UserRole.Client);
+        var user = TestUsers.Register("Ana Costa", "ana.costa@exemplo.pt", UserRole.Client);
 
-        user.SetPasswordHash("hash");
+        user.SetPasswordHash("novo-resumo");
 
-        Assert.Equal("hash", user.PasswordHash);
+        Assert.Equal("novo-resumo", user.PasswordHash);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [Trait("Requisito", "RF-F001-01")]
+    public void SetPasswordHash_ResumoVazio_Recusa(string passwordHash)
+    {
+        var user = TestUsers.Register("Ana Costa", "ana.costa@exemplo.pt", UserRole.Client);
+
+        Assert.Throws<ArgumentException>(() => user.SetPasswordHash(passwordHash));
+        Assert.Equal(TestUsers.PasswordHash, user.PasswordHash);
     }
 
     [Theory]
@@ -54,7 +87,7 @@ public class UserTests
     [Trait("Requisito", "RF-F002-02")]
     public void Deactivate_ContaAtivaDeClienteOuPrestador_FicaDesativada(UserRole role)
     {
-        var user = User.Register("Ana Costa", "ana.costa@exemplo.pt", role);
+        var user = TestUsers.Register("Ana Costa", "ana.costa@exemplo.pt", role);
 
         user.Deactivate(Now);
 
@@ -66,7 +99,7 @@ public class UserTests
     [Trait("Requisito", "RF-F002-02")]
     public void Deactivate_Administrador_LancaConflitoEMantemContaAtiva()
     {
-        var user = User.CreateAdministrator("Rui Rocha", "rui.rocha@localhub.test");
+        var user = TestUsers.CreateAdministrator("Rui Rocha", "rui.rocha@localhub.test");
 
         var exception = Assert.Throws<DomainException>(() => user.Deactivate(Now));
 
@@ -78,7 +111,7 @@ public class UserTests
     [Trait("Requisito", "RF-F002-02")]
     public void Deactivate_ContaJaDesativada_LancaConflito()
     {
-        var user = User.Register("Ana Costa", "ana.costa@exemplo.pt", UserRole.Client);
+        var user = TestUsers.Register("Ana Costa", "ana.costa@exemplo.pt", UserRole.Client);
         user.Deactivate(Now);
 
         var exception = Assert.Throws<DomainException>(() => user.Deactivate(Now.AddHours(1)));
@@ -91,7 +124,7 @@ public class UserTests
     [Trait("Requisito", "RF-F002-03")]
     public void Activate_ContaDesativada_FicaAtiva()
     {
-        var user = User.Register("Ana Costa", "ana.costa@exemplo.pt", UserRole.Provider);
+        var user = TestUsers.Register("Ana Costa", "ana.costa@exemplo.pt", UserRole.Provider);
         user.Deactivate(Now);
 
         user.Activate();
@@ -103,7 +136,7 @@ public class UserTests
     [Trait("Requisito", "RF-F002-03")]
     public void Activate_ContaAtiva_LancaConflito()
     {
-        var user = User.Register("Ana Costa", "ana.costa@exemplo.pt", UserRole.Client);
+        var user = TestUsers.Register("Ana Costa", "ana.costa@exemplo.pt", UserRole.Client);
 
         var exception = Assert.Throws<DomainException>(() => user.Activate());
 

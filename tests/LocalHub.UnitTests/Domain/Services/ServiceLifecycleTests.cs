@@ -281,7 +281,7 @@ public class ServiceLifecycleTests
 
     private static User NewClient()
     {
-        var client = User.Register("Carla Costa", "carla@localhub.test", UserRole.Client);
+        var client = TestUsers.Register("Carla Costa", "carla@localhub.test", UserRole.Client);
         typeof(User).GetProperty(nameof(User.UserId))!.SetValue(client, ClientId);
         return client;
     }
@@ -312,7 +312,7 @@ public class ServiceLifecycleTests
 
     private static ProfessionalProfile Profile(int id)
     {
-        var provider = User.Register("Prestador", $"prestador{id}@localhub.test", UserRole.Provider);
+        var provider = TestUsers.Register("Prestador", $"prestador{id}@localhub.test", UserRole.Provider);
         var profile = ProfessionalProfile.Create(provider, "Apresentação", "Telefone", "Experiência", [Plumbing], 10);
         typeof(ProfessionalProfile).GetProperty(nameof(ProfessionalProfile.ProfessionalProfileId))!
             .SetValue(profile, id);

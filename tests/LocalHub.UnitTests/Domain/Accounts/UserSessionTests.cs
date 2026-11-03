@@ -8,7 +8,7 @@ public class UserSessionTests
     private static readonly DateTimeOffset Now = new(2026, 10, 14, 9, 0, 0, TimeSpan.Zero);
 
     private static UserSession StartSession() =>
-        UserSession.Start(User.Register("Ana Costa", "ana.costa@exemplo.pt", UserRole.Client), Now);
+        UserSession.Start(TestUsers.Register("Ana Costa", "ana.costa@exemplo.pt", UserRole.Client), Now);
 
     [Fact]
     [Trait("Requisito", "RNF-02")]

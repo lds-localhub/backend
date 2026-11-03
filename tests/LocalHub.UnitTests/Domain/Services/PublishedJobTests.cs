@@ -65,7 +65,7 @@ public class PublishedJobTests
         Assert.Equal(ServiceStatus.Open, service.Status);
     }
 
-    private static User NewClient() => User.Register("Carla Costa", "carla@localhub.test", UserRole.Client);
+    private static User NewClient() => TestUsers.Register("Carla Costa", "carla@localhub.test", UserRole.Client);
 
     private static Service CreatePublic(User client) =>
         Service.Create(client, Plumbing, ProposalModel.Public, "Reparar torneira", "Substituir torneira.", Today, null,
@@ -73,7 +73,7 @@ public class PublishedJobTests
 
     private static ProfessionalProfile Profile()
     {
-        var provider = User.Register("Prestador", "prestador@localhub.test", UserRole.Provider);
+        var provider = TestUsers.Register("Prestador", "prestador@localhub.test", UserRole.Provider);
         return ProfessionalProfile.Create(provider, "Apresentação", "Telefone", "Experiência", [Plumbing], 10);
     }
 }

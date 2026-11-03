@@ -220,7 +220,7 @@ public class ServiceStatusHistoryTests
 
     private static User NewClient()
     {
-        var client = User.Register("Carla Costa", "carla@localhub.test", UserRole.Client);
+        var client = TestUsers.Register("Carla Costa", "carla@localhub.test", UserRole.Client);
         typeof(User).GetProperty(nameof(User.UserId))!.SetValue(client, ClientId);
         return client;
     }
@@ -252,7 +252,7 @@ public class ServiceStatusHistoryTests
     // The provider of the profile 12 has the user id 52; the others keep the id 0.
     private static ProfessionalProfile Profile(int id)
     {
-        var provider = User.Register("Prestador", $"prestador{id}@localhub.test", UserRole.Provider);
+        var provider = TestUsers.Register("Prestador", $"prestador{id}@localhub.test", UserRole.Provider);
         if (id == 12)
         {
             typeof(User).GetProperty(nameof(User.UserId))!.SetValue(provider, ProviderUserId);

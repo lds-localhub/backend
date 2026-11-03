@@ -251,7 +251,7 @@ public class ServiceProposalTests
 
     // ---------- Helpers ----------
 
-    private static User NewClient() => User.Register("Carla Costa", "carla@localhub.test", UserRole.Client);
+    private static User NewClient() => TestUsers.Register("Carla Costa", "carla@localhub.test", UserRole.Client);
 
     private static Service CreateDirect(User client, IReadOnlyCollection<ProfessionalProfile> recipients) =>
         Service.Create(client, Plumbing, ProposalModel.DirectRequest, "Reparar torneira", "Torneira com fuga de água.",
@@ -271,7 +271,7 @@ public class ServiceProposalTests
 
     private static ProfessionalProfile Profile(int id, ServiceCategory category)
     {
-        var provider = User.Register("Prestador", $"prestador{id}@localhub.test", UserRole.Provider);
+        var provider = TestUsers.Register("Prestador", $"prestador{id}@localhub.test", UserRole.Provider);
         var profile = ProfessionalProfile.Create(provider, "Apresentação", "Telefone", "Experiência", [category], 10);
         typeof(ProfessionalProfile).GetProperty(nameof(ProfessionalProfile.ProfessionalProfileId))!
             .SetValue(profile, id);

@@ -9,7 +9,7 @@ public class UserLocationTests
     [Trait("Requisito", "RF-F015-03")]
     public void SetLocation_MoradaECoordenadas_GuardaAsDuasEmConjunto()
     {
-        var user = User.Register("Ana Costa", "ana.costa@exemplo.pt", UserRole.Client);
+        var user = TestUsers.Register("Ana Costa", "ana.costa@exemplo.pt", UserRole.Client);
 
         user.SetLocation("  Rua do Almada 10, Porto  ", 41.1579m, -8.6291m);
 

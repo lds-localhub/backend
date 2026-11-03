@@ -49,8 +49,8 @@ public class AuthService
             throw new DomainException(DomainErrorKind.Conflict, "Já existe uma conta com este e-mail.", "email");
         }
 
-        var user = User.Register(request.Name!, email, request.Role!.Value);
-        user.SetPasswordHash(_passwordHasher.HashPassword(user, request.Password!));
+        var user = User.Register(request.Name!, email, request.Role!.Value, request.Password!,
+            _passwordHasher.HashPassword);
         _db.Users.Add(user);
 
         try
