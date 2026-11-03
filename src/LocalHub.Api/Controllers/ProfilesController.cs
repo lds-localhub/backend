@@ -10,7 +10,8 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace LocalHub.Api.Controllers;
 
-// F004 (E12 to E15) and the service radius of F015 (E17). The administrator has no profile and gets 403.
+// F004 (E12 to E15), with the address and the service radius of the provider (F015) in E12 and E14. The
+// administrator has no profile and gets 403.
 [ApiController]
 [Route("api/profiles")]
 public class ProfilesController : ControllerBase
@@ -65,15 +66,5 @@ public class ProfilesController : ControllerBase
         UpdateProfileRequest request, CancellationToken cancellationToken)
     {
         return Ok(await _profileService.UpdateMineAsync(request, cancellationToken));
-    }
-
-    // E17
-    [HttpPut("me/service-radius")]
-    [Authorize(Roles = "PROVIDER")]
-    [RequiresProfessionalProfile]
-    public async Task<ActionResult<ServiceRadiusResponse>> SetMyServiceRadius(
-        ServiceRadiusRequest request, CancellationToken cancellationToken)
-    {
-        return Ok(await _profileService.SetMyServiceRadiusAsync(request, cancellationToken));
     }
 }

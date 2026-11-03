@@ -9,15 +9,14 @@ using static LocalHub.IntegrationTests.Fixtures.ProfileRequests;
 
 namespace LocalHub.IntegrationTests.Profiles;
 
-// F004: E12 (create), E13 (get) and E14 (update) and the radius of F015: E17. Also the rule "provider without a
-// profile" (API documentation, section 7) and the use of the categories by the profiles in E11.
+// F004: E12 (create), E13 (get) and E14 (update), with the address and the radius of F015. Also the rule "provider
+// without a profile" (API documentation, section 7) and the use of the categories by the profiles in E11.
 // The 401 cases are in AccessControlTests.
 [Collection(ApiTestGroup.Name)]
 [Trait("Category", "Integration")]
 public class ProfilesEndpointsTests(LocalHubApiFactory factory)
 {
     private const string MeUrl = "/api/profiles/me";
-    private const string RadiusUrl = "/api/profiles/me/service-radius";
     private const string BadRequestType = "https://tools.ietf.org/html/rfc9110#section-15.5.1";
     private const string ForbiddenType = "https://tools.ietf.org/html/rfc9110#section-15.5.4";
     private const string NotFoundType = "https://tools.ietf.org/html/rfc9110#section-15.5.5";
@@ -341,9 +340,97 @@ public class ProfilesEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal("Novo contacto", profile.GetProperty("contactDetails").GetString());
         Assert.Equal("Nova experiência", profile.GetProperty("experience").GetString());
         Assert.Equal([newCategory], CategoryIds(profile));
-        // The address and the radius are not changed by E14.
         Assert.Equal(FakeGeocodingService.KnownAddress, profile.GetProperty("address").GetString());
         Assert.Equal(15, profile.GetProperty("serviceRadiusKm").GetInt32());
+    }
+
+    [Fact]
+    [Trait("Requisito", "RF-F004-02")]
+    [Trait("Requisito", "RF-F015-01")]
+    public async Task UpdateMine_NovaMoradaENovoRaio_SubstituemOsAnterioresComAsCoordenadas()
+    {
+        var provider = await CreateProviderWithProfileAsync(_client);
+        var body = UpdateBody(provider.ServiceCategoryId);
+        body["address"] = FakeGeocodingService.AddressAt2Km;
+        body["serviceRadiusKm"] = 40;
+
+        using var response = await SendJsonAsync(_client, HttpMethod.Put, MeUrl, provider.Token, body);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var profile = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(FakeGeocodingService.AddressAt2Km, profile.GetProperty("address").GetString());
+        Assert.Equal(40, profile.GetProperty("serviceRadiusKm").GetInt32());
+        var me = await GetJsonAsync("/api/users/me", provider.Token);
+        Assert.Equal(41.175886m, me.GetProperty("latitude").GetDecimal());
+        Assert.Equal(FakeGeocodingService.KnownLongitude, me.GetProperty("longitude").GetDecimal());
+    }
+
+    [Theory]
+    [InlineData("address", null)]
+    [InlineData("serviceRadiusKm", 0)]
+    [InlineData("serviceRadiusKm", 101)]
+    [InlineData("serviceRadiusKm", 25.5)]
+    [InlineData("serviceRadiusKm", null)]
+    [Trait("Requisito", "RF-F004-02")]
+    [Trait("Requisito", "RF-F015-01")]
+    public async Task UpdateMine_MoradaOuRaioInvalido_Devolve400NoCampoENaoAlteraOPerfil(string field, object? value)
+    {
+        var provider = await CreateProviderWithProfileAsync(_client);
+        var body = UpdateBody(provider.ServiceCategoryId);
+        body[field] = value;
+
+        using var response = await SendJsonAsync(_client, HttpMethod.Put, MeUrl, provider.Token, body);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var problem = await AssertProblemAsync(response, BadRequestType, MeUrl);
+        Assert.True(problem.GetProperty("errors").TryGetProperty(field, out _));
+        await AssertProfileUnchangedAsync(provider);
+    }
+
+    [Fact]
+    [Trait("Requisito", "RF-F015-01")]
+    [Trait("Requisito", "RF-F015-03")]
+    public async Task UpdateMine_MoradaNaoEncontrada_Devolve400NaMoradaENaoAlteraOPerfil()
+    {
+        var provider = await CreateProviderWithProfileAsync(_client);
+        var body = UpdateBody(provider.ServiceCategoryId);
+        body["address"] = "Rua Que Não Existe 999";
+
+        using var response = await SendJsonAsync(_client, HttpMethod.Put, MeUrl, provider.Token, body);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var problem = await AssertProblemAsync(response, BadRequestType, MeUrl);
+        Assert.True(problem.GetProperty("errors").TryGetProperty("address", out _));
+        await AssertProfileUnchangedAsync(provider);
+    }
+
+    [Fact]
+    [Trait("Requisito", "RF-F015-03")]
+    public async Task UpdateMine_GeocodificacaoIndisponivel_Devolve503ENaoAlteraOPerfil()
+    {
+        var provider = await CreateProviderWithProfileAsync(_client);
+        var body = UpdateBody(provider.ServiceCategoryId);
+        body["address"] = $"Rua do Almada {FakeGeocodingService.UnavailableMarker}";
+
+        using var response = await SendJsonAsync(_client, HttpMethod.Put, MeUrl, provider.Token, body);
+
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+        await AssertProfileUnchangedAsync(provider);
+    }
+
+    [Fact]
+    [Trait("Requisito", "RF-F015-01")]
+    public async Task UpdateMine_CoordenadasNoCorpo_Devolve400()
+    {
+        var provider = await CreateProviderWithProfileAsync(_client);
+        var body = UpdateBody(provider.ServiceCategoryId);
+        body["latitude"] = 41.1579;
+        body["longitude"] = -8.6291;
+
+        using var response = await SendJsonAsync(_client, HttpMethod.Put, MeUrl, provider.Token, body);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        await AssertProblemAsync(response, BadRequestType, MeUrl);
     }
 
     [Fact]
@@ -425,53 +512,17 @@ public class ProfilesEndpointsTests(LocalHubApiFactory factory)
         await AssertProblemAsync(response, ForbiddenType, MeUrl);
     }
 
-    // ---------- E17 ----------
-
+    // E17 was removed (API documentation v03): the radius is changed in E14.
     [Fact]
     [Trait("Requisito", "RF-F015-01")]
-    public async Task SetServiceRadius_25Km_Devolve200EFicaRegistado()
+    public async Task SetServiceRadius_EndpointRetirado_Devolve404()
     {
         var provider = await CreateProviderWithProfileAsync(_client);
 
         using var response = await SendJsonAsync(
-            _client, HttpMethod.Put, RadiusUrl, provider.Token, new { serviceRadiusKm = 25 });
+            _client, HttpMethod.Put, "/api/profiles/me/service-radius", provider.Token, new { serviceRadiusKm = 25 });
 
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
-        Assert.Equal(25, body.GetProperty("serviceRadiusKm").GetInt32());
-        var profile = await GetJsonAsync(ProfileUrl(provider.ProfessionalProfileId), provider.Token);
-        Assert.Equal(25, profile.GetProperty("serviceRadiusKm").GetInt32());
-    }
-
-    [Theory]
-    [InlineData(0)]
-    [InlineData(150)]
-    [InlineData(25.5)]
-    [Trait("Requisito", "RF-F015-01")]
-    public async Task SetServiceRadius_ForaDoIntervaloOuNaoInteiro_Devolve400EMantemORaio(double km)
-    {
-        var provider = await CreateProviderWithProfileAsync(_client);
-
-        using var response = await SendJsonAsync(
-            _client, HttpMethod.Put, RadiusUrl, provider.Token, new { serviceRadiusKm = km });
-
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        var problem = await AssertProblemAsync(response, BadRequestType, RadiusUrl);
-        Assert.True(problem.GetProperty("errors").TryGetProperty("serviceRadiusKm", out _));
-        var profile = await GetJsonAsync(ProfileUrl(provider.ProfessionalProfileId), provider.Token);
-        Assert.Equal(15, profile.GetProperty("serviceRadiusKm").GetInt32());
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F015-01")]
-    [Trait("Requisito", "RF-F001-03")]
-    public async Task SetServiceRadius_Cliente_Devolve403()
-    {
-        string token = await RegisterAndLoginAsync(_client, NewEmail(), "CLIENT");
-
-        using var response = await SendJsonAsync(_client, HttpMethod.Put, RadiusUrl, token, new { serviceRadiusKm = 25 });
-
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
     // ---------- Provider without a profile (API documentation, section 7) ----------
@@ -479,7 +530,6 @@ public class ProfilesEndpointsTests(LocalHubApiFactory factory)
     [Theory]
     [InlineData("GET", "/api/profiles/1")]
     [InlineData("PUT", MeUrl)]
-    [InlineData("PUT", RadiusUrl)]
     [InlineData("PUT", "/api/users/me/location")]
     [Trait("Requisito", "RF-F004-01")]
     public async Task EndpointDePrestador_PrestadorSemPerfil_Devolve403PerfilEmFalta(string method, string url)
@@ -526,7 +576,20 @@ public class ProfilesEndpointsTests(LocalHubApiFactory factory)
         ["contactDetails"] = "Novo contacto",
         ["experience"] = "Nova experiência",
         ["serviceCategoryIds"] = serviceCategoryIds,
+        ["address"] = FakeGeocodingService.KnownAddress,
+        ["serviceRadiusKm"] = 15,
     };
+
+    // The profile and the location created by CreateProviderWithProfileAsync.
+    private async Task AssertProfileUnchangedAsync(ProviderWithProfile provider)
+    {
+        var profile = await GetJsonAsync(ProfileUrl(provider.ProfessionalProfileId), provider.Token);
+        Assert.NotEqual("Nova apresentação", profile.GetProperty("introduction").GetString());
+        Assert.Equal(FakeGeocodingService.KnownAddress, profile.GetProperty("address").GetString());
+        Assert.Equal(15, profile.GetProperty("serviceRadiusKm").GetInt32());
+        var me = await GetJsonAsync("/api/users/me", provider.Token);
+        Assert.Equal(FakeGeocodingService.KnownLatitude, me.GetProperty("latitude").GetDecimal());
+    }
 
     private static List<int> CategoryIds(JsonElement profile) =>
         profile.GetProperty("serviceCategories").EnumerateArray()

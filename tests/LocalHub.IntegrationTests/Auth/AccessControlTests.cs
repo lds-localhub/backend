@@ -29,7 +29,6 @@ public class AccessControlTests(LocalHubApiFactory factory)
         { "POST", "/api/profiles" },
         { "GET", "/api/profiles/1" },
         { "PUT", "/api/profiles/me" },
-        { "PUT", "/api/profiles/me/service-radius" },
         { "POST", "/api/services" },
         { "GET", "/api/services/1" },
         { "POST", "/api/services/1/proposals" },

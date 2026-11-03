@@ -73,12 +73,15 @@ public class ProfessionalProfile
         return profile;
     }
 
-    // RF-F004-02 (E14): the presentation, the contacts and the experience.
-    public void UpdateDetails(string introduction, string contactDetails, string experience)
+    // RF-F004-02 and RF-F015-01 (E14): the presentation, the contacts, the experience and the service radius. The new
+    // radius replaces the previous one; its range is validated by the DTO. The location of the provider is saved in
+    // User (E14 converts the address before calling Update).
+    public void Update(string introduction, string contactDetails, string experience, short serviceRadiusKm)
     {
         Introduction = introduction.Trim();
         ContactDetails = contactDetails.Trim();
         Experience = experience.Trim();
+        ServiceRadiusKm = serviceRadiusKm;
     }
 
     // RF-F004-04 (E12 and E14): the list replaces the previous one and each category is associated only once.
@@ -112,11 +115,5 @@ public class ProfessionalProfile
         return ratings.Count == 0
             ? null
             : Math.Round((decimal)ratings.Sum(r => (int)r) / ratings.Count, 1, MidpointRounding.AwayFromZero);
-    }
-
-    // RF-F015-01 (E17): a new radius replaces the previous one. The range is validated by the DTO.
-    public void SetServiceRadius(short serviceRadiusKm)
-    {
-        ServiceRadiusKm = serviceRadiusKm;
     }
 }

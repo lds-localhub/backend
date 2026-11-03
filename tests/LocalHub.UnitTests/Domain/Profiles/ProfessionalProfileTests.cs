@@ -96,15 +96,15 @@ public class ProfessionalProfileTests
         Assert.Equal([1, 2], profile.ServiceAreas.Select(a => a.ServiceCategoryId).Order());
     }
 
-    // ---------- UpdateDetails (RF-F004-02) and SetServiceRadius (RF-F015-01) ----------
+    // ---------- Update (RF-F004-02, RF-F015-01) ----------
 
     [Fact]
     [Trait("Requisito", "RF-F004-02")]
-    public void UpdateDetails_DadosValidos_SubstituiOsTextos()
+    public void Update_DadosValidos_SubstituiOsTextos()
     {
         var profile = CreateValid(Provider);
 
-        profile.UpdateDetails("Nova apresentação", "Novo contacto", "Nova experiência");
+        profile.Update(" Nova apresentação ", "Novo contacto", "Nova experiência", 15);
 
         Assert.Equal("Nova apresentação", profile.Introduction);
         Assert.Equal("Novo contacto", profile.ContactDetails);
@@ -116,11 +116,11 @@ public class ProfessionalProfileTests
     [InlineData(25)]
     [InlineData(100)]
     [Trait("Requisito", "RF-F015-01")]
-    public void SetServiceRadius_InteiroEntre1E100_SubstituiORaio(int km)
+    public void Update_RaioInteiroEntre1E100_SubstituiORaio(int km)
     {
         var profile = CreateValid(Provider);
 
-        profile.SetServiceRadius((short)km);
+        profile.Update("Apresentação", "Contacto", "Experiência", (short)km);
 
         Assert.Equal((short)km, profile.ServiceRadiusKm);
     }

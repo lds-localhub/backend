@@ -2557,7 +2557,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"introduction\": \"x\",\n  \"contactDetails\": \"x\",\n  \"experience\": \"x\",\n  \"serviceCategoryIds\": [\n    {{profileCategoryId}}\n  ]\n}",
+              "raw": "{\n  \"introduction\": \"x\",\n  \"contactDetails\": \"x\",\n  \"experience\": \"x\",\n  \"serviceCategoryIds\": [\n    {{profileCategoryId}}\n  ],\n  \"address\": \"Rua de Santa Catarina 200, Porto\",\n  \"serviceRadiusKm\": 15\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -2867,7 +2867,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"introduction\": \"Canalizador com equipa própria no Porto e Matosinhos.\",\n  \"contactDetails\": \"Telefone 220 000 000\",\n  \"experience\": \"16 anos em reparação de fugas.\",\n  \"serviceCategoryIds\": [\n    {{profileCategoryId}}\n  ]\n}",
+              "raw": "{\n  \"introduction\": \"Canalizador com equipa própria no Porto e Matosinhos.\",\n  \"contactDetails\": \"Telefone 220 000 000\",\n  \"experience\": \"16 anos em reparação de fugas.\",\n  \"serviceCategoryIds\": [\n    {{profileCategoryId}}\n  ],\n  \"address\": \"Rua de Santa Catarina 200, Porto\",\n  \"serviceRadiusKm\": 25\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -2884,7 +2884,7 @@
                 }
               ]
             },
-            "description": "RF-F004-02, RF-F004-04. A lista de categorias substitui a anterior; a morada e o raio não mudam."
+            "description": "RF-F004-02, RF-F004-04, RF-F015-01. A lista de categorias, a morada e o raio substituem os anteriores; a morada é convertida em coordenadas pelo Nominatim (precisa de acesso à Internet)."
           },
           "event": [
             {
@@ -2893,7 +2893,8 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
-                  "pm.test(\"Apresentação alterada\", () => pm.expect(pm.response.json().introduction).to.eql(\"Canalizador com equipa própria no Porto e Matosinhos.\"));"
+                  "pm.test(\"Apresentação alterada\", () => pm.expect(pm.response.json().introduction).to.eql(\"Canalizador com equipa própria no Porto e Matosinhos.\"));",
+                  "pm.test(\"Raio de 25 km\", () => pm.expect(pm.response.json().serviceRadiusKm).to.eql(25));"
                 ]
               }
             }
@@ -2922,7 +2923,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"introduction\": \"x\",\n  \"contactDetails\": \"x\",\n  \"experience\": \"x\",\n  \"serviceCategoryIds\": [\n    {{profileCategoryId}}\n  ],\n  \"averageRating\": 5\n}",
+              "raw": "{\n  \"introduction\": \"x\",\n  \"contactDetails\": \"x\",\n  \"experience\": \"x\",\n  \"serviceCategoryIds\": [\n    {{profileCategoryId}}\n  ],\n  \"address\": \"Rua de Santa Catarina 200, Porto\",\n  \"serviceRadiusKm\": 15,\n  \"averageRating\": 5\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -2954,7 +2955,7 @@
           ]
         },
         {
-          "name": "E17 — Definir o raio de atuação (200)",
+          "name": "E14 — Raio fora do intervalo (400)",
           "request": {
             "method": "PUT",
             "header": [
@@ -2964,76 +2965,19 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/profiles/me/service-radius",
+              "raw": "{{baseUrl}}/api/profiles/me",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
                 "profiles",
-                "me",
-                "service-radius"
+                "me"
               ]
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"serviceRadiusKm\": 25\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{profileToken}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "description": "RF-F015-01. O novo raio substitui o anterior."
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
-                  "pm.test(\"Raio de 25 km\", () => pm.expect(pm.response.json().serviceRadiusKm).to.eql(25));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "E17 — Raio fora do intervalo (400)",
-          "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/profiles/me/service-radius",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "profiles",
-                "me",
-                "service-radius"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"serviceRadiusKm\": 150\n}",
+              "raw": "{\n  \"introduction\": \"Canalizador com equipa própria no Porto e Matosinhos.\",\n  \"contactDetails\": \"Telefone 220 000 000\",\n  \"experience\": \"16 anos em reparação de fugas.\",\n  \"serviceCategoryIds\": [\n    {{profileCategoryId}}\n  ],\n  \"address\": \"Rua de Santa Catarina 200, Porto\",\n  \"serviceRadiusKm\": 150\n}",
               "options": {
                 "raw": {
                   "language": "json"

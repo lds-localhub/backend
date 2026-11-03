@@ -101,15 +101,23 @@ public class ProfileService
         return await ToResponseAsync(profile, cancellationToken);
     }
 
-    // E14 (RF-F004-02, RF-F004-04): the list of categories replaces the previous one.
+    // E14 (RF-F004-02, RF-F004-04, RF-F015-01): the list of categories, the address and the radius replace the
+    // previous ones.
     public async Task<ProfileResponse> UpdateMineAsync(UpdateProfileRequest request, CancellationToken cancellationToken)
     {
         var profile = await FindMineAsync(cancellationToken);
         var currentIds = profile.ServiceAreas.Select(a => a.ServiceCategoryId).ToHashSet();
         var categories = await LoadCategoriesAsync(request.ServiceCategoryIds!, currentIds, cancellationToken);
 
-        profile.UpdateDetails(request.Introduction!, request.ContactDetails!, request.Experience!);
+        // Before any change, because it calls the Nominatim: an address that is not found (400) or a Nominatim that is
+        // down (503) leaves the profile and the previous location as they were (rule R2; RF-F015-01, rule 6).
+        var location = await _locationResolver.ResolveAddressAsync(request.Address!, "address", cancellationToken);
+
+        profile.Update(request.Introduction!, request.ContactDetails!, request.Experience!,
+            request.ServiceRadiusKm!.Value);
         profile.ReplaceCategories(categories);
+        profile.ServiceProvider.SetLocation(
+            location.Address, location.Coordinates.Latitude, location.Coordinates.Longitude);
         await _db.SaveChangesAsync(cancellationToken);
 
         return await ToResponseAsync(profile, cancellationToken);
@@ -120,23 +128,6 @@ public class ProfileService
     {
         int reviewCount = await _db.ReviewsOf(profile.ProfessionalProfileId).CountAsync(cancellationToken);
         return ProfileResponse.From(profile, reviewCount);
-    }
-
-    // E17 (RF-F015-01): the new radius replaces the previous one. The range was validated by the DTO.
-    public async Task<ServiceRadiusResponse> SetMyServiceRadiusAsync(
-        ServiceRadiusRequest request, CancellationToken cancellationToken)
-    {
-        var profile = await _db.ProfessionalProfiles
-            .SingleOrDefaultAsync(p => p.ServiceProviderId == _currentUser.UserId, cancellationToken);
-        if (profile is null)
-        {
-            throw new ForbiddenException(MissingProfileMessage, ErrorTypes.MissingProfile);
-        }
-
-        profile.SetServiceRadius(request.ServiceRadiusKm!.Value);
-        await _db.SaveChangesAsync(cancellationToken);
-
-        return new ServiceRadiusResponse(profile.ServiceRadiusKm);
     }
 
     private static IQueryable<ProfessionalProfile> WithDetails(IQueryable<ProfessionalProfile> query) =>

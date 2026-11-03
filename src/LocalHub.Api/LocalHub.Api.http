@@ -160,7 +160,9 @@ Content-Type: application/json
   "introduction": "x",
   "contactDetails": "x",
   "experience": "x",
-  "serviceCategoryIds": [1]
+  "serviceCategoryIds": [1],
+  "address": "Rua de Santa Catarina 200, Porto",
+  "serviceRadiusKm": 15
 }
 
 ### E12 - Create the professional profile (expect 201; a second time gets 409). Category 1 is "Canalização".
@@ -182,7 +184,8 @@ Content-Type: application/json
 GET {{LocalHub.Api_HostAddress}}/api/profiles/{{createProfile.response.body.professionalProfileId}}
 Authorization: Bearer {{loginProvider.response.body.token}}
 
-### E14 - Update the profile (the list of categories replaces the previous one)
+### E14 - Update the profile: the list of categories, the address (geocoded by Nominatim, needs Internet access) and
+### the radius replace the previous ones (a radius of 0, 150 or 25.5 gets 400)
 PUT {{LocalHub.Api_HostAddress}}/api/profiles/me
 Authorization: Bearer {{loginProvider.response.body.token}}
 Content-Type: application/json
@@ -191,15 +194,8 @@ Content-Type: application/json
   "introduction": "Canalizadora com equipa própria no Porto e Matosinhos.",
   "contactDetails": "Telefone 900 000 015 (fictício)",
   "experience": "10 anos em reparação de fugas.",
-  "serviceCategoryIds": [1]
-}
-
-### E17 - Set the service radius (expect 200; 0, 150 or 25.5 get 400)
-PUT {{LocalHub.Api_HostAddress}}/api/profiles/me/service-radius
-Authorization: Bearer {{loginProvider.response.body.token}}
-Content-Type: application/json
-
-{
+  "serviceCategoryIds": [1],
+  "address": "Rua de Santa Catarina 200, Porto",
   "serviceRadiusKm": 25
 }
 
