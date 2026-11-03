@@ -255,7 +255,7 @@ public class Service
         {
             foreach (var proposal in _proposals.Where(p => p.Status == ProposalStatus.Pending))
             {
-                proposal.Void(now);
+                proposal.Void();
             }
 
             foreach (var request in _directRequests.Where(r => r.Status == DirectRequestStatus.Pending))

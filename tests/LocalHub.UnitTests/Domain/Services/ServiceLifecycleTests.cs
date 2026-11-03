@@ -40,7 +40,7 @@ public class ServiceLifecycleTests
 
         Assert.Equal(ServiceStatus.Cancelled, service.Status);
         Assert.Equal(ProposalStatus.Void, pending.Status);
-        Assert.Equal(Decision, pending.DecisionDate);
+        Assert.Null(pending.DecisionDate);
         Assert.Equal(ProposalStatus.Declined, declined.Status);
         Assert.Equal(Later, declined.DecisionDate);
         var requests = service.DirectRequests.ToDictionary(r => r.ProfessionalProfileId, r => r.Status);
@@ -65,7 +65,7 @@ public class ServiceLifecycleTests
         Assert.All([first, second], p =>
         {
             Assert.Equal(ProposalStatus.Void, p.Status);
-            Assert.Equal(Decision, p.DecisionDate);
+            Assert.Null(p.DecisionDate);
         });
     }
 

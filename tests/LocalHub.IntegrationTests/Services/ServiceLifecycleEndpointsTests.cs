@@ -55,7 +55,7 @@ public class ServiceLifecycleEndpointsTests(LocalHubApiFactory factory)
         var proposals = (await ListProposalsAsync(scenario.Client.Token, scenario.ServiceId))
             .ToDictionary(p => p.GetProperty("proposalId").GetInt32());
         Assert.Equal("VOID", proposals[pending].GetProperty("status").GetString());
-        Assert.NotEqual(JsonValueKind.Null, proposals[pending].GetProperty("decisionDate").ValueKind);
+        Assert.Equal(JsonValueKind.Null, proposals[pending].GetProperty("decisionDate").ValueKind);
         Assert.Equal("DECLINED", proposals[declined].GetProperty("status").GetString());
     }
 
