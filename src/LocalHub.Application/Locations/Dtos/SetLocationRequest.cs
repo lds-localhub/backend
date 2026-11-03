@@ -1,16 +1,14 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 using LocalHub.Domain.Accounts;
 
 namespace LocalHub.Application.Locations.Dtos;
 
-// E16: either the address or the pair latitude/longitude, never both (checked by the LocationResolver).
+// Body of E16: only the address, converted into coordinates by the backend. The coordinates of the device are only
+// received in E35, so a body with coordinates (or any other field) is rejected with 400 (rule R3; RF-F015-06).
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public record SetLocationRequest(
+    [Required(ErrorMessage = "Indique a morada.")]
     [StringLength(User.AddressMaxLength, ErrorMessage = "A morada é demasiado longa.")]
-    string? Address,
-
-    [Range(-90.0, 90.0, ErrorMessage = "A latitude tem de estar entre -90 e 90.")]
-    decimal? Latitude,
-
-    [Range(-180.0, 180.0, ErrorMessage = "A longitude tem de estar entre -180 e 180.")]
-    decimal? Longitude);
+    string? Address);

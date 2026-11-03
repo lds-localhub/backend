@@ -131,15 +131,17 @@ public class SearchEndpointsTests(LocalHubApiFactory factory)
         Assert.False(item.GetProperty("withinServiceRadius").GetBoolean());
     }
 
-    // RF-F015-05, criterion 1: after the provider changes its location (E16), the search uses the new one.
+    // RF-F015-05, criterion 1: after the provider changes its location in the profile (E14), the search uses the new one.
     [Fact]
     [Trait("Requisito", "RF-F015-05")]
     public async Task SearchProviders_PrestadorAlteraALocalizacao_UsaANovaLocalizacao()
     {
         int categoryId = await NewCategoryAsync();
         var provider = await CreateProviderAsync("Muda de morada", FakeGeocodingService.AddressAt30Km, 25, categoryId);
-        using var move = await SendJsonAsync(
-            _client, HttpMethod.Put, "/api/users/me/location", provider.Token, new { address = FakeGeocodingService.AddressAt2Km });
+        var update = ValidProfileBody(categoryId);
+        update["address"] = FakeGeocodingService.AddressAt2Km;
+        update["serviceRadiusKm"] = 25;
+        using var move = await SendJsonAsync(_client, HttpMethod.Put, $"{ProfilesUrl}/me", provider.Token, update);
         Assert.Equal(HttpStatusCode.OK, move.StatusCode);
 
         using var response = await SearchAsync($"serviceCategoryId={categoryId}&{KnownCoordinates}");

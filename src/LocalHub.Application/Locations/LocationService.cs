@@ -44,11 +44,12 @@ public class LocationService
         return new AddressResponse(address);
     }
 
-    // E16. The location is resolved before the user is loaded, so when the address is not found or the geocoding
-    // service is unavailable the saved location stays as it was.
+    // E16 (RF-F015-02, RF-F015-03): the location of the client, received as an address. The address is converted before
+    // the user is loaded, so when it is not found or the geocoding service is unavailable the saved location stays as
+    // it was (rule R2).
     public async Task<UserResponse> SetMineAsync(SetLocationRequest request, CancellationToken cancellationToken)
     {
-        var location = await _resolver.ResolveAsync(request, cancellationToken);
+        var location = await _resolver.ResolveAddressAsync(request.Address!, "address", cancellationToken);
 
         var user = await _db.Users.SingleOrDefaultAsync(u => u.UserId == _currentUser.UserId, cancellationToken);
         if (user is null)

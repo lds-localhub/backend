@@ -1,4 +1,3 @@
-using LocalHub.Api.Filters;
 using LocalHub.Application.Accounts;
 using LocalHub.Application.Accounts.Dtos;
 using LocalHub.Application.Locations;
@@ -29,11 +28,10 @@ public class UsersController : ControllerBase
     public async Task<ActionResult<UserResponse>> GetMe(CancellationToken cancellationToken) =>
         Ok(await _accountService.GetMeAsync(cancellationToken));
 
-    // E16. Only clients and providers with a profile; administrators get 403 and providers without a profile
-    // get 403 perfil-em-falta (the first location of a provider is set in E12).
+    // E16. Only clients; administrators and providers get 403 (the address of a provider is set in E12 and E14,
+    // RF-F015-01, rule 3).
     [HttpPut("me/location")]
-    [Authorize(Roles = "CLIENT,PROVIDER")]
-    [RequiresProfessionalProfile]
+    [Authorize(Roles = "CLIENT")]
     public async Task<ActionResult<UserResponse>> SetLocation(
         SetLocationRequest request, CancellationToken cancellationToken) =>
         Ok(await _locationService.SetMineAsync(request, cancellationToken));

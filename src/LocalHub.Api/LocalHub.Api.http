@@ -98,7 +98,7 @@ GET {{LocalHub.Api_HostAddress}}/api/geocoding/reverse?latitude=91&longitude=-8.
 POST {{LocalHub.Api_HostAddress}}/api/auth/logout
 Authorization: Bearer {{login.response.body.token}}
 
-### E02 - Log in as a client (the token above was revoked by E03, and administrators get 403 on E16)
+### E02 - Log in as a client (the token above was revoked by E03, and administrators and providers get 403 on E16)
 # @name login2
 POST {{LocalHub.Api_HostAddress}}/api/auth/login
 Content-Type: application/json
@@ -109,7 +109,8 @@ Content-Type: application/json
   "client": "WEB"
 }
 
-### E16 - Set the location by address (geocoded by Nominatim, needs Internet access)
+### E16 - Set the location of the client by address (geocoded by Nominatim, needs Internet access). In the mobile
+### application the address can be filled with E35 and is sent as text after the client confirms it.
 PUT {{LocalHub.Api_HostAddress}}/api/users/me/location
 Authorization: Bearer {{login2.response.body.token}}
 Content-Type: application/json
@@ -118,17 +119,7 @@ Content-Type: application/json
   "address": "Avenida dos Aliados, Porto"
 }
 
-### E16 - Set the location by coordinates (the address is obtained by reverse geocoding)
-PUT {{LocalHub.Api_HostAddress}}/api/users/me/location
-Authorization: Bearer {{login2.response.body.token}}
-Content-Type: application/json
-
-{
-  "latitude": 41.366,
-  "longitude": -8.194
-}
-
-### E16 - Address and coordinates together (expect 400 on "address")
+### E16 - Coordinates in the body (expect 400: the coordinates of the device are only received in E35)
 PUT {{LocalHub.Api_HostAddress}}/api/users/me/location
 Authorization: Bearer {{login2.response.body.token}}
 Content-Type: application/json

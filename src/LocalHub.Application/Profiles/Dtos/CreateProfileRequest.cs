@@ -1,12 +1,15 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 using LocalHub.Domain.Accounts;
 using LocalHub.Domain.Profiles;
 
 namespace LocalHub.Application.Profiles.Dtos;
 
-// Body of E12. The address is converted into coordinates and saved in User. A radius with decimal places (25.5) is
-// not a whole number, so the JSON reader rejects it with 400.
+// Body of E12. The address is converted into coordinates and saved in User; coordinates or any other field not listed
+// here are rejected with 400 (rule R3). A radius with decimal places (25.5) is not a whole number, so the JSON reader
+// rejects it with 400.
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public record CreateProfileRequest(
     [Required(ErrorMessage = "Indique a apresentação.")]
     [StringLength(ProfessionalProfile.IntroductionMaxLength, ErrorMessage = "A apresentação é demasiado longa.")]

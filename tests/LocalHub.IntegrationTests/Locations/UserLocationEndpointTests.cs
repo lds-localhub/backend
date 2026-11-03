@@ -23,16 +23,12 @@ public class UserLocationEndpointTests(LocalHubApiFactory factory)
 
     private readonly HttpClient _client = factory.CreateClient();
 
-    [Theory]
-    [InlineData("CLIENT")]
-    [InlineData("PROVIDER")]
+    [Fact]
+    [Trait("Requisito", "RF-F015-02")]
     [Trait("Requisito", "RF-F015-03")]
-    public async Task SetLocation_MoradaValida_Devolve200EGuardaMoradaECoordenadas(string role)
+    public async Task SetLocation_ClienteMoradaValida_Devolve200EGuardaMoradaECoordenadas()
     {
-        // Only a provider with a profile can use E16 (a provider without a profile is tested in ProfilesEndpointsTests).
-        string token = role == "PROVIDER"
-            ? (await ProfileRequests.CreateProviderWithProfileAsync(_client)).Token
-            : await RegisterAndLoginAsync(_client, NewEmail(), role);
+        string token = await RegisterAndLoginAsync(_client, NewEmail(), "CLIENT");
 
         using var response = await PutLocationAsync(token, new { address = FakeGeocodingService.KnownAddress });
 
@@ -80,90 +76,35 @@ public class UserLocationEndpointTests(LocalHubApiFactory factory)
         Assert.Equal(GeocodingUnavailableException.UserMessage, body.GetProperty("detail").GetString());
     }
 
-    [Fact]
-    [Trait("Requisito", "RF-F015-04")]
-    public async Task SetLocation_CoordenadasValidas_Devolve200ComAMoradaObtida()
-    {
-        string token = await RegisterAndLoginAsync(_client, NewEmail(), "CLIENT");
-
-        using var response = await PutLocationAsync(token, new
-        {
-            latitude = FakeGeocodingService.KnownLatitude,
-            longitude = FakeGeocodingService.KnownLongitude,
-        });
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
-        Assert.Equal(FakeGeocodingService.ReverseAddress, body.GetProperty("address").GetString());
-        Assert.Equal(FakeGeocodingService.KnownLatitude, body.GetProperty("latitude").GetDecimal());
-    }
-
+    // Rule R3: the coordinates of the device are only received in E35; E16 receives the address confirmed by the user
+    // (RF-F015-06).
     [Theory]
-    [InlineData(90.000001, 0, "latitude")]
-    [InlineData(-91, 0, "latitude")]
-    [InlineData(0, 180.5, "longitude")]
-    [InlineData(0, -181, "longitude")]
-    [Trait("Requisito", "RF-F015-04")]
-    public async Task SetLocation_CoordenadasForaDoIntervalo_Devolve400NoCampo(
-        double latitude, double longitude, string field)
+    [InlineData(true)]
+    [InlineData(false)]
+    [Trait("Requisito", "RF-F015-02")]
+    [Trait("Requisito", "RF-F015-06")]
+    public async Task SetLocation_CoordenadasNoCorpo_Devolve400ENaoAlteraALocalizacao(bool withAddress)
     {
         string token = await RegisterAndLoginAsync(_client, NewEmail(), "CLIENT");
+        object body = withAddress
+            ? new
+            {
+                address = FakeGeocodingService.AddressAt2Km,
+                latitude = FakeGeocodingService.KnownLatitude,
+                longitude = FakeGeocodingService.KnownLongitude,
+            }
+            : new { latitude = FakeGeocodingService.KnownLatitude, longitude = FakeGeocodingService.KnownLongitude };
 
-        using var response = await PutLocationAsync(token, new { latitude, longitude });
-
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        var body = await AssertProblemAsync(response, BadRequestType, Url);
-        Assert.True(body.GetProperty("errors").TryGetProperty(field, out _));
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F015-04")]
-    public async Task SetLocation_CoordenadasSemMorada_Devolve400NaLatitude()
-    {
-        string token = await RegisterAndLoginAsync(_client, NewEmail(), "CLIENT");
-
-        using var response = await PutLocationAsync(token, new { latitude = 0m, longitude = 0m });
+        using var response = await PutLocationAsync(token, body);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        var body = await AssertProblemAsync(response, BadRequestType, Url);
-        Assert.True(body.GetProperty("errors").TryGetProperty("latitude", out _));
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F015-04")]
-    public async Task SetLocation_SoLatitude_Devolve400NaLongitude()
-    {
-        string token = await RegisterAndLoginAsync(_client, NewEmail(), "CLIENT");
-
-        using var response = await PutLocationAsync(token, new { latitude = FakeGeocodingService.KnownLatitude });
-
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        var body = await AssertProblemAsync(response, BadRequestType, Url);
-        Assert.True(body.GetProperty("errors").TryGetProperty("longitude", out _));
+        await AssertProblemAsync(response, BadRequestType, Url);
+        var me = await GetMeAsync(token);
+        Assert.Equal(JsonValueKind.Null, me.GetProperty("address").ValueKind);
     }
 
     [Fact]
     [Trait("Requisito", "RF-F015-03")]
-    [Trait("Requisito", "RF-F015-04")]
-    public async Task SetLocation_MoradaECoordenadas_Devolve400()
-    {
-        string token = await RegisterAndLoginAsync(_client, NewEmail(), "CLIENT");
-
-        using var response = await PutLocationAsync(token, new
-        {
-            address = FakeGeocodingService.KnownAddress,
-            latitude = FakeGeocodingService.KnownLatitude,
-            longitude = FakeGeocodingService.KnownLongitude,
-        });
-
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        var body = await AssertProblemAsync(response, BadRequestType, Url);
-        Assert.True(body.GetProperty("errors").TryGetProperty("address", out _));
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F015-03")]
-    [Trait("Requisito", "RF-F015-04")]
     public async Task SetLocation_ObjetoVazio_Devolve400()
     {
         string token = await RegisterAndLoginAsync(_client, NewEmail(), "CLIENT");
@@ -206,6 +147,22 @@ public class UserLocationEndpointTests(LocalHubApiFactory factory)
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         await AssertProblemAsync(response, "https://tools.ietf.org/html/rfc9110#section-15.5.4", Url);
+    }
+
+    // RF-F015-01, rule 3: the address of a provider is set in E12 and E14.
+    [Fact]
+    [Trait("Requisito", "RF-F015-01")]
+    [Trait("Requisito", "RF-F015-02")]
+    public async Task SetLocation_Prestador_Devolve403ENaoAlteraALocalizacao()
+    {
+        var provider = await ProfileRequests.CreateProviderWithProfileAsync(_client);
+
+        using var response = await PutLocationAsync(provider.Token, new { address = FakeGeocodingService.AddressAt2Km });
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        await AssertProblemAsync(response, "https://tools.ietf.org/html/rfc9110#section-15.5.4", Url);
+        var me = await GetMeAsync(provider.Token);
+        Assert.Equal(FakeGeocodingService.KnownAddress, me.GetProperty("address").GetString());
     }
 
     // CA5: the API used by the tests never reaches the real Nominatim.

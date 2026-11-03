@@ -1,13 +1,12 @@
 using LocalHub.Application.Common.Exceptions;
-using LocalHub.Application.Locations.Dtos;
 using LocalHub.Infrastructure.Geocoding;
 
 namespace LocalHub.Application.Locations;
 
-// Turns the location sent by the user (an address or a pair of coordinates) into an address and a point, using
-// the geocoding service. It does not change any entity, so it can be used before loading them (E12, E16 and the
-// reference location of the search of providers, E18). The sizes and the ranges were validated by the DTO; here are
-// the rules that compare fields or need the geocoding service (rule R17).
+// Turns the address sent by the user into an address and a point, using the geocoding service. The location is always
+// received as an address (E12, E14, E16, E20 and the reference location of the search of providers, E18; rule R3).
+// It does not change any entity, so it can be used before loading them (rule R2). The sizes were validated by the
+// DTO; here are the rules that need the geocoding service (rule R17).
 public class LocationResolver
 {
     private readonly IGeocodingService _geocodingService;
@@ -17,28 +16,7 @@ public class LocationResolver
         _geocodingService = geocodingService;
     }
 
-    public async Task<ResolvedLocation> ResolveAsync(SetLocationRequest request, CancellationToken cancellationToken)
-    {
-        bool hasAddress = !string.IsNullOrWhiteSpace(request.Address);
-        bool hasCoordinates = request.Latitude is not null || request.Longitude is not null;
-
-        if (hasAddress && hasCoordinates)
-        {
-            throw new ValidationException("address", "Indique a morada ou as coordenadas, mas não ambas.");
-        }
-
-        if (!hasAddress && !hasCoordinates)
-        {
-            throw new ValidationException("address", "Indique a morada ou as coordenadas.");
-        }
-
-        return hasAddress
-            ? await FromAddressAsync(request.Address!, "address",
-                "Não foi possível encontrar esta morada. Confirme-a ou indique as coordenadas.", cancellationToken)
-            : await FromCoordinatesAsync(request.Latitude, request.Longitude, cancellationToken);
-    }
-
-    // Only an address, with the errors reported in the given field (E20 uses "location").
+    // The errors are reported in the given field ("address", or "location" in E20) (RF-F015-03).
     public Task<ResolvedLocation> ResolveAddressAsync(string address, string field, CancellationToken cancellationToken)
     {
         return FromAddressAsync(address, field, "Não foi possível encontrar esta morada. Confirme-a.", cancellationToken);
@@ -86,21 +64,6 @@ public class LocationResolver
         }
 
         return new ResolvedLocation(trimmed, coordinates);
-    }
-
-    private async Task<ResolvedLocation> FromCoordinatesAsync(
-        decimal? latitude, decimal? longitude, CancellationToken cancellationToken)
-    {
-        Coordinates coordinates = ToPoint(latitude, longitude);
-
-        // The address is always saved with the coordinates, so a point without an address is rejected.
-        string? address = await _geocodingService.ReverseGeocodeAsync(coordinates, cancellationToken);
-        if (address is null)
-        {
-            throw new ValidationException("latitude", "Não foi possível obter uma morada para estas coordenadas.");
-        }
-
-        return new ResolvedLocation(address, coordinates);
     }
 
     // Both coordinates are required (RF-F015-04); their ranges were validated by the DTO.

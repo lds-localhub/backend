@@ -1,6 +1,5 @@
 using LocalHub.Application.Common.Exceptions;
 using LocalHub.Application.Locations;
-using LocalHub.Application.Locations.Dtos;
 using LocalHub.Infrastructure.Geocoding;
 
 namespace LocalHub.UnitTests.Locations;
@@ -24,94 +23,39 @@ public class LocationResolverTests
         _resolver = new LocationResolver(_geocoding);
     }
 
+    // ---------- ResolveAddressAsync: the location received as an address (E12, E14, E16, E20) ----------
+
     [Fact]
     [Trait("Requisito", "RF-F015-03")]
-    public async Task ResolveAsync_MoradaEncontrada_DevolveMoradaECoordenadas()
+    public async Task ResolveAddressAsync_MoradaEncontrada_DevolveMoradaECoordenadas()
     {
-        var location = await _resolver.ResolveAsync(new SetLocationRequest($"  {KnownAddress} ", null, null), default);
+        var location = await _resolver.ResolveAddressAsync($"  {KnownAddress} ", "address", default);
 
         Assert.Equal(KnownAddress, location.Address);
         Assert.Equal(Porto, location.Coordinates);
         Assert.Equal(KnownAddress, _geocoding.LastAddress);
     }
 
-    [Fact]
-    [Trait("Requisito", "RF-F015-03")]
-    public async Task ResolveAsync_MoradaNaoEncontrada_LancaErroNaMorada()
-    {
-        var exception = await Assert.ThrowsAsync<ValidationException>(
-            () => _resolver.ResolveAsync(new SetLocationRequest("Rua Que Não Existe", null, null), default));
-
-        Assert.Equal("address", Assert.Single(exception.Errors).Key);
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F015-03")]
-    public async Task ResolveAsync_GeocodificadorIndisponivel_PropagaAExcecao()
-    {
-        _geocoding.Unavailable = true;
-
-        await Assert.ThrowsAsync<GeocodingUnavailableException>(
-            () => _resolver.ResolveAsync(new SetLocationRequest(KnownAddress, null, null), default));
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F015-04")]
-    public async Task ResolveAsync_CoordenadasComMorada_DevolveAMoradaObtida()
-    {
-        var location = await _resolver.ResolveAsync(new SetLocationRequest(null, 41.1579m, -8.6291m), default);
-
-        Assert.Equal(KnownAddress, location.Address);
-        Assert.Equal(Porto, location.Coordinates);
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F015-04")]
-    public async Task ResolveAsync_CoordenadasSemMorada_LancaErroNaLatitude()
-    {
-        var exception = await Assert.ThrowsAsync<ValidationException>(
-            () => _resolver.ResolveAsync(new SetLocationRequest(null, 0m, 0m), default));
-
-        Assert.Equal("latitude", Assert.Single(exception.Errors).Key);
-    }
-
     [Theory]
-    [Trait("Requisito", "RF-F015-04")]
-    [InlineData(41.1579, null, "longitude")]
-    [InlineData(null, -8.6291, "latitude")]
-    public async Task ResolveAsync_SoUmaCoordenada_LancaErroNaCoordenadaEmFalta(
-        double? latitude, double? longitude, string field)
+    [InlineData("address")]
+    [InlineData("location")]
+    [Trait("Requisito", "RF-F015-03")]
+    public async Task ResolveAddressAsync_MoradaNaoEncontrada_LancaErroNoCampoIndicado(string field)
     {
-        var request = new SetLocationRequest(null, (decimal?)latitude, (decimal?)longitude);
-
-        var exception = await Assert.ThrowsAsync<ValidationException>(() => _resolver.ResolveAsync(request, default));
+        var exception = await Assert.ThrowsAsync<ValidationException>(
+            () => _resolver.ResolveAddressAsync("Rua Que Não Existe", field, default));
 
         Assert.Equal(field, Assert.Single(exception.Errors).Key);
     }
 
     [Fact]
     [Trait("Requisito", "RF-F015-03")]
-    [Trait("Requisito", "RF-F015-04")]
-    public async Task ResolveAsync_MoradaECoordenadas_LancaErroNaMorada()
+    public async Task ResolveAddressAsync_GeocodificadorIndisponivel_PropagaAExcecao()
     {
-        var exception = await Assert.ThrowsAsync<ValidationException>(
-            () => _resolver.ResolveAsync(new SetLocationRequest(KnownAddress, 41.1579m, -8.6291m), default));
+        _geocoding.Unavailable = true;
 
-        Assert.Equal("address", Assert.Single(exception.Errors).Key);
-        Assert.Equal(0, _geocoding.Calls);
-    }
-
-    [Theory]
-    [Trait("Requisito", "RF-F015-03")]
-    [Trait("Requisito", "RF-F015-04")]
-    [InlineData(null)]
-    [InlineData("   ")]
-    public async Task ResolveAsync_NemMoradaNemCoordenadas_LancaErroNaMorada(string? address)
-    {
-        var exception = await Assert.ThrowsAsync<ValidationException>(
-            () => _resolver.ResolveAsync(new SetLocationRequest(address, null, null), default));
-
-        Assert.Equal("address", Assert.Single(exception.Errors).Key);
+        await Assert.ThrowsAsync<GeocodingUnavailableException>(
+            () => _resolver.ResolveAddressAsync(KnownAddress, "address", default));
     }
 
     // ---------- ResolveReferenceAsync: reference location of the search of providers (E18) ----------

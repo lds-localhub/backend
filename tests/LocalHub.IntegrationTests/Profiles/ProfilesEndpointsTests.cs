@@ -530,7 +530,6 @@ public class ProfilesEndpointsTests(LocalHubApiFactory factory)
     [Theory]
     [InlineData("GET", "/api/profiles/1")]
     [InlineData("PUT", MeUrl)]
-    [InlineData("PUT", "/api/users/me/location")]
     [Trait("Requisito", "RF-F004-01")]
     public async Task EndpointDePrestador_PrestadorSemPerfil_Devolve403PerfilEmFalta(string method, string url)
     {

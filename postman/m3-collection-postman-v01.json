@@ -2169,7 +2169,7 @@
                 }
               ]
             },
-            "description": "RF-F015-03. A morada é convertida em coordenadas pelo Nominatim (requer acesso à Internet)."
+            "description": "RF-F015-02, RF-F015-03. Só o Cliente. A morada é convertida em coordenadas pelo Nominatim (requer acesso à Internet). Na aplicação mobile, a morada pode ser preenchida com E35 e é enviada como texto depois de confirmada."
           },
           "event": [
             {
@@ -2190,7 +2190,7 @@
           ]
         },
         {
-          "name": "E16 — Definir a localização por coordenadas (200)",
+          "name": "E16 — Coordenadas no corpo (400)",
           "request": {
             "method": "PUT",
             "header": [
@@ -2230,68 +2230,7 @@
                 }
               ]
             },
-            "description": "RF-F015-03. A morada é obtida a partir das coordenadas pelo Nominatim (requer acesso à Internet)."
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
-                  "pm.test(\"Guarda as coordenadas e uma morada\", () => {",
-                  "    const body = pm.response.json();",
-                  "    pm.expect(body.latitude).to.eql(41.366);",
-                  "    pm.expect(body.longitude).to.eql(-8.194);",
-                  "    pm.expect(body.address).to.be.a(\"string\").and.not.empty;",
-                  "});"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "E16 — Morada e coordenadas ao mesmo tempo (400)",
-          "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/users/me/location",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "users",
-                "me",
-                "location"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"address\": \"Avenida dos Aliados, Porto\",\n  \"latitude\": 41.366,\n  \"longitude\": -8.194\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{token}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "description": "RF-F015-03. Indica-se a morada ou as coordenadas, nunca ambas."
+            "description": "Regra R3 e RF-F015-06: o pedido só recebe a morada; as coordenadas do dispositivo só são recebidas em E35."
           },
           "event": [
             {
@@ -2300,11 +2239,10 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test(\"Devolve 400\", () => pm.response.to.have.status(400));",
-                  "pm.test(\"Erro em Problem Details no campo address\", () => {",
+                  "pm.test(\"Erro em Problem Details\", () => {",
                   "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
                   "    const body = pm.response.json();",
                   "    pm.expect(body.type).to.eql(\"https://tools.ietf.org/html/rfc9110#section-15.5.1\");",
-                  "    pm.expect(body.errors).to.have.property(\"address\");",
                   "    pm.expect(body.instance).to.eql(\"/\" + pm.request.url.path.join(\"/\"));",
                   "});"
                 ]
@@ -3010,6 +2948,61 @@
           ]
         },
         {
+          "name": "E16 — Prestador define a morada no perfil, não aqui (403)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/me/location",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "me",
+                "location"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"address\": \"Avenida dos Aliados, Porto\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{profileToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F015-01, regra 3: a morada do Prestador é definida em E12 e E14."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 403\", () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "E13 — Cliente consulta o perfil (200)",
           "request": {
             "method": "GET",
@@ -3515,8 +3508,7 @@
                   "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
                   "pm.test(\"Localização da F015\", () => {",
                   "    const body = pm.response.json();",
-                  "    pm.expect(body.latitude).to.eql(41.366);",
-                  "    pm.expect(body.longitude).to.eql(-8.194);",
+                  "    pm.expect(body.address).to.eql(\"Avenida dos Aliados, Porto\");",
                   "});"
                 ]
               }

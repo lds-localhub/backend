@@ -1,7 +1,6 @@
 using LocalHub.Application.Common;
 using LocalHub.Application.Common.Exceptions;
 using LocalHub.Application.Locations;
-using LocalHub.Application.Locations.Dtos;
 using LocalHub.Application.Profiles.Dtos;
 using LocalHub.Application.Reviews;
 using LocalHub.Domain.Accounts;
@@ -59,8 +58,7 @@ public class ProfileService
 
         // Last, because it calls the Nominatim: an address that is not found (400) or a Nominatim that is down (503)
         // leaves nothing saved.
-        var location = await _locationResolver.ResolveAsync(
-            new SetLocationRequest(request.Address, null, null), cancellationToken);
+        var location = await _locationResolver.ResolveAddressAsync(request.Address!, "address", cancellationToken);
         provider.SetLocation(location.Address, location.Coordinates.Latitude, location.Coordinates.Longitude);
 
         _db.ProfessionalProfiles.Add(profile);
