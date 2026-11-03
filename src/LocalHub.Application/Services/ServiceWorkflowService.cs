@@ -95,19 +95,15 @@ public class ServiceWorkflowService
             errors.Add(RecipientsField, recipientErrors.ToArray());
         }
 
-        bool hasAddress = !string.IsNullOrWhiteSpace(request.Location);
-        if (!hasAddress && (client.Address is null || client.Latitude is null || client.Longitude is null))
-        {
-            errors.Add(LocationField, "Indique o local de realização: ainda não tem uma localização registada.");
-        }
-
         errors.ThrowIfAny();
 
-        // Without location, the client's registered location; otherwise the address converted into coordinates,
+        // Rule R15: the form shows the client's registered address; when location is that address, the registered
+        // coordinates are used without calling the Nominatim. Otherwise the address is converted into coordinates,
         // without changing the registered location (RF-F009-01, rule 3; RF-F010-01, rule 6).
-        var location = hasAddress
-            ? await _locationResolver.ResolveAddressAsync(request.Location!, LocationField, cancellationToken)
-            : new ResolvedLocation(client.Address!, Coordinates.Rounded(client.Latitude!.Value, client.Longitude!.Value));
+        string address = request.Location!.Trim();
+        var location = address == client.Address && client.Latitude is not null && client.Longitude is not null
+            ? new ResolvedLocation(client.Address, Coordinates.Rounded(client.Latitude.Value, client.Longitude.Value))
+            : await _locationResolver.ResolveAddressAsync(address, LocationField, cancellationToken);
 
         var service = Service.Create(
             client,

@@ -3531,7 +3531,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"proposalModel\": \"DIRECT_REQUEST\",\n  \"serviceCategoryId\": {{profileCategoryId}},\n  \"description\": \"Torneira da casa de banho com fuga de água.\",\n  \"requestedStartDate\": \"{{serviceStartDate}}\",\n  \"requestedEndDate\": \"{{serviceEndDate}}\",\n  \"professionalProfileIds\": [\n    {{profileId}}\n  ]\n}",
+              "raw": "{\n  \"proposalModel\": \"DIRECT_REQUEST\",\n  \"serviceCategoryId\": {{profileCategoryId}},\n  \"title\": \"Reparar fuga na torneira\",\n  \"description\": \"Torneira da casa de banho com fuga de água.\",\n  \"requestedStartDate\": \"{{serviceStartDate}}\",\n  \"requestedEndDate\": \"{{serviceEndDate}}\",\n  \"location\": \"Avenida da Liberdade, Braga\",\n  \"professionalProfileIds\": [\n    {{profileId}}\n  ]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -3548,7 +3548,7 @@
                 }
               ]
             },
-            "description": "RF-F009-01. Sem location, é usada a localização registada do Cliente (E16, pasta F015). Cria o serviço OPEN e uma solicitação direta PENDING para o perfil da F004."
+            "description": "RF-F009-01. O local de realização é a localização registada do Cliente (E16, pasta F015), por isso são usadas as coordenadas registadas, sem chamar o Nominatim (regra R15). Cria o serviço OPEN e uma solicitação direta PENDING para o perfil da F004."
           },
           "event": [
             {
@@ -3607,7 +3607,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"proposalModel\": \"DIRECT_REQUEST\",\n  \"serviceCategoryId\": {{profileCategoryId}},\n  \"description\": \"Torneira da casa de banho com fuga de água.\",\n  \"requestedStartDate\": \"{{serviceStartDate}}\",\n  \"requestedEndDate\": \"{{serviceEndDate}}\",\n  \"professionalProfileIds\": [\n    {{profileId}},\n    {{profileId}}\n  ]\n}",
+              "raw": "{\n  \"proposalModel\": \"DIRECT_REQUEST\",\n  \"serviceCategoryId\": {{profileCategoryId}},\n  \"title\": \"Reparar fuga na torneira\",\n  \"description\": \"Torneira da casa de banho com fuga de água.\",\n  \"requestedStartDate\": \"{{serviceStartDate}}\",\n  \"requestedEndDate\": \"{{serviceEndDate}}\",\n  \"location\": \"Avenida da Liberdade, Braga\",\n  \"professionalProfileIds\": [\n    {{profileId}},\n    {{profileId}}\n  ]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -3661,7 +3661,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"proposalModel\": \"PUBLIC\",\n  \"serviceCategoryId\": {{profileCategoryId}},\n  \"description\": \"Substituir a torneira da cozinha que pinga.\",\n  \"requestedStartDate\": \"{{serviceStartDate}}\",\n  \"location\": \"Rua de Costa Cabral 500, Porto\"\n}",
+              "raw": "{\n  \"proposalModel\": \"PUBLIC\",\n  \"serviceCategoryId\": {{profileCategoryId}},\n  \"title\": \"Substituir torneira\",\n  \"description\": \"Substituir a torneira da cozinha que pinga.\",\n  \"requestedStartDate\": \"{{serviceStartDate}}\",\n  \"location\": \"Rua de Costa Cabral 500, Porto\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -3722,7 +3722,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"proposalModel\": \"PUBLIC\",\n  \"serviceCategoryId\": {{profileCategoryId}},\n  \"description\": \"Pintar a sala.\",\n  \"requestedStartDate\": \"{{serviceStartDate}}\",\n  \"professionalProfileIds\": [\n    {{profileId}}\n  ]\n}",
+              "raw": "{\n  \"proposalModel\": \"PUBLIC\",\n  \"serviceCategoryId\": {{profileCategoryId}},\n  \"title\": \"Pintar a sala\",\n  \"description\": \"Pintar a sala.\",\n  \"requestedStartDate\": \"{{serviceStartDate}}\",\n  \"location\": \"Avenida da Liberdade, Braga\",\n  \"professionalProfileIds\": [\n    {{profileId}}\n  ]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -3776,7 +3776,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"proposalModel\": \"PUBLIC\",\n  \"description\": \"\",\n  \"requestedStartDate\": \"2020-01-01\"\n}",
+              "raw": "{\n  \"proposalModel\": \"PUBLIC\",\n  \"title\": \"Pedido de serviço\",\n  \"description\": \"\",\n  \"requestedStartDate\": \"2020-01-01\",\n  \"location\": \"Avenida da Liberdade, Braga\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -3831,7 +3831,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"proposalModel\": \"PUBLIC\",\n  \"serviceCategoryId\": {{profileCategoryId}},\n  \"description\": \"Pintar a sala.\",\n  \"requestedStartDate\": \"{{serviceStartDate}}\"\n}",
+              "raw": "{\n  \"proposalModel\": \"PUBLIC\",\n  \"serviceCategoryId\": {{profileCategoryId}},\n  \"title\": \"Pintar a sala\",\n  \"description\": \"Pintar a sala.\",\n  \"requestedStartDate\": \"{{serviceStartDate}}\",\n  \"location\": \"Avenida da Liberdade, Braga\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -3884,7 +3884,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"proposalModel\": \"PUBLIC\",\n  \"serviceCategoryId\": {{profileCategoryId}},\n  \"description\": \"Pintar a sala.\",\n  \"requestedStartDate\": \"{{serviceStartDate}}\"\n}",
+              "raw": "{\n  \"proposalModel\": \"PUBLIC\",\n  \"serviceCategoryId\": {{profileCategoryId}},\n  \"title\": \"Pintar a sala\",\n  \"description\": \"Pintar a sala.\",\n  \"requestedStartDate\": \"{{serviceStartDate}}\",\n  \"location\": \"Avenida da Liberdade, Braga\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -4597,7 +4597,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"proposalModel\": \"DIRECT_REQUEST\",\n  \"serviceCategoryId\": {{profileCategoryId}},\n  \"description\": \"Substituir o sifão do lava-loiça.\",\n  \"requestedStartDate\": \"{{serviceStartDate}}\",\n  \"requestedEndDate\": \"{{serviceEndDate}}\",\n  \"professionalProfileIds\": [\n    {{profileId}}\n  ]\n}",
+              "raw": "{\n  \"proposalModel\": \"DIRECT_REQUEST\",\n  \"serviceCategoryId\": {{profileCategoryId}},\n  \"title\": \"Pedido de serviço\",\n  \"description\": \"Substituir o sifão do lava-loiça.\",\n  \"requestedStartDate\": \"{{serviceStartDate}}\",\n  \"requestedEndDate\": \"{{serviceEndDate}}\",\n  \"location\": \"Avenida da Liberdade, Braga\",\n  \"professionalProfileIds\": [\n    {{profileId}}\n  ]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -4932,7 +4932,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"proposalModel\": \"PUBLIC\",\n  \"serviceCategoryId\": {{profileCategoryId}},\n  \"description\": \"Substituir a torneira da cozinha que pinga.\",\n  \"requestedStartDate\": \"{{serviceStartDate}}\"\n}",
+              "raw": "{\n  \"proposalModel\": \"PUBLIC\",\n  \"serviceCategoryId\": {{profileCategoryId}},\n  \"title\": \"Substituir torneira\",\n  \"description\": \"Substituir a torneira da cozinha que pinga.\",\n  \"requestedStartDate\": \"{{serviceStartDate}}\",\n  \"location\": \"Avenida da Liberdade, Braga\"\n}",
               "options": {
                 "raw": {
                   "language": "json"

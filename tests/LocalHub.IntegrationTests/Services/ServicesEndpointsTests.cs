@@ -236,22 +236,48 @@ public class ServicesEndpointsTests(LocalHubApiFactory factory)
 
     // ---------- Criterion 4: location ----------
 
+    // Rule R15: the location is the registered address, so the registered coordinates are used without converting the
+    // address. They were moved in the database, so a conversion would give other coordinates.
     [Fact]
     [Trait("Requisito", "RF-F009-01")]
     [Trait("Requisito", "RF-F010-01")]
-    public async Task Create_SemMoradaIndicada_UsaALocalizacaoRegistadaDoCliente()
+    public async Task Create_MoradaIgualALocalizacaoRegistada_UsaAsCoordenadasRegistadas()
     {
         int categoryId = await NewCategoryAsync();
         var client = await RegisterClientAsync(_client);
+        await MoveClientAsync(client.UserId, 41.2m, -8.5m);
+        var body = PublicBody(categoryId);
+        body["location"] = $"  {FakeGeocodingService.KnownAddress} ";
 
-        using var response = await SendJsonAsync(_client, HttpMethod.Post, ServicesUrl, client.Token, PublicBody(categoryId));
+        using var response = await SendJsonAsync(_client, HttpMethod.Post, ServicesUrl, client.Token, body);
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var service = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(FakeGeocodingService.KnownAddress, service.GetProperty("location").GetString());
+        Assert.Equal(41.2m, service.GetProperty("latitude").GetDecimal());
+        Assert.Equal(-8.5m, service.GetProperty("longitude").GetDecimal());
+    }
+
+    [Fact]
+    [Trait("Requisito", "RF-F009-01")]
+    [Trait("Requisito", "RF-F010-01")]
+    public async Task Create_MoradaDiferenteDaRegistada_ConverteEmCoordenadasENaoAlteraALocalizacaoRegistada()
+    {
+        int categoryId = await NewCategoryAsync();
+        var client = await RegisterClientAsync(_client);
+        var body = PublicBody(categoryId);
+        body["location"] = FakeGeocodingService.AddressAt2Km;
+
+        using var response = await SendJsonAsync(_client, HttpMethod.Post, ServicesUrl, client.Token, body);
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var service = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(FakeGeocodingService.AddressAt2Km, service.GetProperty("location").GetString());
+        Assert.Equal(41.175886m, service.GetProperty("latitude").GetDecimal());
+
         var me = await GetMeAsync(client.Token);
-        Assert.Equal(me.GetProperty("address").GetString(), service.GetProperty("location").GetString());
-        Assert.Equal(FakeGeocodingService.KnownLatitude, service.GetProperty("latitude").GetDecimal());
-        Assert.Equal(FakeGeocodingService.KnownLongitude, service.GetProperty("longitude").GetDecimal());
+        Assert.Equal(FakeGeocodingService.KnownAddress, me.GetProperty("address").GetString());
+        Assert.Equal(FakeGeocodingService.KnownLatitude, me.GetProperty("latitude").GetDecimal());
     }
 
     [Fact]
@@ -280,12 +306,14 @@ public class ServicesEndpointsTests(LocalHubApiFactory factory)
     [Fact]
     [Trait("Requisito", "RF-F009-01")]
     [Trait("Requisito", "RF-F010-01")]
-    public async Task Create_SemMoradaNemLocalizacaoRegistada_Devolve400NaLocalizacao()
+    public async Task Create_SemLocalDeRealizacao_Devolve400NaLocalizacao()
     {
         int categoryId = await NewCategoryAsync();
-        var client = await RegisterClientAsync(_client, withLocation: false);
+        var client = await RegisterClientAsync(_client);
+        var body = PublicBody(categoryId);
+        body.Remove("location");
 
-        using var response = await SendJsonAsync(_client, HttpMethod.Post, ServicesUrl, client.Token, PublicBody(categoryId));
+        using var response = await SendJsonAsync(_client, HttpMethod.Post, ServicesUrl, client.Token, body);
 
         await AssertFieldErrorAsync(response, "location");
         Assert.Equal((0, 0), await CountSavedAsync(client.UserId));
@@ -506,6 +534,14 @@ public class ServicesEndpointsTests(LocalHubApiFactory factory)
     }
 
     // Services of the client and their direct requests saved in the database (E21 and E23 are not implemented yet).
+    private async Task MoveClientAsync(int userId, decimal latitude, decimal longitude)
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<LocalHubDbContext>();
+        await db.Database.ExecuteSqlAsync(
+            $"UPDATE \"User\" SET latitude = {latitude}, longitude = {longitude} WHERE \"userId\" = {userId}");
+    }
+
     private async Task<(int Services, int DirectRequests)> CountSavedAsync(int clientId)
     {
         using var scope = factory.Services.CreateScope();

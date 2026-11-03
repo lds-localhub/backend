@@ -39,7 +39,8 @@ public static class ServiceRequests
         return new TestClient(token, body.GetProperty("userId").GetInt32());
     }
 
-    // A valid body of E20 with direct requests; without location, so the client's registered location is used.
+    // A valid body of E20 with direct requests. The location is the registered address of RegisterClientAsync, so the
+    // registered coordinates are used (rule R15).
     public static Dictionary<string, object?> DirectRequestBody(int serviceCategoryId, params int[] professionalProfileIds) =>
         new()
         {
@@ -49,10 +50,11 @@ public static class ServiceRequests
             ["description"] = "Torneira da casa de banho com fuga de água.",
             ["requestedStartDate"] = Today.AddDays(1).ToString(IsoDate, CultureInfo.InvariantCulture),
             ["requestedEndDate"] = Today.AddDays(3).ToString(IsoDate, CultureInfo.InvariantCulture),
+            ["location"] = FakeGeocodingService.KnownAddress,
             ["professionalProfileIds"] = professionalProfileIds,
         };
 
-    // A valid body of E20 for a published job, with a single date.
+    // A valid body of E20 for a published job, with a single date, at the registered address of RegisterClientAsync.
     public static Dictionary<string, object?> PublicBody(int serviceCategoryId) => new()
     {
         ["proposalModel"] = "PUBLIC",
@@ -60,5 +62,6 @@ public static class ServiceRequests
         ["title"] = "Substituir torneira",
         ["description"] = "Substituir a torneira da cozinha que pinga.",
         ["requestedStartDate"] = Today.AddDays(1).ToString(IsoDate, CultureInfo.InvariantCulture),
+        ["location"] = FakeGeocodingService.KnownAddress,
     };
 }

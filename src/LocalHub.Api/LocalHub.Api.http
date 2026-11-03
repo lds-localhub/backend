@@ -210,7 +210,8 @@ GET {{LocalHub.Api_HostAddress}}/api/search/providers?serviceCategoryId=1
 GET {{LocalHub.Api_HostAddress}}/api/search/providers?serviceCategoryId=9&address=Avenida%20dos%20Aliados%2C%20Porto
 
 ### E20 - Create a service with a direct request to the provider above (expect 201, OPEN, one PENDING request).
-### Without "location", the client's location set in E16 is used. The dates must be today or later.
+### "location" is required: when it is the client's address set in E16, the registered coordinates are used without
+### calling Nominatim. The dates must be today or later.
 # @name createDirectService
 POST {{LocalHub.Api_HostAddress}}/api/services
 Authorization: Bearer {{login2.response.body.token}}
@@ -219,9 +220,11 @@ Content-Type: application/json
 {
   "proposalModel": "DIRECT_REQUEST",
   "serviceCategoryId": 1,
+  "title": "Reparar fuga na torneira",
   "description": "Torneira da casa de banho com fuga de água.",
   "requestedStartDate": "2026-12-01",
   "requestedEndDate": "2026-12-04",
+  "location": "Avenida dos Aliados, Porto",
   "professionalProfileIds": [{{createProfile.response.body.professionalProfileId}}]
 }
 
@@ -234,6 +237,7 @@ Content-Type: application/json
 {
   "proposalModel": "PUBLIC",
   "serviceCategoryId": 1,
+  "title": "Substituir torneira",
   "description": "Substituir a torneira da cozinha que pinga.",
   "requestedStartDate": "2026-12-01",
   "location": "Rua de Costa Cabral 500, Porto"
@@ -247,8 +251,10 @@ Content-Type: application/json
 {
   "proposalModel": "PUBLIC",
   "serviceCategoryId": 1,
+  "title": "Pintar a sala",
   "description": "Pintar a sala.",
   "requestedStartDate": "2020-01-01",
+  "location": "Avenida dos Aliados, Porto",
   "professionalProfileIds": [1]
 }
 
@@ -260,8 +266,10 @@ Content-Type: application/json
 {
   "proposalModel": "PUBLIC",
   "serviceCategoryId": 1,
+  "title": "Pintar a sala",
   "description": "Pintar a sala.",
-  "requestedStartDate": "2026-12-01"
+  "requestedStartDate": "2026-12-01",
+  "location": "Avenida dos Aliados, Porto"
 }
 
 ### E20 - A service with a direct request to the provider above, for the decisions of the client (E21 to E29)
@@ -273,8 +281,10 @@ Content-Type: application/json
 {
   "proposalModel": "DIRECT_REQUEST",
   "serviceCategoryId": 1,
+  "title": "Reparar esquentador",
   "description": "Esquentador sem água quente.",
   "requestedStartDate": "2026-12-01",
+  "location": "Avenida dos Aliados, Porto",
   "professionalProfileIds": [{{createProfile.response.body.professionalProfileId}}]
 }
 
