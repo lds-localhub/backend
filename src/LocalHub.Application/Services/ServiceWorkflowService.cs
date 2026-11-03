@@ -2,6 +2,7 @@ using LocalHub.Application.Common;
 using LocalHub.Application.Common.Exceptions;
 using LocalHub.Application.Locations;
 using LocalHub.Application.Profiles;
+using LocalHub.Application.Reviews;
 using LocalHub.Application.Services.Dtos;
 using LocalHub.Domain.Accounts;
 using LocalHub.Domain.Common;
@@ -52,7 +53,7 @@ public class ServiceWorkflowService
     // first the dates and the recipients, then the category and the chosen profiles (database), and last the address
     // (Nominatim). Nothing is changed before the address is converted (rule R2), and the service and its direct
     // requests are saved with a single SaveChangesAsync, in one transaction (rule R1): on any error nothing is created.
-    public async Task<ServiceResponse> CreateAsync(CreateServiceRequest request, CancellationToken cancellationToken)
+    public async Task<ClientServiceResponse> CreateAsync(CreateServiceRequest request, CancellationToken cancellationToken)
     {
         var client = await _db.Users.SingleOrDefaultAsync(u => u.UserId == _currentUser.UserId, cancellationToken);
         if (client is null)
@@ -122,7 +123,8 @@ public class ServiceWorkflowService
         _db.Services.Add(service);
         await _db.SaveChangesAsync(cancellationToken);
 
-        return ServiceResponse.From(service);
+        // The response has the structure of E22 (API documentation, E20).
+        return await ToClientResponseAsync(service, cancellationToken);
     }
 
     // E25 (RF-F007-01, RF-F011-02). The fields were validated by the DTO (rule R17); the access and the states are
@@ -457,75 +459,52 @@ public class ServiceWorkflowService
     }
 
     // E22 (RF-F007-09, RF-F008-01), client side: only the client that created the service, with all the direct
-    // requests and the accepted proposal.
+    // requests (each with its proposal) and, in PUBLIC, all the proposals received.
     public async Task<ClientServiceResponse> GetForClientAsync(int serviceId, CancellationToken cancellationToken)
     {
         var service = await FindOwnServiceAsync(_db.Services.AsNoTracking(), serviceId, cancellationToken);
-        return ClientServiceResponse.From(service);
-    }
-
-    // E26 (RF-F007-09, RF-F008-01): all the proposals of the service, newest first, optionally filtered by state.
-    // Only the PENDING proposals of an OPEN service can be accepted or declined (E28, E29).
-    public async Task<IReadOnlyList<ClientProposalResponse>> ListProposalsAsync(
-        int serviceId, string? status, CancellationToken cancellationToken)
-    {
-        var errors = new Dictionary<string, string[]>();
-        var statusFilter = EnumQuery.Parse<ProposalStatus>(status, "status", errors);
-        if (errors.Count > 0)
-        {
-            throw new ValidationException(errors);
-        }
-
-        var service = await FindOwnServiceAsync(_db.Services.AsNoTracking(), serviceId, cancellationToken);
-        return service.Proposals
-            .Where(p => statusFilter is null || p.Status == statusFilter)
-            .OrderByDescending(p => p.CreationDate)
-            .ThenByDescending(p => p.ProposalId)
-            .Select(ClientProposalResponse.From)
-            .ToList();
+        return await ToClientResponseAsync(service, cancellationToken);
     }
 
     // E28 (RF-F007-03, RF-F008-02). The changes of the service, of the proposals and of the direct requests are saved
     // with a single SaveChangesAsync (rule R1). Two simultaneous decisions in the same service: the second one waits
     // for the lock of the service, reads it already ASSIGNED and gets 409.
-    public async Task<ClientServiceResponse> AcceptProposalAsync(
-        int serviceId, int proposalId, CancellationToken cancellationToken)
+    public async Task<ProposalDecisionResponse> AcceptProposalAsync(int proposalId, CancellationToken cancellationToken)
     {
+        int serviceId = await FindServiceIdOfProposalAsync(proposalId, cancellationToken);
+
         await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
         await LockServiceAsync(serviceId, cancellationToken);
 
         var service = await FindOwnServiceAsync(_db.Services, serviceId, cancellationToken);
-        EnsureProposalBelongs(service, proposalId);
-
-        service.AcceptProposal(proposalId, _currentUser.UserId, Now());
+        var proposal = service.AcceptProposal(proposalId, _currentUser.UserId, Now());
         await SaveDecisionAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
 
-        return ClientServiceResponse.From(service);
+        return ProposalDecisionResponse.From(proposal);
     }
 
     // E29 (RF-F007-04, RF-F008-03): only the proposal changes; the service stays OPEN. It takes the same lock as E28,
     // so a proposal cannot be declined and accepted at the same time.
-    public async Task<ProposalResponse> DeclineProposalAsync(
-        int serviceId, int proposalId, CancellationToken cancellationToken)
+    public async Task<ProposalDecisionResponse> DeclineProposalAsync(int proposalId, CancellationToken cancellationToken)
     {
+        int serviceId = await FindServiceIdOfProposalAsync(proposalId, cancellationToken);
+
         await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
         await LockServiceAsync(serviceId, cancellationToken);
 
         var service = await FindOwnServiceAsync(_db.Services, serviceId, cancellationToken);
-        EnsureProposalBelongs(service, proposalId);
-
         var proposal = service.DeclineProposal(proposalId, _currentUser.UserId, Now());
         await SaveDecisionAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
 
-        return ProposalResponse.From(proposal);
+        return ProposalDecisionResponse.From(proposal);
     }
 
     // E30 (RF-F007-05, RF-F008-04), client side: the service, the proposals and the direct requests are saved with a
     // single SaveChangesAsync (rule R1). It takes the same lock as E28, so a service cannot be cancelled while a
     // proposal is being accepted.
-    public async Task<ClientServiceResponse> CancelAsClientAsync(int serviceId, CancellationToken cancellationToken)
+    public async Task<ServiceStatusResponse> CancelAsClientAsync(int serviceId, CancellationToken cancellationToken)
     {
         await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
         await LockServiceAsync(serviceId, cancellationToken);
@@ -535,12 +514,12 @@ public class ServiceWorkflowService
         await SaveDecisionAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
 
-        return ClientServiceResponse.From(service);
+        return ServiceStatusResponse.From(service);
     }
 
     // E30 (RF-F007-05, RF-F008-04), provider side: only the provider whose proposal was accepted, while the service is
-    // ASSIGNED. The response is the service as the provider sees it (E22).
-    public async Task<ProviderServiceResponse> CancelAsProviderAsync(int serviceId, CancellationToken cancellationToken)
+    // ASSIGNED.
+    public async Task<ServiceStatusResponse> CancelAsProviderAsync(int serviceId, CancellationToken cancellationToken)
     {
         int? profileId = await _db.FindProfileIdAsync(_currentUser.UserId, cancellationToken);
         if (profileId is null)
@@ -548,30 +527,28 @@ public class ServiceWorkflowService
             throw new ForbiddenException(ProfileService.MissingProfileMessage, ErrorTypes.MissingProfile);
         }
 
-        await using (var transaction = await _db.Database.BeginTransactionAsync(cancellationToken))
+        await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
+        await LockServiceAsync(serviceId, cancellationToken);
+
+        // With the provider of each proposal, who is recorded in the history when the service is cancelled.
+        var service = await _db.Services
+            .Include(s => s.Proposals).ThenInclude(p => p.ProfessionalProfile).ThenInclude(p => p.ServiceProvider)
+            .SingleOrDefaultAsync(s => s.ServiceId == serviceId, cancellationToken);
+        if (service is null)
         {
-            await LockServiceAsync(serviceId, cancellationToken);
-
-            // With the provider of each proposal, who is recorded in the history when the service is cancelled.
-            var service = await _db.Services
-                .Include(s => s.Proposals).ThenInclude(p => p.ProfessionalProfile).ThenInclude(p => p.ServiceProvider)
-                .SingleOrDefaultAsync(s => s.ServiceId == serviceId, cancellationToken);
-            if (service is null)
-            {
-                throw new NotFoundException("Serviço não encontrado.");
-            }
-
-            service.CancelByProvider(profileId.Value, Now());
-            await SaveDecisionAsync(cancellationToken);
-            await transaction.CommitAsync(cancellationToken);
+            throw new NotFoundException("Serviço não encontrado.");
         }
 
-        return await GetForProviderAsync(serviceId, cancellationToken);
+        service.CancelByProvider(profileId.Value, Now());
+        await SaveDecisionAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+
+        return ServiceStatusResponse.From(service);
     }
 
     // E31 (RF-F007-06, RF-F008-05): only the client that created the service, while it is ASSIGNED. It takes the same
     // lock as E30, so a service cannot be completed and cancelled at the same time.
-    public async Task<ClientServiceResponse> CompleteAsync(int serviceId, CancellationToken cancellationToken)
+    public async Task<CompletedServiceResponse> CompleteAsync(int serviceId, CancellationToken cancellationToken)
     {
         await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
         await LockServiceAsync(serviceId, cancellationToken);
@@ -581,7 +558,7 @@ public class ServiceWorkflowService
         await SaveDecisionAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
 
-        return ClientServiceResponse.From(service);
+        return CompletedServiceResponse.From(service);
     }
 
     // Rule R1: the row of the service stays locked until the end of the transaction, so a second decision in the same
@@ -593,7 +570,7 @@ public class ServiceWorkflowService
             $"SELECT 1 FROM \"Service\" WHERE \"serviceId\" = {serviceId} FOR UPDATE", cancellationToken);
     }
 
-    // The service with everything the client sees (E22, E26, E28). 404 when it does not exist; 403 when it was created
+    // The service with everything the client sees (E22), also used by E28 to E31. 404 when it does not exist; 403 when it was created
     // by another client (API documentation, section 7). The client is loaded, because it is recorded in the history of
     // the changes of state that it makes (E28, E30 and E31), and the history with the user of each change (E22).
     private async Task<Service> FindOwnServiceAsync(
@@ -621,13 +598,31 @@ public class ServiceWorkflowService
         return service;
     }
 
-    // A proposal of another service is reported as not found (API documentation, E28 and E29).
-    private static void EnsureProposalBelongs(Service service, int proposalId)
+    // The service of the proposal (E28 and E29): 404 when the proposal does not exist. Whether the service belongs to
+    // the client is checked afterwards, in FindOwnServiceAsync (403).
+    private async Task<int> FindServiceIdOfProposalAsync(int proposalId, CancellationToken cancellationToken)
     {
-        if (service.Proposals.All(p => p.ProposalId != proposalId))
+        int? serviceId = await _db.Proposals
+            .Where(p => p.ProposalId == proposalId)
+            .Select(p => (int?)p.ServiceId)
+            .SingleOrDefaultAsync(cancellationToken);
+        if (serviceId is null)
         {
             throw new NotFoundException("Proposta não encontrada.");
         }
+
+        return serviceId.Value;
+    }
+
+    // E22 as the client sees it, with the reviewCount of each provider of the direct requests and of the proposals.
+    private async Task<ClientServiceResponse> ToClientResponseAsync(Service service, CancellationToken cancellationToken)
+    {
+        var profileIds = service.DirectRequests.Select(r => r.ProfessionalProfileId)
+            .Concat(service.Proposals.Select(p => p.ProfessionalProfileId))
+            .Distinct()
+            .ToList();
+        var reviewCounts = await _db.CountReviewsAsync(profileIds, cancellationToken);
+        return ClientServiceResponse.From(service, reviewCounts);
     }
 
     // PostgreSQL keeps microseconds (timestamptz), so the instant is truncated before it is used.

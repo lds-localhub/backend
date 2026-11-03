@@ -572,7 +572,7 @@ public class ReviewsEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal(HttpStatusCode.Created, submit.StatusCode);
         int proposalId = (await submit.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("proposalId").GetInt32();
 
-        using var accept = await PostAsync(client.Token, $"{ServicesUrl}/{serviceId}/proposals/{proposalId}/accept");
+        using var accept = await PostAsync(client.Token, $"/api/proposals/{proposalId}/accept");
         Assert.Equal(HttpStatusCode.OK, accept.StatusCode);
         return new TestService(client, serviceId);
     }

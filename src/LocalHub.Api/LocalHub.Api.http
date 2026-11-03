@@ -303,24 +303,20 @@ Content-Type: application/json
 GET {{LocalHub.Api_HostAddress}}/api/services?status=OPEN&page=1&pageSize=20
 Authorization: Bearer {{login2.response.body.token}}
 
-### E22 - The service as its client sees it: all the direct requests, each with the provider
+### E22 - The service as its client sees it: all the direct requests, each with the provider (with reviewCount) and its proposal
 GET {{LocalHub.Api_HostAddress}}/api/services/{{createService.response.body.serviceId}}
 Authorization: Bearer {{login2.response.body.token}}
 
-### E23 - The direct requests of the services of the client, with the provider and its proposal
+### E23 - The direct requests sent to the provider (only providers; the client sees them in E22)
 GET {{LocalHub.Api_HostAddress}}/api/direct-requests?status=PROPOSAL_SUBMITTED
-Authorization: Bearer {{login2.response.body.token}}
+Authorization: Bearer {{loginProvider.response.body.token}}
 
-### E26 - The proposals of the service (status filter optional)
-GET {{LocalHub.Api_HostAddress}}/api/services/{{createService.response.body.serviceId}}/proposals
-Authorization: Bearer {{login2.response.body.token}}
-
-### E28 - Accept the proposal (expect 200 ASSIGNED; a second time gets 409 transicao-invalida)
-POST {{LocalHub.Api_HostAddress}}/api/services/{{createService.response.body.serviceId}}/proposals/{{submitProposal.response.body.proposalId}}/accept
+### E28 - Accept the proposal (expect 200 ACCEPTED with decisionDate; a second time gets 409 transicao-invalida)
+POST {{LocalHub.Api_HostAddress}}/api/proposals/{{submitProposal.response.body.proposalId}}/accept
 Authorization: Bearer {{login2.response.body.token}}
 
 ### E29 - Decline the proposal (here 409, because it was accepted above; a PENDING proposal gets 200 DECLINED)
-POST {{LocalHub.Api_HostAddress}}/api/services/{{createService.response.body.serviceId}}/proposals/{{submitProposal.response.body.proposalId}}/decline
+POST {{LocalHub.Api_HostAddress}}/api/proposals/{{submitProposal.response.body.proposalId}}/decline
 Authorization: Bearer {{login2.response.body.token}}
 
 ### E31 - Mark the service as completed (expect 200 COMPLETED with actualCompletionDate; only the client, only ASSIGNED)

@@ -31,7 +31,7 @@ public class ServiceLifecycleEndpointsTests(LocalHubApiFactory factory)
         var scenario = await CreateDirectScenarioAsync(proposals: 2, silentProviders: 1);
         int pending = scenario.ProposalIds[0];
         int declined = scenario.ProposalIds[1];
-        using (var decline = await PostAsync(scenario.Client.Token, DeclineUrl(scenario.ServiceId, declined)))
+        using (var decline = await PostAsync(scenario.Client.Token, DeclineUrl(declined)))
         {
             Assert.Equal(HttpStatusCode.OK, decline.StatusCode);
         }
@@ -39,15 +39,18 @@ public class ServiceLifecycleEndpointsTests(LocalHubApiFactory factory)
         using var response = await PostAsync(scenario.Client.Token, CancelUrl(scenario.ServiceId));
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var service = await response.Content.ReadFromJsonAsync<JsonElement>();
-        Assert.Equal("CANCELLED", service.GetProperty("status").GetString());
-        Assert.Equal(scenario.Client.UserId, service.GetProperty("clientId").GetInt32());
-        Assert.Equal(JsonValueKind.Null, service.GetProperty("acceptedProposal").ValueKind);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(["serviceId", "status"], body.EnumerateObject().Select(f => f.Name));
+        Assert.Equal(scenario.ServiceId, body.GetProperty("serviceId").GetInt32());
+        Assert.Equal("CANCELLED", body.GetProperty("status").GetString());
+
+        var service = await GetServiceAsync(scenario.Client.Token, scenario.ServiceId);
         Assert.Equal(JsonValueKind.Null, service.GetProperty("actualCompletionDate").ValueKind);
 
         // The provider that did not answer gets VOID; the ones that submitted a proposal keep PROPOSAL_SUBMITTED.
         var requests = service.GetProperty("directRequests").EnumerateArray().ToDictionary(
-            r => r.GetProperty("professionalProfileId").GetInt32(), r => r.GetProperty("status").GetString());
+            r => r.GetProperty("professionalProfile").GetProperty("professionalProfileId").GetInt32(),
+            r => r.GetProperty("status").GetString());
         Assert.Equal("VOID", requests[scenario.Providers[2].ProfessionalProfileId]);
         Assert.Equal("PROPOSAL_SUBMITTED", requests[scenario.Providers[0].ProfessionalProfileId]);
         Assert.Equal("PROPOSAL_SUBMITTED", requests[scenario.Providers[1].ProfessionalProfileId]);
@@ -88,12 +91,10 @@ public class ServiceLifecycleEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var service = await response.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal("CANCELLED", service.GetProperty("status").GetString());
-        var accepted = service.GetProperty("acceptedProposal");
-        Assert.Equal(scenario.ProposalIds[0], accepted.GetProperty("proposalId").GetInt32());
-        Assert.Equal("ACCEPTED", accepted.GetProperty("status").GetString());
 
         var proposals = (await ListProposalsAsync(scenario.Client.Token, scenario.ServiceId))
             .ToDictionary(p => p.GetProperty("proposalId").GetInt32(), p => p.GetProperty("status").GetString());
+        Assert.Equal("ACCEPTED", proposals[scenario.ProposalIds[0]]);
         Assert.Equal("DECLINED", proposals[scenario.ProposalIds[1]]);
     }
 
@@ -102,17 +103,19 @@ public class ServiceLifecycleEndpointsTests(LocalHubApiFactory factory)
     [Fact]
     [Trait("Requisito", "RF-F007-05")]
     [Trait("Requisito", "RF-F008-04")]
-    public async Task Cancel_PrestadorContratado_CancelaEDevolveAVistaDoPrestador()
+    public async Task Cancel_PrestadorContratado_CancelaEDevolveOServicoEOEstado()
     {
         var scenario = await CreateAssignedScenarioAsync();
 
         using var response = await PostAsync(scenario.Providers[0].Token, CancelUrl(scenario.ServiceId));
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var service = await response.Content.ReadFromJsonAsync<JsonElement>();
-        Assert.Equal("CANCELLED", service.GetProperty("status").GetString());
-        Assert.False(service.TryGetProperty("clientId", out _));
-        Assert.Equal("ACCEPTED", service.GetProperty("acceptedProposal").GetProperty("status").GetString());
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(["serviceId", "status"], body.EnumerateObject().Select(f => f.Name));
+        Assert.Equal("CANCELLED", body.GetProperty("status").GetString());
+        var accepted = Assert.Single(await ListProposalsAsync(scenario.Client.Token, scenario.ServiceId),
+            p => p.GetProperty("proposalId").GetInt32() == scenario.ProposalIds[0]);
+        Assert.Equal("ACCEPTED", accepted.GetProperty("status").GetString());
         Assert.Equal("CANCELLED", (await GetServiceAsync(scenario.Client.Token, scenario.ServiceId)).GetProperty("status").GetString());
     }
 
@@ -240,7 +243,7 @@ public class ServiceLifecycleEndpointsTests(LocalHubApiFactory factory)
             Assert.Equal(HttpStatusCode.OK, cancel.StatusCode);
         }
 
-        using var response = await PostAsync(scenario.Client.Token, AcceptUrl(scenario.ServiceId, scenario.ProposalIds[0]));
+        using var response = await PostAsync(scenario.Client.Token, AcceptUrl(scenario.ProposalIds[0]));
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
     }
@@ -273,16 +276,19 @@ public class ServiceLifecycleEndpointsTests(LocalHubApiFactory factory)
         using var response = await PostAsync(scenario.Client.Token, CompleteUrl(scenario.ServiceId));
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var service = await response.Content.ReadFromJsonAsync<JsonElement>();
-        Assert.Equal("COMPLETED", service.GetProperty("status").GetString());
-        Assert.NotEqual(JsonValueKind.Null, service.GetProperty("actualCompletionDate").ValueKind);
-        Assert.False(service.GetProperty("reviewed").GetBoolean());
-        Assert.Equal("ACCEPTED", service.GetProperty("acceptedProposal").GetProperty("status").GetString());
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(["serviceId", "status", "actualCompletionDate"], body.EnumerateObject().Select(f => f.Name));
+        Assert.Equal("COMPLETED", body.GetProperty("status").GetString());
+        Assert.NotEqual(JsonValueKind.Null, body.GetProperty("actualCompletionDate").ValueKind);
 
         // The date returned is the one stored (E22).
         var stored = await GetServiceAsync(scenario.Client.Token, scenario.ServiceId);
-        Assert.Equal(service.GetProperty("actualCompletionDate").GetDateTimeOffset(),
+        Assert.Equal(body.GetProperty("actualCompletionDate").GetDateTimeOffset(),
             stored.GetProperty("actualCompletionDate").GetDateTimeOffset());
+        Assert.False(stored.GetProperty("reviewed").GetBoolean());
+        var accepted = Assert.Single(stored.GetProperty("proposals").EnumerateArray(),
+            p => p.GetProperty("status").GetString() == "ACCEPTED");
+        Assert.Equal(scenario.ProposalIds[0], accepted.GetProperty("proposalId").GetInt32());
     }
 
     // Section 10: OPEN → COMPLETED is not a transition.
@@ -368,9 +374,9 @@ public class ServiceLifecycleEndpointsTests(LocalHubApiFactory factory)
 
     private static string CompleteUrl(int serviceId) => $"{ServicesUrl}/{serviceId}/complete";
 
-    private static string AcceptUrl(int serviceId, int proposalId) => $"{ServicesUrl}/{serviceId}/proposals/{proposalId}/accept";
+    private static string AcceptUrl(int proposalId) => $"/api/proposals/{proposalId}/accept";
 
-    private static string DeclineUrl(int serviceId, int proposalId) => $"{ServicesUrl}/{serviceId}/proposals/{proposalId}/decline";
+    private static string DeclineUrl(int proposalId) => $"/api/proposals/{proposalId}/decline";
 
     private Task<HttpResponseMessage> GetAsync(string token, string url) =>
         SendWithTokenAsync(_client, HttpMethod.Get, url, token);
@@ -385,18 +391,22 @@ public class ServiceLifecycleEndpointsTests(LocalHubApiFactory factory)
         return await response.Content.ReadFromJsonAsync<JsonElement>();
     }
 
+    // All the proposals of the service, as E22 returns them: in "proposals" (PUBLIC) or in each direct request.
     private async Task<List<JsonElement>> ListProposalsAsync(string token, int serviceId)
     {
-        using var response = await GetAsync(token, $"{ServicesUrl}/{serviceId}/proposals");
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        return (await response.Content.ReadFromJsonAsync<JsonElement>()).EnumerateArray().ToList();
+        var service = await GetServiceAsync(token, serviceId);
+        var proposals = service.GetProperty("proposals").EnumerateArray().ToList();
+        proposals.AddRange(service.GetProperty("directRequests").EnumerateArray()
+            .Select(r => r.GetProperty("proposal"))
+            .Where(p => p.ValueKind != JsonValueKind.Null));
+        return proposals;
     }
 
     // A published job with two proposals: the first one accepted (ASSIGNED) and the second one DECLINED.
     private async Task<Scenario> CreateAssignedScenarioAsync()
     {
         var scenario = await CreatePublicScenarioAsync(proposals: 2);
-        using var response = await PostAsync(scenario.Client.Token, AcceptUrl(scenario.ServiceId, scenario.ProposalIds[0]));
+        using var response = await PostAsync(scenario.Client.Token, AcceptUrl(scenario.ProposalIds[0]));
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         return scenario;
     }

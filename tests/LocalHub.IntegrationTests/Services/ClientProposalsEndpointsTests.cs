@@ -14,9 +14,9 @@ using static LocalHub.IntegrationTests.Fixtures.ServiceRequests;
 
 namespace LocalHub.IntegrationTests.Services;
 
-// F007 and F008, client side: E28 (accept a proposal), E29 (decline a proposal), E26 (the proposals of a service),
-// E21 (my services), E22 (a service as the client sees it) and E23 (the direct requests of my services). The 401 cases
-// are in AccessControlTests.
+// F007 and F008, client side: E28 (accept a proposal), E29 (decline a proposal), E21 (my services), E22 (a service as
+// the client sees it, with its direct requests and proposals) and E23 (reserved to providers). The 401 cases are in
+// AccessControlTests.
 [Collection(ApiTestGroup.Name)]
 [Trait("Category", "Integration")]
 public class ClientProposalsEndpointsTests(LocalHubApiFactory factory)
@@ -38,22 +38,20 @@ public class ClientProposalsEndpointsTests(LocalHubApiFactory factory)
         var scenario = await CreateDirectScenarioAsync(proposals: 3, silentProviders: 1);
         int accepted = scenario.ProposalIds[0];
 
-        using var response = await PostAsync(scenario.Client.Token, AcceptUrl(scenario.ServiceId, accepted));
+        using var response = await PostAsync(scenario.Client.Token, AcceptUrl(accepted));
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var service = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var decision = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(accepted, decision.GetProperty("proposalId").GetInt32());
+        Assert.Equal("ACCEPTED", decision.GetProperty("status").GetString());
+        Assert.NotEqual(JsonValueKind.Null, decision.GetProperty("decisionDate").ValueKind);
+
+        var service = await GetServiceAsync(scenario.Client.Token, scenario.ServiceId);
         Assert.Equal("ASSIGNED", service.GetProperty("status").GetString());
-        Assert.Equal(scenario.Client.UserId, service.GetProperty("clientId").GetInt32());
-        var acceptedProposal = service.GetProperty("acceptedProposal");
-        Assert.Equal(accepted, acceptedProposal.GetProperty("proposalId").GetInt32());
-        Assert.Equal("ACCEPTED", acceptedProposal.GetProperty("status").GetString());
-        Assert.NotEqual(JsonValueKind.Null, acceptedProposal.GetProperty("decisionDate").ValueKind);
-        Assert.Equal(scenario.Providers[0].ProfessionalProfileId,
-            acceptedProposal.GetProperty("professionalProfile").GetProperty("professionalProfileId").GetInt32());
 
         // The provider that did not answer gets VOID; the others keep PROPOSAL_SUBMITTED.
         var requests = service.GetProperty("directRequests").EnumerateArray().ToDictionary(
-            r => r.GetProperty("professionalProfileId").GetInt32(), r => r.GetProperty("status").GetString());
+            r => ProfileIdOf(r), r => r.GetProperty("status").GetString());
         Assert.Equal("VOID", requests[scenario.Providers[3].ProfessionalProfileId]);
         Assert.All(scenario.Providers.Take(3), p => Assert.Equal("PROPOSAL_SUBMITTED", requests[p.ProfessionalProfileId]));
 
@@ -69,15 +67,18 @@ public class ClientProposalsEndpointsTests(LocalHubApiFactory factory)
 
     [Fact]
     [Trait("Requisito", "RF-F008-02")]
-    public async Task AcceptProposal_TrabalhoPublicado_Devolve200ComOServicoAtribuido()
+    public async Task AcceptProposal_TrabalhoPublicado_Devolve200EServicoFicaAtribuido()
     {
         var scenario = await CreatePublicScenarioAsync(proposals: 1);
 
-        using var response = await PostAsync(scenario.Client.Token, AcceptUrl(scenario.ServiceId, scenario.ProposalIds[0]));
+        using var response = await PostAsync(scenario.Client.Token, AcceptUrl(scenario.ProposalIds[0]));
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var service = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var decision = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(["proposalId", "status", "decisionDate"], decision.EnumerateObject().Select(f => f.Name));
+        var service = await GetServiceAsync(scenario.Client.Token, scenario.ServiceId);
         Assert.Equal("ASSIGNED", service.GetProperty("status").GetString());
+        Assert.Equal("ACCEPTED", Assert.Single(service.GetProperty("proposals").EnumerateArray()).GetProperty("status").GetString());
         Assert.Empty(service.GetProperty("directRequests").EnumerateArray());
         Assert.False(service.GetProperty("reviewed").GetBoolean());
         var change = Assert.Single(service.GetProperty("history").EnumerateArray());
@@ -94,10 +95,10 @@ public class ClientProposalsEndpointsTests(LocalHubApiFactory factory)
     public async Task AcceptProposal_SegundaPropostaNoMesmoServico_Devolve409TransicaoInvalida()
     {
         var scenario = await CreatePublicScenarioAsync(proposals: 2);
-        using var first = await PostAsync(scenario.Client.Token, AcceptUrl(scenario.ServiceId, scenario.ProposalIds[0]));
+        using var first = await PostAsync(scenario.Client.Token, AcceptUrl(scenario.ProposalIds[0]));
         Assert.Equal(HttpStatusCode.OK, first.StatusCode);
 
-        string url = AcceptUrl(scenario.ServiceId, scenario.ProposalIds[1]);
+        string url = AcceptUrl(scenario.ProposalIds[1]);
         using var response = await PostAsync(scenario.Client.Token, url);
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
@@ -111,10 +112,10 @@ public class ClientProposalsEndpointsTests(LocalHubApiFactory factory)
     {
         var scenario = await CreatePublicScenarioAsync(proposals: 1);
         int proposalId = scenario.ProposalIds[0];
-        using var declined = await PostAsync(scenario.Client.Token, DeclineUrl(scenario.ServiceId, proposalId));
+        using var declined = await PostAsync(scenario.Client.Token, DeclineUrl(proposalId));
         Assert.Equal(HttpStatusCode.OK, declined.StatusCode);
 
-        string url = AcceptUrl(scenario.ServiceId, proposalId);
+        string url = AcceptUrl(proposalId);
         using var response = await PostAsync(scenario.Client.Token, url);
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
@@ -129,7 +130,7 @@ public class ClientProposalsEndpointsTests(LocalHubApiFactory factory)
         var scenario = await CreatePublicScenarioAsync(proposals: 1);
         await CancelServiceAsync(scenario.ServiceId);
 
-        string url = AcceptUrl(scenario.ServiceId, scenario.ProposalIds[0]);
+        string url = AcceptUrl(scenario.ProposalIds[0]);
         using var response = await PostAsync(scenario.Client.Token, url);
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
@@ -145,14 +146,14 @@ public class ClientProposalsEndpointsTests(LocalHubApiFactory factory)
         var scenario = await CreatePublicScenarioAsync(proposals: 1);
         await DeactivateAsync(scenario.Providers[0].UserId);
 
-        string url = AcceptUrl(scenario.ServiceId, scenario.ProposalIds[0]);
+        string url = AcceptUrl(scenario.ProposalIds[0]);
         using var response = await PostAsync(scenario.Client.Token, url);
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
         await AssertProblemAsync(response, ConflictType, url);
         var service = await GetServiceAsync(scenario.Client.Token, scenario.ServiceId);
         Assert.Equal("OPEN", service.GetProperty("status").GetString());
-        Assert.Equal(JsonValueKind.Null, service.GetProperty("acceptedProposal").ValueKind);
+        Assert.Equal("PENDING", Assert.Single(service.GetProperty("proposals").EnumerateArray()).GetProperty("status").GetString());
     }
 
     // CA5: rule R1 of the Class Model (lock of the service and index UX_Proposal_serviceId_accepted).
@@ -164,8 +165,8 @@ public class ClientProposalsEndpointsTests(LocalHubApiFactory factory)
         var scenario = await CreatePublicScenarioAsync(proposals: 2);
 
         var responses = await Task.WhenAll(
-            PostAsync(scenario.Client.Token, AcceptUrl(scenario.ServiceId, scenario.ProposalIds[0])),
-            PostAsync(scenario.Client.Token, AcceptUrl(scenario.ServiceId, scenario.ProposalIds[1])));
+            PostAsync(scenario.Client.Token, AcceptUrl(scenario.ProposalIds[0])),
+            PostAsync(scenario.Client.Token, AcceptUrl(scenario.ProposalIds[1])));
 
         try
         {
@@ -193,19 +194,19 @@ public class ClientProposalsEndpointsTests(LocalHubApiFactory factory)
         var scenario = await CreateDirectScenarioAsync(proposals: 2, silentProviders: 1);
         int declined = scenario.ProposalIds[0];
 
-        using var response = await PostAsync(scenario.Client.Token, DeclineUrl(scenario.ServiceId, declined));
+        using var response = await PostAsync(scenario.Client.Token, DeclineUrl(declined));
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var proposal = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(["proposalId", "status", "decisionDate"], proposal.EnumerateObject().Select(f => f.Name));
         Assert.Equal(declined, proposal.GetProperty("proposalId").GetInt32());
-        Assert.Equal(scenario.ServiceId, proposal.GetProperty("serviceId").GetInt32());
         Assert.Equal("DECLINED", proposal.GetProperty("status").GetString());
         Assert.NotEqual(JsonValueKind.Null, proposal.GetProperty("decisionDate").ValueKind);
 
         var service = await GetServiceAsync(scenario.Client.Token, scenario.ServiceId);
         Assert.Equal("OPEN", service.GetProperty("status").GetString());
         var requests = service.GetProperty("directRequests").EnumerateArray().ToDictionary(
-            r => r.GetProperty("professionalProfileId").GetInt32(), r => r.GetProperty("status").GetString());
+            r => ProfileIdOf(r), r => r.GetProperty("status").GetString());
         Assert.Equal("PENDING", requests[scenario.Providers[2].ProfessionalProfileId]);
         var other = (await ListProposalsAsync(scenario.Client.Token, scenario.ServiceId))
             .Single(p => p.GetProperty("proposalId").GetInt32() == scenario.ProposalIds[1]);
@@ -220,11 +221,11 @@ public class ClientProposalsEndpointsTests(LocalHubApiFactory factory)
     {
         var scenario = await CreatePublicScenarioAsync(proposals: 1);
         int proposalId = scenario.ProposalIds[0];
-        string first = state == "DECLINED" ? DeclineUrl(scenario.ServiceId, proposalId) : AcceptUrl(scenario.ServiceId, proposalId);
+        string first = state == "DECLINED" ? DeclineUrl(proposalId) : AcceptUrl(proposalId);
         using var decided = await PostAsync(scenario.Client.Token, first);
         Assert.Equal(HttpStatusCode.OK, decided.StatusCode);
 
-        string url = DeclineUrl(scenario.ServiceId, proposalId);
+        string url = DeclineUrl(proposalId);
         using var response = await PostAsync(scenario.Client.Token, url);
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
@@ -243,7 +244,7 @@ public class ClientProposalsEndpointsTests(LocalHubApiFactory factory)
         var scenario = await CreatePublicScenarioAsync(proposals: 1);
         var other = await RegisterClientAsync(_client);
 
-        string url = $"{ServicesUrl}/{scenario.ServiceId}/proposals/{scenario.ProposalIds[0]}/{action}";
+        string url = $"{ProposalsUrl}/{scenario.ProposalIds[0]}/{action}";
         using var response = await PostAsync(other.Token, url);
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
@@ -260,7 +261,7 @@ public class ClientProposalsEndpointsTests(LocalHubApiFactory factory)
     {
         var scenario = await CreatePublicScenarioAsync(proposals: 1);
 
-        string url = $"{ServicesUrl}/{scenario.ServiceId}/proposals/{scenario.ProposalIds[0]}/{action}";
+        string url = $"{ProposalsUrl}/{scenario.ProposalIds[0]}/{action}";
         using var response = await PostAsync(scenario.Providers[0].Token, url);
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
@@ -270,27 +271,15 @@ public class ClientProposalsEndpointsTests(LocalHubApiFactory factory)
     [InlineData("accept")]
     [InlineData("decline")]
     [Trait("Requisito", "RF-F007-03")]
-    public async Task Decisao_PropostaDeOutroServico_Devolve404(string action)
-    {
-        var scenario = await CreatePublicScenarioAsync(proposals: 1);
-        var otherScenario = await CreatePublicScenarioAsync(proposals: 1);
-
-        string url = $"{ServicesUrl}/{scenario.ServiceId}/proposals/{otherScenario.ProposalIds[0]}/{action}";
-        using var response = await PostAsync(scenario.Client.Token, url);
-
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-        await AssertProblemAsync(response, NotFoundType, url);
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F007-03")]
-    public async Task AcceptProposal_ServicoInexistente_Devolve404()
+    public async Task Decisao_PropostaInexistente_Devolve404(string action)
     {
         var client = await RegisterClientAsync(_client);
 
-        using var response = await PostAsync(client.Token, AcceptUrl(int.MaxValue, 1));
+        string url = $"{ProposalsUrl}/{int.MaxValue}/{action}";
+        using var response = await PostAsync(client.Token, url);
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        await AssertProblemAsync(response, NotFoundType, url);
     }
 
     // ---------- E21: criterion 6 ----------
@@ -320,7 +309,7 @@ public class ClientProposalsEndpointsTests(LocalHubApiFactory factory)
     public async Task ListMine_Prestador_DevolveSoOsServicosComASuaPropostaAceite()
     {
         var scenario = await CreatePublicScenarioAsync(proposals: 2);
-        using var accept = await PostAsync(scenario.Client.Token, AcceptUrl(scenario.ServiceId, scenario.ProposalIds[0]));
+        using var accept = await PostAsync(scenario.Client.Token, AcceptUrl(scenario.ProposalIds[0]));
         Assert.Equal(HttpStatusCode.OK, accept.StatusCode);
 
         using var winner = await GetAsync(scenario.Providers[0].Token, ServicesUrl);
@@ -374,132 +363,99 @@ public class ClientProposalsEndpointsTests(LocalHubApiFactory factory)
         Assert.True(problem.GetProperty("errors").TryGetProperty(field, out _));
     }
 
-    // ---------- E22 and E26: criterion 7 ----------
+    // ---------- E22: criterion 7 ----------
 
     [Fact]
     [Trait("Requisito", "RF-F007-09")]
     [Trait("Requisito", "RF-F008-01")]
-    public async Task GetService_ClienteAutor_VeTodasAsSolicitacoesComOPrestador()
+    public async Task GetService_ClienteAutor_VeTodasAsSolicitacoesComOPrestadorEAProposta()
     {
         var scenario = await CreateDirectScenarioAsync(proposals: 1, silentProviders: 1);
 
         var service = await GetServiceAsync(scenario.Client.Token, scenario.ServiceId);
 
-        Assert.Equal(scenario.Client.UserId, service.GetProperty("clientId").GetInt32());
+        Assert.Equal("Cliente Teste", service.GetProperty("clientName").GetString());
+        Assert.False(service.TryGetProperty("clientId", out _));
         Assert.Equal("DIRECT_REQUEST", service.GetProperty("proposalModel").GetString());
-        var requests = service.GetProperty("directRequests").EnumerateArray().ToList();
+        Assert.Empty(service.GetProperty("proposals").EnumerateArray());
+        var requests = service.GetProperty("directRequests").EnumerateArray().ToDictionary(r => ProfileIdOf(r));
         Assert.Equal(2, requests.Count);
-        Assert.All(requests, r =>
+        Assert.All(requests.Values, r =>
         {
             var profile = r.GetProperty("professionalProfile");
-            Assert.Equal(r.GetProperty("professionalProfileId").GetInt32(), profile.GetProperty("professionalProfileId").GetInt32());
             Assert.Equal("Prestador Teste", profile.GetProperty("name").GetString());
             Assert.Equal(JsonValueKind.Null, profile.GetProperty("averageRating").ValueKind);
+            Assert.Equal(0, profile.GetProperty("reviewCount").GetInt32());
         });
-        Assert.Equal(JsonValueKind.Null, service.GetProperty("acceptedProposal").ValueKind);
+        var proposal = requests[scenario.Providers[0].ProfessionalProfileId].GetProperty("proposal");
+        Assert.Equal(scenario.ProposalIds[0], proposal.GetProperty("proposalId").GetInt32());
+        Assert.Equal("PENDING", proposal.GetProperty("status").GetString());
+        Assert.Equal(80.00m, proposal.GetProperty("amount").GetDecimal());
+        Assert.Equal(JsonValueKind.Null,
+            requests[scenario.Providers[1].ProfessionalProfileId].GetProperty("proposal").ValueKind);
         Assert.Empty(service.GetProperty("history").EnumerateArray());
     }
 
     [Fact]
     [Trait("Requisito", "RF-F007-09")]
     [Trait("Requisito", "RF-F008-01")]
-    public async Task ListProposals_ClienteAutor_DevolveTodasAsPropostasComOPrestadorEFiltroPorEstado()
+    public async Task GetService_TrabalhoPublicado_DevolveTodasAsPropostasComOPrestadorDaMaisRecente()
     {
         var scenario = await CreatePublicScenarioAsync(proposals: 2);
-        using var declined = await PostAsync(scenario.Client.Token, DeclineUrl(scenario.ServiceId, scenario.ProposalIds[0]));
+        using var declined = await PostAsync(scenario.Client.Token, DeclineUrl(scenario.ProposalIds[0]));
         Assert.Equal(HttpStatusCode.OK, declined.StatusCode);
 
-        var all = await ListProposalsAsync(scenario.Client.Token, scenario.ServiceId);
-        var pending = await ListProposalsAsync(scenario.Client.Token, scenario.ServiceId, "?status=PENDING");
+        var service = await GetServiceAsync(scenario.Client.Token, scenario.ServiceId);
 
-        Assert.Equal([scenario.ProposalIds[1], scenario.ProposalIds[0]], all.Select(p => p.GetProperty("proposalId").GetInt32()));
-        var proposal = all[0];
+        Assert.Empty(service.GetProperty("directRequests").EnumerateArray());
+        var proposals = service.GetProperty("proposals").EnumerateArray().ToList();
+        Assert.Equal([scenario.ProposalIds[1], scenario.ProposalIds[0]], proposals.Select(p => p.GetProperty("proposalId").GetInt32()));
+        Assert.Equal(["PENDING", "DECLINED"], proposals.Select(p => p.GetProperty("status").GetString()));
+        var proposal = proposals[0];
         Assert.Equal(80.00m, proposal.GetProperty("amount").GetDecimal());
         Assert.Equal(scenario.Providers[1].ProfessionalProfileId,
             proposal.GetProperty("professionalProfile").GetProperty("professionalProfileId").GetInt32());
         Assert.Equal("Prestador Teste", proposal.GetProperty("professionalProfile").GetProperty("name").GetString());
-        Assert.Equal(scenario.ProposalIds[1], Assert.Single(pending).GetProperty("proposalId").GetInt32());
+        Assert.Equal(0, proposal.GetProperty("professionalProfile").GetProperty("reviewCount").GetInt32());
     }
 
     [Fact]
     [Trait("Requisito", "RNF-06")]
-    public async Task ConsultasDoServico_OutroCliente_Devolve403()
+    public async Task GetService_OutroCliente_Devolve403()
     {
         var scenario = await CreatePublicScenarioAsync(proposals: 1);
         var other = await RegisterClientAsync(_client);
 
-        using var service = await GetAsync(other.Token, $"{ServicesUrl}/{scenario.ServiceId}");
-        using var proposals = await GetAsync(other.Token, $"{ServicesUrl}/{scenario.ServiceId}/proposals");
+        using var response = await GetAsync(other.Token, $"{ServicesUrl}/{scenario.ServiceId}");
 
-        Assert.Equal(HttpStatusCode.Forbidden, service.StatusCode);
-        Assert.Equal(HttpStatusCode.Forbidden, proposals.StatusCode);
-        await AssertProblemAsync(proposals, ForbiddenType, $"{ServicesUrl}/{scenario.ServiceId}/proposals");
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        await AssertProblemAsync(response, ForbiddenType, $"{ServicesUrl}/{scenario.ServiceId}");
     }
 
     [Fact]
-    [Trait("Requisito", "RNF-06")]
-    public async Task ListProposals_Prestador_Devolve403()
-    {
-        var scenario = await CreatePublicScenarioAsync(proposals: 1);
-
-        using var response = await GetAsync(scenario.Providers[0].Token, $"{ServicesUrl}/{scenario.ServiceId}/proposals");
-
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-    }
-
-    [Theory]
-    [InlineData("")]
-    [InlineData("/proposals")]
     [Trait("Requisito", "RF-F007-09")]
-    public async Task ConsultasDoServico_ServicoInexistente_Devolve404(string suffix)
+    public async Task GetService_ServicoInexistente_Devolve404()
     {
         var client = await RegisterClientAsync(_client);
 
-        using var response = await GetAsync(client.Token, $"{ServicesUrl}/{int.MaxValue}{suffix}");
+        using var response = await GetAsync(client.Token, $"{ServicesUrl}/{int.MaxValue}");
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
-    // ---------- E23: criterion 8 ----------
+    // ---------- E23: only providers ----------
 
+    // The client sees the direct requests of each service in E22 (API documentation, E23).
     [Fact]
     [Trait("Requisito", "RF-F007-09")]
-    public async Task ListDirectRequests_Cliente_DevolveSoAsDosSeusServicosComOPrestadorEAProposta()
+    public async Task ListDirectRequests_Cliente_Devolve403()
     {
-        var scenario = await CreateDirectScenarioAsync(proposals: 1, silentProviders: 1);
-        var otherProvider = await CreateProviderWithProfileAsync(_client);
-        var otherClient = await RegisterClientAsync(_client);
-        await CreateDirectServiceAsync(otherClient.Token, otherProvider.ServiceCategoryId, otherProvider.ProfessionalProfileId);
+        var client = await RegisterClientAsync(_client);
 
-        using var response = await GetAsync(scenario.Client.Token, "/api/direct-requests");
+        using var response = await GetAsync(client.Token, "/api/direct-requests");
 
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var page = await response.Content.ReadFromJsonAsync<JsonElement>();
-        Assert.Equal(2, page.GetProperty("total").GetInt32());
-        var items = page.GetProperty("items").EnumerateArray().ToDictionary(
-            i => i.GetProperty("professionalProfile").GetProperty("professionalProfileId").GetInt32());
-        var answered = items[scenario.Providers[0].ProfessionalProfileId];
-        Assert.Equal("PROPOSAL_SUBMITTED", answered.GetProperty("status").GetString());
-        Assert.Equal(scenario.ProposalIds[0], answered.GetProperty("proposal").GetProperty("proposalId").GetInt32());
-        Assert.Equal("Prestador Teste", answered.GetProperty("professionalProfile").GetProperty("name").GetString());
-        Assert.Equal(scenario.ServiceId, answered.GetProperty("service").GetProperty("serviceId").GetInt32());
-        var silent = items[scenario.Providers[1].ProfessionalProfileId];
-        Assert.Equal("PENDING", silent.GetProperty("status").GetString());
-        Assert.Equal(JsonValueKind.Null, silent.GetProperty("proposal").ValueKind);
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F007-09")]
-    public async Task ListDirectRequests_ClienteComFiltroPorEstado_DevolveSoAsQueCorrespondem()
-    {
-        var scenario = await CreateDirectScenarioAsync(proposals: 1, silentProviders: 1);
-
-        using var response = await GetAsync(scenario.Client.Token, "/api/direct-requests?status=PENDING");
-
-        var page = await response.Content.ReadFromJsonAsync<JsonElement>();
-        var item = Assert.Single(page.GetProperty("items").EnumerateArray());
-        Assert.Equal(scenario.Providers[1].ProfessionalProfileId,
-            item.GetProperty("professionalProfile").GetProperty("professionalProfileId").GetInt32());
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        await AssertProblemAsync(response, ForbiddenType, "/api/direct-requests");
     }
 
     // ---------- Helpers ----------
@@ -507,9 +463,14 @@ public class ClientProposalsEndpointsTests(LocalHubApiFactory factory)
     // A service of a client and the providers in its category; the first "proposals" providers submitted a proposal.
     private sealed record Scenario(TestClient Client, int ServiceId, List<ProviderWithProfile> Providers, List<int> ProposalIds);
 
-    private static string AcceptUrl(int serviceId, int proposalId) => $"{ServicesUrl}/{serviceId}/proposals/{proposalId}/accept";
+    private const string ProposalsUrl = "/api/proposals";
 
-    private static string DeclineUrl(int serviceId, int proposalId) => $"{ServicesUrl}/{serviceId}/proposals/{proposalId}/decline";
+    private static string AcceptUrl(int proposalId) => $"{ProposalsUrl}/{proposalId}/accept";
+
+    private static string DeclineUrl(int proposalId) => $"{ProposalsUrl}/{proposalId}/decline";
+
+    private static int ProfileIdOf(JsonElement directRequest) =>
+        directRequest.GetProperty("professionalProfile").GetProperty("professionalProfileId").GetInt32();
 
     private Task<HttpResponseMessage> GetAsync(string token, string url) =>
         SendWithTokenAsync(_client, HttpMethod.Get, url, token);
@@ -524,11 +485,15 @@ public class ClientProposalsEndpointsTests(LocalHubApiFactory factory)
         return await response.Content.ReadFromJsonAsync<JsonElement>();
     }
 
-    private async Task<List<JsonElement>> ListProposalsAsync(string token, int serviceId, string query = "")
+    // All the proposals of the service, as E22 returns them: in "proposals" (PUBLIC) or in each direct request.
+    private async Task<List<JsonElement>> ListProposalsAsync(string token, int serviceId)
     {
-        using var response = await GetAsync(token, $"{ServicesUrl}/{serviceId}/proposals{query}");
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        return (await response.Content.ReadFromJsonAsync<JsonElement>()).EnumerateArray().ToList();
+        var service = await GetServiceAsync(token, serviceId);
+        var proposals = service.GetProperty("proposals").EnumerateArray().ToList();
+        proposals.AddRange(service.GetProperty("directRequests").EnumerateArray()
+            .Select(r => r.GetProperty("proposal"))
+            .Where(p => p.ValueKind != JsonValueKind.Null));
+        return proposals;
     }
 
     // A service with direct requests to "proposals + silentProviders" providers; the first ones submit a proposal.

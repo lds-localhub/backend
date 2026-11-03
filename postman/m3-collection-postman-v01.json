@@ -3574,9 +3574,11 @@
                   "    pm.expect(body.proposalModel).to.eql(\"DIRECT_REQUEST\");",
                   "    pm.expect(body.status).to.eql(\"OPEN\");",
                   "    pm.expect(body.requestedStartDate).to.eql(pm.collectionVariables.get(\"serviceStartDate\"));",
-                  "    pm.expect(body.directRequests.map(r => r.professionalProfileId)).to.eql([Number(pm.collectionVariables.get(\"profileId\"))]);",
+                  "    pm.expect(body.directRequests.map(r => r.professionalProfile.professionalProfileId)).to.eql([Number(pm.collectionVariables.get(\"profileId\"))]);",
                   "    pm.expect(body.directRequests[0].status).to.eql(\"PENDING\");",
                   "    pm.expect(body.directRequests[0].responseDate).to.eql(null);",
+                  "    pm.expect(body.directRequests[0].proposal).to.eql(null);",
+                  "    pm.expect(body.proposals).to.eql([]);",
                   "});",
                   "pm.test(\"Cabeçalho Location\", () => pm.expect(pm.response.headers.get(\"Location\")).to.eql(`/api/services/${body.serviceId}`));",
                   "pm.collectionVariables.set(\"serviceId\", body.serviceId);"
@@ -3694,6 +3696,7 @@
                   "    pm.expect(body.location).to.eql(\"Rua de Costa Cabral 500, Porto\");",
                   "    pm.expect(body.requestedEndDate).to.eql(null);",
                   "    pm.expect(body.directRequests).to.eql([]);",
+                  "    pm.expect(body.proposals).to.eql([]);",
                   "});"
                 ]
               }
@@ -4015,7 +4018,7 @@
           ]
         },
         {
-          "name": "E23 — Solicitações dos serviços do Cliente (200)",
+          "name": "E23 — Pedido de um Cliente (403)",
           "request": {
             "method": "GET",
             "header": [],
@@ -4039,7 +4042,7 @@
                 }
               ]
             },
-            "description": "RF-F007-09: o Cliente vê as solicitações diretas dos serviços que criou, cada uma com o Prestador e a proposta associada."
+            "description": "RF-F007-09. Só o Prestador lista as solicitações diretas; o Cliente consulta-as em cada serviço (E22)."
           },
           "event": [
             {
@@ -4047,10 +4050,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
-                  "pm.test(\"Cada solicitação tem o Prestador\", () => {",
-                  "    pm.response.json().items.forEach(r => pm.expect(r.professionalProfile).to.have.property(\"professionalProfileId\"));",
-                  "});"
+                  "pm.test(\"Devolve 403\", () => pm.response.to.have.status(403));"
                 ]
               }
             }
@@ -5858,7 +5858,7 @@
     },
     {
       "name": "F007 e F008 — Decisões e consultas do Cliente",
-      "description": "Endpoints E21, E22, E23, E26, E28 e E29 na vista do Cliente (API v03, secção 8). Usa o Cliente (token), o Prestador com perfil (profileToken, profileId), o serviço da pasta F009 e F010 (serviceId) e a proposta e o trabalho publicado da pasta F007 e F011 (proposalId, publicServiceId); executar depois dessas pastas.",
+      "description": "Endpoints E21, E22, E28 e E29 na vista do Cliente (API v04; E26 retirado: as propostas são devolvidas em E22). Usa o Cliente (token), o Prestador com perfil (profileToken, profileId), o serviço da pasta F009 e F010 (serviceId) e a proposta e o trabalho publicado da pasta F007 e F011 (proposalId, publicServiceId); executar depois dessas pastas.",
       "item": [
         {
           "name": "E21 — Listar os meus serviços (200)",
@@ -5992,31 +5992,37 @@
                 "exec": [
                   "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
                   "const body = pm.response.json();",
-                  "pm.test(\"Solicitações com o Prestador\", () => {",
+                  "pm.test(\"Solicitações com o Prestador e a proposta\", () => {",
                   "    pm.expect(body.directRequests).to.not.be.empty;",
-                  "    body.directRequests.forEach(r => pm.expect(r.professionalProfile).to.have.all.keys(\"professionalProfileId\", \"name\", \"averageRating\"));",
+                  "    body.directRequests.forEach(r => {",
+                  "        pm.expect(r.professionalProfile).to.have.all.keys(\"professionalProfileId\", \"name\", \"averageRating\", \"reviewCount\");",
+                  "        pm.expect(r).to.have.property(\"proposal\");",
+                  "    });",
                   "});",
-                  "pm.test(\"Ainda sem proposta aceite\", () => pm.expect(body.acceptedProposal).to.eql(null));"
+                  "pm.test(\"Sem propostas fora das solicitações diretas\", () => pm.expect(body.proposals).to.eql([]));",
+                  "pm.test(\"Nome do Cliente, sem clientId\", () => {",
+                  "    pm.expect(body.clientName).to.be.a(\"string\");",
+                  "    pm.expect(body).to.not.have.property(\"clientId\");",
+                  "});"
                 ]
               }
             }
           ]
         },
         {
-          "name": "E26 — Consultar as propostas do serviço (200)",
+          "name": "E22 — Proposta da solicitação direta (200)",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/services/{{serviceId}}/proposals",
+              "raw": "{{baseUrl}}/api/services/{{serviceId}}",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
                 "services",
-                "{{serviceId}}",
-                "proposals"
+                "{{serviceId}}"
               ]
             },
             "auth": {
@@ -6029,7 +6035,7 @@
                 }
               ]
             },
-            "description": "RF-F007-09, RF-F008-01. Todas as propostas do serviço, com o Prestador; a da F007 e F011 está PENDING."
+            "description": "RF-F007-09, RF-F008-01. Cada solicitação direta traz a proposta do Prestador; a da F007 e F011 está PENDING."
           },
           "event": [
             {
@@ -6038,10 +6044,10 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
-                  "const proposal = pm.response.json().find(p => p.proposalId === Number(pm.collectionVariables.get(\"proposalId\")));",
+                  "const request = pm.response.json().directRequests.find(r => r.proposal && r.proposal.proposalId === Number(pm.collectionVariables.get(\"proposalId\")));",
                   "pm.test(\"Proposta pendente com o Prestador\", () => {",
-                  "    pm.expect(proposal.status).to.eql(\"PENDING\");",
-                  "    pm.expect(proposal.professionalProfile.professionalProfileId).to.eql(Number(pm.collectionVariables.get(\"profileId\")));",
+                  "    pm.expect(request.proposal.status).to.eql(\"PENDING\");",
+                  "    pm.expect(request.professionalProfile.professionalProfileId).to.eql(Number(pm.collectionVariables.get(\"profileId\")));",
                   "});"
                 ]
               }
@@ -6049,61 +6055,19 @@
           ]
         },
         {
-          "name": "E26 — Pedido de um Prestador (403)",
+          "name": "E22 — Propostas do trabalho publicado (200, guarda publicProposalId)",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/services/{{serviceId}}/proposals",
+              "raw": "{{baseUrl}}/api/services/{{publicServiceId}}",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
                 "services",
-                "{{serviceId}}",
-                "proposals"
-              ]
-            },
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{profileToken}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "description": "RNF-06. Só o Cliente que criou o serviço consulta as propostas."
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test(\"Devolve 403\", () => pm.response.to.have.status(403));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "E26 — Propostas do trabalho publicado (200, guarda publicProposalId)",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/services/{{publicServiceId}}/proposals",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "services",
-                "{{publicServiceId}}",
-                "proposals"
+                "{{publicServiceId}}"
               ]
             },
             "auth": {
@@ -6125,7 +6089,7 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
-                  "const proposals = pm.response.json();",
+                  "const proposals = pm.response.json().proposals;",
                   "pm.test(\"Uma proposta pendente\", () => pm.expect(proposals.filter(p => p.status === \"PENDING\")).to.have.lengthOf(1));",
                   "pm.collectionVariables.set(\"publicProposalId\", proposals[0].proposalId);"
                 ]
@@ -6139,14 +6103,12 @@
             "method": "POST",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/services/{{publicServiceId}}/proposals/{{publicProposalId}}/decline",
+              "raw": "{{baseUrl}}/api/proposals/{{publicProposalId}}/decline",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
-                "services",
-                "{{publicServiceId}}",
                 "proposals",
                 "{{publicProposalId}}",
                 "decline"
@@ -6173,6 +6135,7 @@
                   "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
                   "pm.test(\"Proposta recusada\", () => {",
                   "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.all.keys(\"proposalId\", \"status\", \"decisionDate\");",
                   "    pm.expect(body.status).to.eql(\"DECLINED\");",
                   "    pm.expect(body.decisionDate).to.not.eql(null);",
                   "});"
@@ -6187,14 +6150,12 @@
             "method": "POST",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/services/{{publicServiceId}}/proposals/{{publicProposalId}}/decline",
+              "raw": "{{baseUrl}}/api/proposals/{{publicProposalId}}/decline",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
-                "services",
-                "{{publicServiceId}}",
                 "proposals",
                 "{{publicProposalId}}",
                 "decline"
@@ -6231,14 +6192,12 @@
             "method": "POST",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/services/{{serviceId}}/proposals/{{proposalId}}/accept",
+              "raw": "{{baseUrl}}/api/proposals/{{proposalId}}/accept",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
-                "services",
-                "{{serviceId}}",
                 "proposals",
                 "{{proposalId}}",
                 "accept"
@@ -6269,19 +6228,17 @@
           ]
         },
         {
-          "name": "E28 — Aceitar a proposta (200, ASSIGNED)",
+          "name": "E28 — Aceitar a proposta (200, ACCEPTED)",
           "request": {
             "method": "POST",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/services/{{serviceId}}/proposals/{{proposalId}}/accept",
+              "raw": "{{baseUrl}}/api/proposals/{{proposalId}}/accept",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
-                "services",
-                "{{serviceId}}",
                 "proposals",
                 "{{proposalId}}",
                 "accept"
@@ -6307,13 +6264,11 @@
                 "exec": [
                   "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
                   "const body = pm.response.json();",
-                  "pm.test(\"Serviço atribuído com a proposta aceite\", () => {",
-                  "    pm.expect(body.status).to.eql(\"ASSIGNED\");",
-                  "    pm.expect(body.acceptedProposal.proposalId).to.eql(Number(pm.collectionVariables.get(\"proposalId\")));",
-                  "    pm.expect(body.acceptedProposal.status).to.eql(\"ACCEPTED\");",
-                  "});",
-                  "pm.test(\"Nenhuma solicitação direta fica pendente\", () => {",
-                  "    body.directRequests.forEach(r => pm.expect(r.status).to.not.eql(\"PENDING\"));",
+                  "pm.test(\"Só o que mudou na proposta\", () => {",
+                  "    pm.expect(body).to.have.all.keys(\"proposalId\", \"status\", \"decisionDate\");",
+                  "    pm.expect(body.proposalId).to.eql(Number(pm.collectionVariables.get(\"proposalId\")));",
+                  "    pm.expect(body.status).to.eql(\"ACCEPTED\");",
+                  "    pm.expect(body.decisionDate).to.not.eql(null);",
                   "});"
                 ]
               }
@@ -6326,14 +6281,12 @@
             "method": "POST",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/services/{{serviceId}}/proposals/{{proposalId}}/accept",
+              "raw": "{{baseUrl}}/api/proposals/{{proposalId}}/accept",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
-                "services",
-                "{{serviceId}}",
                 "proposals",
                 "{{proposalId}}",
                 "accept"
@@ -6414,14 +6367,12 @@
             "method": "POST",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/services/{{serviceId}}/proposals/{{proposalId}}/accept",
+              "raw": "{{baseUrl}}/api/proposals/{{proposalId}}/accept",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
-                "services",
-                "{{serviceId}}",
                 "proposals",
                 "{{proposalId}}",
                 "accept"
@@ -6528,9 +6479,10 @@
                 "exec": [
                   "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
                   "const body = pm.response.json();",
-                  "pm.test(\"Trabalho cancelado sem proposta aceite\", () => {",
+                  "pm.test(\"Só o serviço e o novo estado\", () => {",
+                  "    pm.expect(body).to.have.all.keys(\"serviceId\", \"status\");",
+                  "    pm.expect(body.serviceId).to.eql(Number(pm.collectionVariables.get(\"publicServiceId\")));",
                   "    pm.expect(body.status).to.eql(\"CANCELLED\");",
-                  "    pm.expect(body.acceptedProposal).to.eql(null);",
                   "});"
                 ]
               }
@@ -6658,10 +6610,9 @@
                   "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
                   "const body = pm.response.json();",
                   "pm.test(\"Serviço realizado com a data de realização\", () => {",
+                  "    pm.expect(body).to.have.all.keys(\"serviceId\", \"status\", \"actualCompletionDate\");",
                   "    pm.expect(body.status).to.eql(\"COMPLETED\");",
                   "    pm.expect(body.actualCompletionDate).to.not.eql(null);",
-                  "    pm.expect(body.acceptedProposal.status).to.eql(\"ACCEPTED\");",
-                  "    pm.expect(body.reviewed).to.eql(false);",
                   "});"
                 ]
               }

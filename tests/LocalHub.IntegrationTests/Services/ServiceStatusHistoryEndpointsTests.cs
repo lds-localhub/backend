@@ -66,7 +66,7 @@ public class ServiceStatusHistoryEndpointsTests(LocalHubApiFactory factory)
     {
         var scenario = await CreatePublicScenarioAsync(proposals: 1);
         using (var decline = await PostAsync(
-                   scenario.Client.Token, DeclineUrl(scenario.ServiceId, scenario.ProposalIds[0])))
+                   scenario.Client.Token, DeclineUrl(scenario.ProposalIds[0])))
         {
             Assert.Equal(HttpStatusCode.OK, decline.StatusCode);
         }
@@ -77,7 +77,7 @@ public class ServiceStatusHistoryEndpointsTests(LocalHubApiFactory factory)
         Assert.Empty(service.GetProperty("history").EnumerateArray());
     }
 
-    // Criterion 1 (E31): ASSIGNED → COMPLETED, made by the client; the response of E31 already has it.
+    // Criterion 1 (E31): ASSIGNED → COMPLETED, made by the client.
     [Fact]
     [Trait("Requisito", "RF-F008-01")]
     public async Task Complete_RegistaAPassagemDeAtribuidoParaRealizadoPeloCliente()
@@ -87,7 +87,7 @@ public class ServiceStatusHistoryEndpointsTests(LocalHubApiFactory factory)
         using var response = await PostAsync(scenario.Client.Token, CompleteUrl(scenario.ServiceId));
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var service = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var service = await GetServiceAsync(scenario.Client.Token, scenario.ServiceId);
         var history = service.GetProperty("history").EnumerateArray().ToList();
         Assert.Equal(2, history.Count);
         AssertChange(history[1], "ASSIGNED", "COMPLETED", scenario.Client.UserId, ClientName, "CLIENT");
@@ -103,7 +103,7 @@ public class ServiceStatusHistoryEndpointsTests(LocalHubApiFactory factory)
         using var response = await PostAsync(scenario.Client.Token, CancelUrl(scenario.ServiceId));
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var service = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var service = await GetServiceAsync(scenario.Client.Token, scenario.ServiceId);
         var change = Assert.Single(service.GetProperty("history").EnumerateArray());
         AssertChange(change, "OPEN", "CANCELLED", scenario.Client.UserId, ClientName, "CLIENT");
     }
@@ -118,7 +118,7 @@ public class ServiceStatusHistoryEndpointsTests(LocalHubApiFactory factory)
         var scenario = await CreateDirectScenarioAsync();
         var provider = scenario.Providers[0];
         using (var accept = await PostAsync(
-                   scenario.Client.Token, AcceptUrl(scenario.ServiceId, scenario.ProposalIds[0])))
+                   scenario.Client.Token, AcceptUrl(scenario.ProposalIds[0])))
         {
             Assert.Equal(HttpStatusCode.OK, accept.StatusCode);
         }
@@ -162,9 +162,9 @@ public class ServiceStatusHistoryEndpointsTests(LocalHubApiFactory factory)
 
     private static string CompleteUrl(int serviceId) => $"{ServicesUrl}/{serviceId}/complete";
 
-    private static string AcceptUrl(int serviceId, int proposalId) => $"{ServicesUrl}/{serviceId}/proposals/{proposalId}/accept";
+    private static string AcceptUrl(int proposalId) => $"/api/proposals/{proposalId}/accept";
 
-    private static string DeclineUrl(int serviceId, int proposalId) => $"{ServicesUrl}/{serviceId}/proposals/{proposalId}/decline";
+    private static string DeclineUrl(int proposalId) => $"/api/proposals/{proposalId}/decline";
 
     // changedAt is in UTC (API documentation, conventions).
     private static DateTimeOffset ChangedAt(JsonElement change)
@@ -212,7 +212,7 @@ public class ServiceStatusHistoryEndpointsTests(LocalHubApiFactory factory)
     private async Task<Scenario> CreateAssignedScenarioAsync()
     {
         var scenario = await CreatePublicScenarioAsync(proposals: 2);
-        using var response = await PostAsync(scenario.Client.Token, AcceptUrl(scenario.ServiceId, scenario.ProposalIds[0]));
+        using var response = await PostAsync(scenario.Client.Token, AcceptUrl(scenario.ProposalIds[0]));
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         return scenario;
     }

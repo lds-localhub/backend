@@ -260,7 +260,7 @@ public class ProviderDetailEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var service = await response.Content.ReadFromJsonAsync<JsonElement>();
         var requests = service.GetProperty("directRequests").EnumerateArray().ToDictionary(
-            r => r.GetProperty("professionalProfileId").GetInt32(),
+            r => r.GetProperty("professionalProfile").GetProperty("professionalProfileId").GetInt32(),
             r => r.GetProperty("directRequestId").GetInt32());
         return (client, service.GetProperty("serviceId").GetInt32(), requests);
     }

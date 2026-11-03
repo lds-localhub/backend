@@ -290,7 +290,7 @@ public class ReportsEndpointsTests(LocalHubApiFactory factory)
             int declinedJob = await CreateJobAsync(client, provider.ServiceCategoryId);
             await SubmitAsync(declinedJob, provider, 90.00m);
             int chosen = await SubmitAsync(declinedJob, other, 70.00m);
-            await PostOkAsync(client.Token, $"{ServicesUrl}/{declinedJob}/proposals/{chosen}/accept");
+            await PostOkAsync(client.Token, $"/api/proposals/{chosen}/accept");
         }
 
         int pending = await CreateJobAsync(client, provider.ServiceCategoryId);
@@ -473,11 +473,11 @@ public class ReportsEndpointsTests(LocalHubApiFactory factory)
         int declinedInOctober = await CreateJobAsync(client, provider.ServiceCategoryId);
         await SubmitAsync(declinedInOctober, provider, 90.00m);
         int chosen = await SubmitAsync(declinedInOctober, other, 70.00m);
-        await PostOkAsync(client.Token, $"{ServicesUrl}/{declinedInOctober}/proposals/{chosen}/accept");
+        await PostOkAsync(client.Token, $"/api/proposals/{chosen}/accept");
         int declinedInSeptember = await CreateJobAsync(client, provider.ServiceCategoryId);
         await SubmitAsync(declinedInSeptember, provider, 90.00m);
         chosen = await SubmitAsync(declinedInSeptember, other, 70.00m);
-        await PostOkAsync(client.Token, $"{ServicesUrl}/{declinedInSeptember}/proposals/{chosen}/accept");
+        await PostOkAsync(client.Token, $"/api/proposals/{chosen}/accept");
 
         int directInOctober = await CreateDirectServiceAsync(client, provider);
         int directInSeptember = await CreateDirectServiceAsync(client, provider);
@@ -643,7 +643,7 @@ public class ReportsEndpointsTests(LocalHubApiFactory factory)
     {
         int serviceId = await CreateJobAsync(client, provider.ServiceCategoryId);
         int proposalId = await SubmitAsync(serviceId, provider, amount);
-        await PostOkAsync(client.Token, $"{ServicesUrl}/{serviceId}/proposals/{proposalId}/accept");
+        await PostOkAsync(client.Token, $"/api/proposals/{proposalId}/accept");
         return serviceId;
     }
 

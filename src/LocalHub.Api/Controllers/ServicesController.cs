@@ -42,7 +42,7 @@ public class ServicesController : ControllerBase
     // E20: only clients (providers and administrators get 403).
     [HttpPost]
     [Authorize(Roles = "CLIENT")]
-    public async Task<ActionResult<ServiceResponse>> Create(
+    public async Task<ActionResult<ClientServiceResponse>> Create(
         CreateServiceRequest request, CancellationToken cancellationToken)
     {
         var service = await _serviceWorkflowService.CreateAsync(request, cancellationToken);
@@ -78,39 +78,12 @@ public class ServicesController : ControllerBase
         return Ok(await _serviceWorkflowService.GetForProviderAsync(serviceId, cancellationToken));
     }
 
-    // E26: only the client that created the service.
-    [HttpGet("{serviceId:int}/proposals")]
-    [Authorize(Roles = "CLIENT")]
-    public async Task<ActionResult<IReadOnlyList<ClientProposalResponse>>> ListProposals(
-        int serviceId, CancellationToken cancellationToken, [FromQuery] string? status = null)
-    {
-        return Ok(await _serviceWorkflowService.ListProposalsAsync(serviceId, status, cancellationToken));
-    }
-
-    // E28: only the client that created the service.
-    [HttpPost("{serviceId:int}/proposals/{proposalId:int}/accept")]
-    [Authorize(Roles = "CLIENT")]
-    public async Task<ActionResult<ClientServiceResponse>> AcceptProposal(
-        int serviceId, int proposalId, CancellationToken cancellationToken)
-    {
-        return Ok(await _serviceWorkflowService.AcceptProposalAsync(serviceId, proposalId, cancellationToken));
-    }
-
-    // E29: only the client that created the service.
-    [HttpPost("{serviceId:int}/proposals/{proposalId:int}/decline")]
-    [Authorize(Roles = "CLIENT")]
-    public async Task<ActionResult<ProposalResponse>> DeclineProposal(
-        int serviceId, int proposalId, CancellationToken cancellationToken)
-    {
-        return Ok(await _serviceWorkflowService.DeclineProposalAsync(serviceId, proposalId, cancellationToken));
-    }
-
     // E30: the client that created the service (OPEN or ASSIGNED) or the provider whose proposal was accepted
-    // (ASSIGNED); each role gets its own view of the service, as in E22. Administrators get 403.
+    // (ASSIGNED). Administrators get 403.
     [HttpPost("{serviceId:int}/cancel")]
     [Authorize(Roles = "CLIENT,PROVIDER")]
     [RequiresProfessionalProfile]
-    public async Task<IActionResult> Cancel(int serviceId, CancellationToken cancellationToken)
+    public async Task<ActionResult<ServiceStatusResponse>> Cancel(int serviceId, CancellationToken cancellationToken)
     {
         if (_currentUser.Role == UserRole.Client)
         {
@@ -123,7 +96,7 @@ public class ServicesController : ControllerBase
     // E31: only the client that created the service (providers and administrators get 403).
     [HttpPost("{serviceId:int}/complete")]
     [Authorize(Roles = "CLIENT")]
-    public async Task<ActionResult<ClientServiceResponse>> Complete(int serviceId, CancellationToken cancellationToken)
+    public async Task<ActionResult<CompletedServiceResponse>> Complete(int serviceId, CancellationToken cancellationToken)
     {
         return Ok(await _serviceWorkflowService.CompleteAsync(serviceId, cancellationToken));
     }
@@ -136,6 +109,6 @@ public class ServicesController : ControllerBase
         int serviceId, SubmitProposalRequest request, CancellationToken cancellationToken)
     {
         var proposal = await _serviceWorkflowService.SubmitProposalAsync(serviceId, request, cancellationToken);
-        return Created($"/api/services/{serviceId}/proposals/{proposal.ProposalId}", proposal);
+        return Created($"/api/proposals/{proposal.ProposalId}", proposal);
     }
 }

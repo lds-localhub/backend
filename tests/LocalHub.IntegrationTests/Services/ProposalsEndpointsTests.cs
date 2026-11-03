@@ -44,7 +44,7 @@ public class ProposalsEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var proposal = await response.Content.ReadFromJsonAsync<JsonElement>();
         int proposalId = proposal.GetProperty("proposalId").GetInt32();
-        Assert.Equal($"{ServicesUrl}/{serviceId}/proposals/{proposalId}", response.Headers.Location?.OriginalString);
+        Assert.Equal($"/api/proposals/{proposalId}", response.Headers.Location?.OriginalString);
         Assert.Equal(serviceId, proposal.GetProperty("serviceId").GetInt32());
         Assert.Equal(provider.ProfessionalProfileId, proposal.GetProperty("professionalProfileId").GetInt32());
         Assert.Equal(80.00m, proposal.GetProperty("amount").GetDecimal());
@@ -697,7 +697,7 @@ public class ProposalsEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var service = await response.Content.ReadFromJsonAsync<JsonElement>();
         var requests = service.GetProperty("directRequests").EnumerateArray().ToDictionary(
-            r => r.GetProperty("professionalProfileId").GetInt32(),
+            r => r.GetProperty("professionalProfile").GetProperty("professionalProfileId").GetInt32(),
             r => r.GetProperty("directRequestId").GetInt32());
         return (client, service.GetProperty("serviceId").GetInt32(), requests);
     }

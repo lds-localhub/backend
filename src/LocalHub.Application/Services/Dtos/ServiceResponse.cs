@@ -2,49 +2,21 @@ using LocalHub.Domain.Services;
 
 namespace LocalHub.Application.Services.Dtos;
 
-// Service as returned by E20, with the same structure in both modalities (API documentation, section F009 and F010).
-// directRequests is always present: the direct requests created with DIRECT_REQUEST and [] with PUBLIC.
-public record ServiceResponse(
-    int ServiceId,
-    int ClientId,
-    ProposalModel ProposalModel,
-    ServiceCategorySummary ServiceCategory,
-    string Title,
-    string Description,
-    DateOnly RequestedStartDate,
-    DateOnly? RequestedEndDate,
-    ServiceStatus Status,
-    string Location,
-    decimal Latitude,
-    decimal Longitude,
-    DateTimeOffset CreationDate,
-    DateTimeOffset? ActualCompletionDate,
-    IReadOnlyList<DirectRequestResponse> DirectRequests)
+// Response of E30: the service and its new state (API documentation, E30).
+public record ServiceStatusResponse(int ServiceId, ServiceStatus Status)
 {
-    // The service must be loaded with its category and its direct requests.
-    public static ServiceResponse From(Service service)
+    public static ServiceStatusResponse From(Service service)
     {
-        var directRequests = service.DirectRequests
-            .OrderBy(r => r.DirectRequestId)
-            .Select(DirectRequestResponse.From)
-            .ToList();
+        return new ServiceStatusResponse(service.ServiceId, service.Status);
+    }
+}
 
-        return new ServiceResponse(
-            service.ServiceId,
-            service.ClientId,
-            service.ProposalModel,
-            new ServiceCategorySummary(service.ServiceCategoryId, service.ServiceCategory.Name),
-            service.Title,
-            service.Description,
-            service.RequestedStartDate,
-            service.RequestedEndDate,
-            service.Status,
-            service.Location,
-            service.Latitude,
-            service.Longitude,
-            service.CreationDate,
-            service.ActualCompletionDate,
-            directRequests);
+// Response of E31: the service, its new state and the completion date (API documentation, E31).
+public record CompletedServiceResponse(int ServiceId, ServiceStatus Status, DateTimeOffset? ActualCompletionDate)
+{
+    public static CompletedServiceResponse From(Service service)
+    {
+        return new CompletedServiceResponse(service.ServiceId, service.Status, service.ActualCompletionDate);
     }
 }
 

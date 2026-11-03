@@ -29,6 +29,15 @@ public record ProposalResponse(
     }
 }
 
+// Response of E28 and E29: only what changed in the proposal (API documentation, E28 and E29).
+public record ProposalDecisionResponse(int ProposalId, ProposalStatus Status, DateTimeOffset? DecisionDate)
+{
+    public static ProposalDecisionResponse From(Proposal proposal)
+    {
+        return new ProposalDecisionResponse(proposal.ProposalId, proposal.Status, proposal.DecisionDate);
+    }
+}
+
 // The "myProposal" of E22: the proposal without the ids of the service and of the profile (API documentation, E22).
 public record MyProposalResponse(
     int ProposalId,

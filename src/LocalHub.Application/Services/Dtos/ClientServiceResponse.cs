@@ -3,96 +3,114 @@ using LocalHub.Domain.Services;
 
 namespace LocalHub.Application.Services.Dtos;
 
-// Service as the client that created it sees it in E22 and in the response of E28: all the direct requests and the
-// accepted proposal, each with the summary of the provider (API documentation, E22 and E28).
+// Service as the client that created it sees it in E22 (and in the response of E20): all the direct requests, each with
+// its proposal, and, in PUBLIC, all the proposals received (API documentation, E22). The list of the other model is
+// empty.
 public record ClientServiceResponse(
     int ServiceId,
-    int ClientId,
+    string Title,
     ProposalModel ProposalModel,
     ServiceCategorySummary ServiceCategory,
-    string Title,
     string Description,
+    string Location,
     DateOnly RequestedStartDate,
     DateOnly? RequestedEndDate,
     ServiceStatus Status,
-    string Location,
-    decimal Latitude,
-    decimal Longitude,
     DateTimeOffset CreationDate,
     DateTimeOffset? ActualCompletionDate,
+    string ClientName,
     bool Reviewed,
+    IReadOnlyList<ServiceHistoryResponse> History,
     IReadOnlyList<ClientDirectRequestResponse> DirectRequests,
-    ClientProposalResponse? AcceptedProposal,
-    IReadOnlyList<ServiceHistoryResponse> History)
+    IReadOnlyList<ClientProposalResponse> Proposals)
 {
-    // The service must be loaded with its category, its direct requests and its proposals, each with the profile and
-    // the provider, its review (reviewed) and the history of states, each change with the user that made it. The history
-    // is in chronological order.
-    public static ClientServiceResponse From(Service service)
+    // The service must be loaded with its client, its category, its direct requests and its proposals, each with the
+    // profile and the provider, its review (reviewed) and the history of states, each change with the user that made
+    // it. reviewCounts has the number of reviews of each provider (a provider without reviews is not there). The
+    // history is in chronological order; the proposals of PUBLIC, newest first.
+    public static ClientServiceResponse From(Service service, IReadOnlyDictionary<int, int> reviewCounts)
     {
-        var accepted = service.Proposals.SingleOrDefault(p => p.Status == ProposalStatus.Accepted);
+        var directRequests = new List<ClientDirectRequestResponse>();
+        var proposals = new List<ClientProposalResponse>();
+        if (service.ProposalModel == ProposalModel.DirectRequest)
+        {
+            directRequests = service.DirectRequests
+                .OrderBy(r => r.DirectRequestId)
+                .Select(r => ClientDirectRequestResponse.From(r, service.Proposals, reviewCounts))
+                .ToList();
+        }
+        else
+        {
+            proposals = service.Proposals
+                .OrderByDescending(p => p.CreationDate)
+                .ThenByDescending(p => p.ProposalId)
+                .Select(p => ClientProposalResponse.From(p, reviewCounts))
+                .ToList();
+        }
 
         return new ClientServiceResponse(
             service.ServiceId,
-            service.ClientId,
+            service.Title,
             service.ProposalModel,
             new ServiceCategorySummary(service.ServiceCategoryId, service.ServiceCategory.Name),
-            service.Title,
             service.Description,
+            service.Location,
             service.RequestedStartDate,
             service.RequestedEndDate,
             service.Status,
-            service.Location,
-            service.Latitude,
-            service.Longitude,
             service.CreationDate,
             service.ActualCompletionDate,
+            service.Client.Name,
             Reviewed: service.Review is not null,
-            service.DirectRequests.OrderBy(r => r.DirectRequestId).Select(ClientDirectRequestResponse.From).ToList(),
-            accepted is null ? null : ClientProposalResponse.From(accepted),
             service.StatusHistory
                 .OrderBy(h => h.ChangedAt)
                 .ThenBy(h => h.ServiceStatusHistoryId)
                 .Select(ServiceHistoryResponse.From)
-                .ToList());
+                .ToList(),
+            directRequests,
+            proposals);
     }
 }
 
-// Summary of the provider shown to the client: E22, E23, E26 and E28.
-public record ProviderSummary(int ProfessionalProfileId, string Name, decimal? AverageRating)
+// Summary of the provider shown to the client in E22.
+public record ProviderSummary(int ProfessionalProfileId, string Name, decimal? AverageRating, int ReviewCount)
 {
     // The profile must be loaded with its provider.
-    public static ProviderSummary From(ProfessionalProfile profile)
+    public static ProviderSummary From(ProfessionalProfile profile, IReadOnlyDictionary<int, int> reviewCounts)
     {
-        return new ProviderSummary(profile.ProfessionalProfileId, profile.ServiceProvider.Name, profile.AverageRating);
+        reviewCounts.TryGetValue(profile.ProfessionalProfileId, out int reviewCount);
+        return new ProviderSummary(
+            profile.ProfessionalProfileId, profile.ServiceProvider.Name, profile.AverageRating, reviewCount);
     }
 }
 
-// Direct request of E22 for the client: the fields of E20 and the provider.
+// Direct request of E22 for the client: the provider and the proposal it submitted, or null.
 public record ClientDirectRequestResponse(
     int DirectRequestId,
-    int ProfessionalProfileId,
     DirectRequestStatus Status,
     DateTimeOffset CreationDate,
     DateTimeOffset? ResponseDate,
-    ProviderSummary ProfessionalProfile)
+    ProviderSummary ProfessionalProfile,
+    MyProposalResponse? Proposal)
 {
-    public static ClientDirectRequestResponse From(DirectRequest request)
+    // proposals are the proposals of the service; the one of the request is the one of the same profile.
+    public static ClientDirectRequestResponse From(
+        DirectRequest request, IEnumerable<Proposal> proposals, IReadOnlyDictionary<int, int> reviewCounts)
     {
+        var proposal = proposals.SingleOrDefault(p => p.ProfessionalProfileId == request.ProfessionalProfileId);
         return new ClientDirectRequestResponse(
             request.DirectRequestId,
-            request.ProfessionalProfileId,
             request.Status,
             request.CreationDate,
             request.ResponseDate,
-            ProviderSummary.From(request.ProfessionalProfile));
+            ProviderSummary.From(request.ProfessionalProfile, reviewCounts),
+            proposal is null ? null : MyProposalResponse.From(proposal));
     }
 }
 
-// Proposal as the client sees it in E26 and E22: the structure of E25 with the summary of the provider.
+// Proposal of PUBLIC as the client sees it in E22: the proposal with the summary of the provider.
 public record ClientProposalResponse(
     int ProposalId,
-    int ServiceId,
     ProviderSummary ProfessionalProfile,
     decimal Amount,
     string Conditions,
@@ -101,12 +119,11 @@ public record ClientProposalResponse(
     DateTimeOffset CreationDate,
     DateTimeOffset? DecisionDate)
 {
-    public static ClientProposalResponse From(Proposal proposal)
+    public static ClientProposalResponse From(Proposal proposal, IReadOnlyDictionary<int, int> reviewCounts)
     {
         return new ClientProposalResponse(
             proposal.ProposalId,
-            proposal.ServiceId,
-            ProviderSummary.From(proposal.ProfessionalProfile),
+            ProviderSummary.From(proposal.ProfessionalProfile, reviewCounts),
             proposal.Amount,
             proposal.Conditions,
             proposal.Obs,
@@ -134,14 +151,3 @@ public record ServiceListItem(
     DateTimeOffset CreationDate,
     DateTimeOffset? ActualCompletionDate,
     int PendingProposalsCount);
-
-// Item of the list of E23 for the client: the request, the provider, the summary of the service and the proposal of
-// that provider, when there is one, so that the client can accept or decline it (E28, E29).
-public record ClientDirectRequestListItem(
-    int DirectRequestId,
-    DirectRequestStatus Status,
-    DateTimeOffset CreationDate,
-    DateTimeOffset? ResponseDate,
-    ProviderSummary ProfessionalProfile,
-    DirectRequestServiceSummary Service,
-    DirectRequestProposalSummary? Proposal);

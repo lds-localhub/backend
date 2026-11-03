@@ -46,7 +46,8 @@ public class ServicesEndpointsTests(LocalHubApiFactory factory)
         var service = await response.Content.ReadFromJsonAsync<JsonElement>();
         int serviceId = service.GetProperty("serviceId").GetInt32();
         Assert.Equal($"{ServicesUrl}/{serviceId}", response.Headers.Location?.OriginalString);
-        Assert.Equal(client.UserId, service.GetProperty("clientId").GetInt32());
+        Assert.Equal("Cliente Teste", service.GetProperty("clientName").GetString());
+        Assert.False(service.TryGetProperty("clientId", out _));
         Assert.Equal("DIRECT_REQUEST", service.GetProperty("proposalModel").GetString());
         Assert.Equal(first.ServiceCategoryId,
             service.GetProperty("serviceCategory").GetProperty("serviceCategoryId").GetInt32());
@@ -57,16 +58,21 @@ public class ServicesEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal("OPEN", service.GetProperty("status").GetString());
         Assert.Equal(JsonValueKind.Null, service.GetProperty("actualCompletionDate").ValueKind);
         Assert.EndsWith("Z", service.GetProperty("creationDate").GetString(), StringComparison.Ordinal);
+        Assert.False(service.GetProperty("reviewed").GetBoolean());
+        Assert.Empty(service.GetProperty("history").EnumerateArray());
+        Assert.Empty(service.GetProperty("proposals").EnumerateArray());
 
+        // The structure of E22: each direct request with the provider and without a proposal yet.
         var requests = service.GetProperty("directRequests").EnumerateArray().ToList();
         Assert.Equal(
             new[] { first.ProfessionalProfileId, second }.Order(),
-            requests.Select(r => r.GetProperty("professionalProfileId").GetInt32()).Order());
+            requests.Select(r => r.GetProperty("professionalProfile").GetProperty("professionalProfileId").GetInt32()).Order());
         Assert.All(requests, r =>
         {
             Assert.True(r.GetProperty("directRequestId").GetInt32() > 0);
             Assert.Equal("PENDING", r.GetProperty("status").GetString());
             Assert.Equal(JsonValueKind.Null, r.GetProperty("responseDate").ValueKind);
+            Assert.Equal(JsonValueKind.Null, r.GetProperty("proposal").ValueKind);
         });
         Assert.Equal((1, 2), await CountSavedAsync(client.UserId));
 
@@ -254,8 +260,7 @@ public class ServicesEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var service = await response.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal(FakeGeocodingService.KnownAddress, service.GetProperty("location").GetString());
-        Assert.Equal(41.2m, service.GetProperty("latitude").GetDecimal());
-        Assert.Equal(-8.5m, service.GetProperty("longitude").GetDecimal());
+        Assert.Equal((41.2m, -8.5m), await ReadCoordinatesAsync(service.GetProperty("serviceId").GetInt32()));
     }
 
     [Fact]
@@ -273,7 +278,7 @@ public class ServicesEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var service = await response.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal(FakeGeocodingService.AddressAt2Km, service.GetProperty("location").GetString());
-        Assert.Equal(41.175886m, service.GetProperty("latitude").GetDecimal());
+        Assert.Equal(41.175886m, (await ReadCoordinatesAsync(service.GetProperty("serviceId").GetInt32())).Latitude);
 
         var me = await GetMeAsync(client.Token);
         Assert.Equal(FakeGeocodingService.KnownAddress, me.GetProperty("address").GetString());
@@ -295,8 +300,8 @@ public class ServicesEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var service = await response.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal(FakeGeocodingService.KnownAddress, service.GetProperty("location").GetString());
-        Assert.Equal(FakeGeocodingService.KnownLatitude, service.GetProperty("latitude").GetDecimal());
-        Assert.Equal(FakeGeocodingService.KnownLongitude, service.GetProperty("longitude").GetDecimal());
+        Assert.Equal((FakeGeocodingService.KnownLatitude, FakeGeocodingService.KnownLongitude),
+            await ReadCoordinatesAsync(service.GetProperty("serviceId").GetInt32()));
 
         var me = await GetMeAsync(client.Token);
         Assert.Equal(JsonValueKind.Null, me.GetProperty("address").ValueKind);
@@ -375,7 +380,8 @@ public class ServicesEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var service = await response.Content.ReadFromJsonAsync<JsonElement>();
         var request = Assert.Single(service.GetProperty("directRequests").EnumerateArray());
-        Assert.Equal(provider.ProfessionalProfileId, request.GetProperty("professionalProfileId").GetInt32());
+        Assert.Equal(provider.ProfessionalProfileId,
+            request.GetProperty("professionalProfile").GetProperty("professionalProfileId").GetInt32());
         Assert.Equal((1, 1), await CountSavedAsync(client.UserId));
     }
 
@@ -540,6 +546,15 @@ public class ServicesEndpointsTests(LocalHubApiFactory factory)
         var db = scope.ServiceProvider.GetRequiredService<LocalHubDbContext>();
         await db.Database.ExecuteSqlAsync(
             $"UPDATE \"User\" SET latitude = {latitude}, longitude = {longitude} WHERE \"userId\" = {userId}");
+    }
+
+    // The coordinates are not in the response (E20 has the structure of E22), so they are read from the database.
+    private async Task<(decimal Latitude, decimal Longitude)> ReadCoordinatesAsync(int serviceId)
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<LocalHubDbContext>();
+        var service = await db.Services.AsNoTracking().SingleAsync(s => s.ServiceId == serviceId);
+        return (service.Latitude, service.Longitude);
     }
 
     private async Task<(int Services, int DirectRequests)> CountSavedAsync(int clientId)
