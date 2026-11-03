@@ -12,6 +12,7 @@ using Microsoft.Extensions.DependencyInjection;
 using static LocalHub.IntegrationTests.Fixtures.AuthRequests;
 using static LocalHub.IntegrationTests.Fixtures.ProfileRequests;
 using static LocalHub.IntegrationTests.Fixtures.ServiceRequests;
+using static LocalHub.IntegrationTests.Fixtures.UserLocations;
 
 namespace LocalHub.IntegrationTests.Services;
 
@@ -282,7 +283,8 @@ public class ServicesEndpointsTests(LocalHubApiFactory factory)
 
         var me = await GetMeAsync(client.Token);
         Assert.Equal(FakeGeocodingService.KnownAddress, me.GetProperty("address").GetString());
-        Assert.Equal(FakeGeocodingService.KnownLatitude, me.GetProperty("latitude").GetDecimal());
+        var coordinates = await ReadUserCoordinatesAsync(factory, client.UserId);
+        Assert.Equal(FakeGeocodingService.KnownLatitude, coordinates.Latitude);
     }
 
     [Fact]
@@ -305,7 +307,7 @@ public class ServicesEndpointsTests(LocalHubApiFactory factory)
 
         var me = await GetMeAsync(client.Token);
         Assert.Equal(JsonValueKind.Null, me.GetProperty("address").ValueKind);
-        Assert.Equal(JsonValueKind.Null, me.GetProperty("latitude").ValueKind);
+        Assert.Equal(((decimal?)null, (decimal?)null), await ReadUserCoordinatesAsync(factory, client.UserId));
     }
 
     [Fact]

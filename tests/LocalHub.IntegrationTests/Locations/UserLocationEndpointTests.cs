@@ -10,6 +10,7 @@ using LocalHub.IntegrationTests.Fixtures;
 using Microsoft.Extensions.DependencyInjection;
 
 using static LocalHub.IntegrationTests.Fixtures.AuthRequests;
+using static LocalHub.IntegrationTests.Fixtures.UserLocations;
 
 namespace LocalHub.IntegrationTests.Locations;
 
@@ -35,14 +36,15 @@ public class UserLocationEndpointTests(LocalHubApiFactory factory)
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal(FakeGeocodingService.KnownAddress, body.GetProperty("address").GetString());
-        Assert.Equal(FakeGeocodingService.KnownLatitude, body.GetProperty("latitude").GetDecimal());
-        Assert.Equal(FakeGeocodingService.KnownLongitude, body.GetProperty("longitude").GetDecimal());
+        // The structure of E04, without the coordinates (API documentation, E16).
+        Assert.False(body.TryGetProperty("latitude", out _));
+        Assert.False(body.TryGetProperty("longitude", out _));
 
         // CA7: the location is saved, so it is available to the searches by distance.
         var me = await GetMeAsync(token);
         Assert.Equal(FakeGeocodingService.KnownAddress, me.GetProperty("address").GetString());
-        Assert.Equal(FakeGeocodingService.KnownLatitude, me.GetProperty("latitude").GetDecimal());
-        Assert.Equal(FakeGeocodingService.KnownLongitude, me.GetProperty("longitude").GetDecimal());
+        Assert.Equal((FakeGeocodingService.KnownLatitude, FakeGeocodingService.KnownLongitude),
+            await ReadUserCoordinatesAsync(factory, body.GetProperty("userId").GetInt32()));
     }
 
     [Fact]

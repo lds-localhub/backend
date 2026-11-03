@@ -114,7 +114,7 @@ public class AuthService
 
         string token = _tokenIssuer.Issue(user, session);
         int? professionalProfileId = await _db.FindProfileIdAsync(user.UserId, cancellationToken);
-        return new LoginResponse(token, session.ExpiresAt, UserResponse.From(user, professionalProfileId));
+        return new LoginResponse(token, UserResponse.From(user, professionalProfileId));
     }
 
     public async Task LogoutAsync(CancellationToken cancellationToken)

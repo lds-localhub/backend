@@ -268,13 +268,15 @@
                 "exec": [
                   "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
                   "const body = pm.response.json();",
-                  "pm.test(\"Devolve token, expiresAt e user\", () => {",
+                  "pm.test(\"Devolve só token e user\", () => {",
+                  "    pm.expect(Object.keys(body)).to.eql([\"token\", \"user\"]);",
                   "    pm.expect(body.token).to.be.a(\"string\").and.not.empty;",
-                  "    pm.expect(body.expiresAt).to.be.a(\"string\");",
                   "    pm.expect(body.user.email).to.eql(pm.collectionVariables.get(\"email\"));",
+                  "    pm.expect(Object.keys(body.user)).to.eql([\"userId\", \"name\", \"email\", \"role\", \"address\", \"professionalProfileId\"]);",
                   "});",
-                  "pm.test(\"Sessão de 8 horas, no máximo\", () => {",
-                  "    const hours = (new Date(body.expiresAt) - Date.now()) / 3600000;",
+                  "pm.test(\"Sessão de 8 horas, no máximo (exp do token)\", () => {",
+                  "    const payload = JSON.parse(atob(body.token.split(\".\")[1].replace(/-/g, \"+\").replace(/_/g, \"/\")));",
+                  "    const hours = (payload.exp * 1000 - Date.now()) / 3600000;",
                   "    pm.expect(hours).to.be.within(7.9, 8);",
                   "});",
                   "// Guarda o token para os pedidos protegidos seguintes.",
@@ -376,8 +378,11 @@
                   "    const body = pm.response.json();",
                   "    pm.expect(body.email).to.eql(pm.collectionVariables.get(\"email\"));",
                   "    pm.expect(body.role).to.eql(\"CLIENT\");",
-                  "    pm.expect(body.latitude).to.be.null;",
+                  "    pm.expect(body.address).to.be.null;",
                   "    pm.expect(body.professionalProfileId).to.be.null;",
+                  "});",
+                  "pm.test(\"Só os campos de E04, sem status nem coordenadas\", () => {",
+                  "    pm.expect(Object.keys(pm.response.json())).to.eql([\"userId\", \"name\", \"email\", \"role\", \"address\", \"professionalProfileId\"]);",
                   "});"
                 ]
               }
@@ -2178,11 +2183,10 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
-                  "pm.test(\"Guarda a morada e as coordenadas\", () => {",
+                  "pm.test(\"Devolve o utilizador com a nova morada, sem as coordenadas\", () => {",
                   "    const body = pm.response.json();",
                   "    pm.expect(body.address).to.eql(\"Avenida da Liberdade, Braga\");",
-                  "    pm.expect(body.latitude).to.be.within(41, 42);",
-                  "    pm.expect(body.longitude).to.be.within(-9, -8);",
+                  "    pm.expect(body).to.not.have.any.keys(\"latitude\", \"longitude\", \"status\");",
                   "});"
                 ]
               }
@@ -2733,9 +2737,9 @@
                 "exec": [
                   "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
                   "const body = pm.response.json();",
-                  "pm.test(\"professionalProfileId e coordenadas\", () => {",
+                  "pm.test(\"professionalProfileId e morada\", () => {",
                   "    pm.expect(body.professionalProfileId).to.eql(Number(pm.collectionVariables.get(\"profileId\")));",
-                  "    pm.expect(body.latitude).to.not.eql(null);",
+                  "    pm.expect(body.address).to.not.eql(null);",
                   "});"
                 ]
               }

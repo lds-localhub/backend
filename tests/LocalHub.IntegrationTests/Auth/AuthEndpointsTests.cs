@@ -156,7 +156,8 @@ public class AuthEndpointsTests(LocalHubApiFactory factory)
         Assert.False(string.IsNullOrEmpty(body.GetProperty("token").GetString()));
         Assert.Equal("ADMIN", body.GetProperty("user").GetProperty("role").GetString());
 
-        var expiresAt = body.GetProperty("expiresAt").GetDateTimeOffset();
+        // The expiry is not in the response (API documentation, E02): it is read from the session just created.
+        var expiresAt = await GetLastSessionExpiryAsync(AdminEmail);
         Assert.InRange(expiresAt - DateTimeOffset.UtcNow, TimeSpan.FromHours(7.9), TimeSpan.FromHours(8));
     }
 
@@ -208,8 +209,13 @@ public class AuthEndpointsTests(LocalHubApiFactory factory)
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal(email, body.GetProperty("email").GetString());
         Assert.Equal("PROVIDER", body.GetProperty("role").GetString());
-        Assert.Equal(JsonValueKind.Null, body.GetProperty("latitude").ValueKind);
+        Assert.Equal(JsonValueKind.Null, body.GetProperty("address").ValueKind);
         Assert.Equal(JsonValueKind.Null, body.GetProperty("professionalProfileId").ValueKind);
+
+        // Only the fields of the API documentation (E04): no status and no coordinates.
+        Assert.Equal(
+            ["userId", "name", "email", "role", "address", "professionalProfileId"],
+            body.EnumerateObject().Select(p => p.Name));
     }
 
     [Fact]
@@ -363,6 +369,17 @@ public class AuthEndpointsTests(LocalHubApiFactory factory)
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<LocalHubDbContext>();
         return await db.UserSessions.CountAsync(s => s.User.Email == email);
+    }
+
+    private async Task<DateTimeOffset> GetLastSessionExpiryAsync(string email)
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<LocalHubDbContext>();
+        return await db.UserSessions
+            .Where(s => s.User.Email == email)
+            .OrderByDescending(s => s.SessionId)
+            .Select(s => s.ExpiresAt)
+            .FirstAsync();
     }
 
     private async Task<int> CountUsersAsync(string email)

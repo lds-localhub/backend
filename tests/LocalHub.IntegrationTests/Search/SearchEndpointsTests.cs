@@ -11,6 +11,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 using static LocalHub.IntegrationTests.Fixtures.AuthRequests;
 using static LocalHub.IntegrationTests.Fixtures.ProfileRequests;
+using static LocalHub.IntegrationTests.Fixtures.UserLocations;
 
 namespace LocalHub.IntegrationTests.Search;
 
@@ -192,8 +193,8 @@ public class SearchEndpointsTests(LocalHubApiFactory factory)
         using var meResponse = await SendWithTokenAsync(_client, HttpMethod.Get, "/api/auth/me", clientToken);
         var me = await meResponse.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal(FakeGeocodingService.KnownAddress, me.GetProperty("address").GetString());
-        Assert.Equal(FakeGeocodingService.KnownLatitude, me.GetProperty("latitude").GetDecimal());
-        Assert.Equal(FakeGeocodingService.KnownLongitude, me.GetProperty("longitude").GetDecimal());
+        Assert.Equal((FakeGeocodingService.KnownLatitude, FakeGeocodingService.KnownLongitude),
+            await ReadUserCoordinatesAsync(factory, me.GetProperty("userId").GetInt32()));
     }
 
     // Rule R3: the reference location is received as an address (in the mobile application, filled with E35), so

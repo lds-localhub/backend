@@ -6,6 +6,7 @@ using LocalHub.IntegrationTests.Fixtures;
 
 using static LocalHub.IntegrationTests.Fixtures.AuthRequests;
 using static LocalHub.IntegrationTests.Fixtures.ProfileRequests;
+using static LocalHub.IntegrationTests.Fixtures.UserLocations;
 
 namespace LocalHub.IntegrationTests.Profiles;
 
@@ -58,8 +59,8 @@ public class ProfilesEndpointsTests(LocalHubApiFactory factory)
         // The address is saved in User with its coordinates, and E04 and E02 return the professionalProfileId.
         var me = await GetJsonAsync("/api/auth/me", token);
         Assert.Equal(profileId, me.GetProperty("professionalProfileId").GetInt32());
-        Assert.Equal(FakeGeocodingService.KnownLatitude, me.GetProperty("latitude").GetDecimal());
-        Assert.Equal(FakeGeocodingService.KnownLongitude, me.GetProperty("longitude").GetDecimal());
+        Assert.Equal((FakeGeocodingService.KnownLatitude, FakeGeocodingService.KnownLongitude),
+            await ReadUserCoordinatesAsync(factory, userId));
 
         using var login = await LoginAsync(_client, email, ValidPassword);
         var loginBody = await login.Content.ReadFromJsonAsync<JsonElement>();
@@ -360,9 +361,8 @@ public class ProfilesEndpointsTests(LocalHubApiFactory factory)
         var profile = await response.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal(FakeGeocodingService.AddressAt2Km, profile.GetProperty("address").GetString());
         Assert.Equal(40, profile.GetProperty("serviceRadiusKm").GetInt32());
-        var me = await GetJsonAsync("/api/auth/me", provider.Token);
-        Assert.Equal(41.175886m, me.GetProperty("latitude").GetDecimal());
-        Assert.Equal(FakeGeocodingService.KnownLongitude, me.GetProperty("longitude").GetDecimal());
+        Assert.Equal((41.175886m, FakeGeocodingService.KnownLongitude),
+            await ReadUserCoordinatesAsync(factory, provider.UserId));
     }
 
     [Theory]
@@ -586,8 +586,8 @@ public class ProfilesEndpointsTests(LocalHubApiFactory factory)
         Assert.NotEqual("Nova apresentação", profile.GetProperty("introduction").GetString());
         Assert.Equal(FakeGeocodingService.KnownAddress, profile.GetProperty("address").GetString());
         Assert.Equal(15, profile.GetProperty("serviceRadiusKm").GetInt32());
-        var me = await GetJsonAsync("/api/auth/me", provider.Token);
-        Assert.Equal(FakeGeocodingService.KnownLatitude, me.GetProperty("latitude").GetDecimal());
+        var coordinates = await ReadUserCoordinatesAsync(factory, provider.UserId);
+        Assert.Equal(FakeGeocodingService.KnownLatitude, coordinates.Latitude);
     }
 
     private static List<int> CategoryIds(JsonElement profile) =>
