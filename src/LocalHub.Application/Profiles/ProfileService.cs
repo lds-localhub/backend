@@ -52,13 +52,14 @@ public class ProfileService
         }
 
         var categories = await LoadCategoriesAsync(request.ServiceCategoryIds!, currentIds: new HashSet<int>(), cancellationToken);
+
+        // Before any change, because it calls the Nominatim: an address that is not found (400) or a Nominatim that is
+        // down (503) leaves nothing created or saved (rules R2 and R6).
+        var location = await _locationResolver.ResolveAddressAsync(request.Address!, "address", cancellationToken);
+
         var profile = ProfessionalProfile.Create(
             provider, request.Introduction!, request.ContactDetails!, request.Experience!, categories,
             request.ServiceRadiusKm!.Value);
-
-        // Last, because it calls the Nominatim: an address that is not found (400) or a Nominatim that is down (503)
-        // leaves nothing saved.
-        var location = await _locationResolver.ResolveAddressAsync(request.Address!, "address", cancellationToken);
         provider.SetLocation(location.Address, location.Coordinates.Latitude, location.Coordinates.Longitude);
 
         _db.ProfessionalProfiles.Add(profile);
