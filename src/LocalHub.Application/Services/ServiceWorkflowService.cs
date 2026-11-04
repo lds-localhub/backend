@@ -180,14 +180,13 @@ public class ServiceWorkflowService
         return ProposalResponse.From(proposal);
     }
 
-    // E27 (RF-F008-07): the proposals of the provider, newest first, filtered by the state of the proposal and by the
-    // modality of the service.
+    // E27 (RF-F008-07): the proposals of the provider, newest first, optionally filtered by the state of the proposal,
+    // with the summary that the lists show. Of the Client, only the name is returned, without any contacts.
     public async Task<PagedResult<MyProposalListItem>> ListMyProposalsAsync(
-        string? status, string? proposalModel, PageRequest page, CancellationToken cancellationToken)
+        string? status, PageRequest page, CancellationToken cancellationToken)
     {
         var errors = new Dictionary<string, string[]>();
         var statusFilter = EnumQuery.Parse<ProposalStatus>(status, "status", errors);
-        var modelFilter = EnumQuery.Parse<ProposalModel>(proposalModel, "proposalModel", errors);
         page.Validate(errors);
         if (errors.Count > 0)
         {
@@ -200,45 +199,30 @@ public class ServiceWorkflowService
             throw new ForbiddenException(ProfileService.MissingProfileMessage, ErrorTypes.MissingProfile);
         }
 
-        var rows = _db.Proposals.AsNoTracking()
-            .Where(p => p.ProfessionalProfileId == profileId)
-            .Join(_db.Services, p => p.ServiceId, s => s.ServiceId, (p, s) => new { Proposal = p, Service = s });
+        var proposals = _db.Proposals.AsNoTracking().Where(p => p.ProfessionalProfileId == profileId);
         if (statusFilter != null)
         {
-            rows = rows.Where(r => r.Proposal.Status == statusFilter);
+            proposals = proposals.Where(p => p.Status == statusFilter);
         }
 
-        if (modelFilter != null)
-        {
-            rows = rows.Where(r => r.Service.ProposalModel == modelFilter);
-        }
-
-        int total = await rows.CountAsync(cancellationToken);
-        var items = await rows
-            .OrderByDescending(r => r.Proposal.CreationDate)
-            .ThenByDescending(r => r.Proposal.ProposalId)
+        int total = await proposals.CountAsync(cancellationToken);
+        var items = await proposals
+            .OrderByDescending(p => p.CreationDate)
+            .ThenByDescending(p => p.ProposalId)
             .Skip(page.Skip)
             .Take(page.PageSize)
-            .Select(r => new MyProposalListItem(
-                r.Proposal.ProposalId,
-                r.Proposal.ServiceId,
-                r.Proposal.ProfessionalProfileId,
-                r.Proposal.Amount,
-                r.Proposal.Conditions,
-                r.Proposal.Obs,
-                r.Proposal.Status,
-                r.Proposal.CreationDate,
-                r.Proposal.DecisionDate,
+            .Select(p => new MyProposalListItem(
+                p.ProposalId,
+                p.Amount,
+                p.Status,
                 new ProposalServiceSummary(
-                    r.Service.ServiceId,
-                    r.Service.ProposalModel,
-                    new ServiceCategorySummary(r.Service.ServiceCategoryId, r.Service.ServiceCategory.Name),
-                    r.Service.Title,
-                    r.Service.Description,
-                    r.Service.Location,
-                    r.Service.RequestedStartDate,
-                    r.Service.RequestedEndDate,
-                    r.Service.Status)))
+                    p.ServiceId,
+                    p.Service.Title,
+                    new ServiceCategorySummary(p.Service.ServiceCategoryId, p.Service.ServiceCategory.Name),
+                    p.Service.RequestedStartDate,
+                    p.Service.RequestedEndDate,
+                    p.Service.Status,
+                    p.Service.Client.Name)))
             .ToListAsync(cancellationToken);
 
         return new PagedResult<MyProposalListItem>(page.Page, page.PageSize, total, items);

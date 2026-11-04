@@ -61,27 +61,16 @@ public record MyProposalResponse(
     }
 }
 
-// Summary of the service in E27.
+// Summary of the service in E27: of the Client, only the name, without any contacts (RNF-06).
 public record ProposalServiceSummary(
     int ServiceId,
-    ProposalModel ProposalModel,
-    ServiceCategorySummary ServiceCategory,
     string Title,
-    string Description,
-    string Location,
+    ServiceCategorySummary ServiceCategory,
     DateOnly RequestedStartDate,
     DateOnly? RequestedEndDate,
-    ServiceStatus Status);
+    ServiceStatus Status,
+    string ClientName);
 
-// Item of the list of E27: the proposal and the summary of its service.
-public record MyProposalListItem(
-    int ProposalId,
-    int ServiceId,
-    int ProfessionalProfileId,
-    decimal Amount,
-    string Conditions,
-    string? Obs,
-    ProposalStatus Status,
-    DateTimeOffset CreationDate,
-    DateTimeOffset? DecisionDate,
-    ProposalServiceSummary Service);
+// Item of the list of E27: the proposal and the summary of its service (API documentation, E27). The detail is
+// consulted in E37.
+public record MyProposalListItem(int ProposalId, decimal Amount, ProposalStatus Status, ProposalServiceSummary Service);

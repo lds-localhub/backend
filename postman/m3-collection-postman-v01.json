@@ -5065,7 +5065,7 @@
                 }
               ]
             },
-            "description": "RF-F008-07. As propostas do Prestador, da mais recente para a mais antiga, com o resumo do serviço."
+            "description": "RF-F008-07. As propostas do Prestador, da mais recente para a mais antiga, com o resumo das listas: o valor, o estado e o serviço com o nome do Cliente, sem contactos."
           },
           "event": [
             {
@@ -5077,12 +5077,13 @@
                   "const body = pm.response.json();",
                   "pm.test(\"Duas propostas, a mais recente primeiro\", () => {",
                   "    pm.expect(body.total).to.eql(2);",
-                  "    pm.expect(body.items.map(p => p.serviceId)).to.eql([Number(pm.collectionVariables.get(\"publicServiceId\")), Number(pm.collectionVariables.get(\"serviceId\"))]);",
+                  "    pm.expect(body.items.map(p => p.service.serviceId)).to.eql([Number(pm.collectionVariables.get(\"publicServiceId\")), Number(pm.collectionVariables.get(\"serviceId\"))]);",
                   "});",
-                  "pm.test(\"Resumo do serviço\", () => {",
-                  "    pm.expect(body.items[0].service.proposalModel).to.eql(\"PUBLIC\");",
+                  "pm.test(\"Só o resumo das listas\", () => {",
+                  "    pm.expect(body.items[0]).to.have.all.keys(\"proposalId\", \"amount\", \"status\", \"service\");",
+                  "    pm.expect(body.items[0].service).to.have.all.keys(\"serviceId\", \"title\", \"serviceCategory\", \"requestedStartDate\", \"requestedEndDate\", \"status\", \"clientName\");",
                   "    pm.expect(body.items[0].service.status).to.eql(\"OPEN\");",
-                  "    pm.expect(body.items[1].service.proposalModel).to.eql(\"DIRECT_REQUEST\");",
+                  "    pm.expect(body.items[0].service.clientName).to.be.a(\"string\");",
                   "});"
                 ]
               }
@@ -5090,12 +5091,12 @@
           ]
         },
         {
-          "name": "E27 — Filtros por estado e modalidade (200)",
+          "name": "E27 — Filtro por estado e paginação (200)",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/proposals?status=PENDING&proposalModel=PUBLIC&page=1&pageSize=10",
+              "raw": "{{baseUrl}}/api/proposals?status=PENDING&page=2&pageSize=1",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -5109,16 +5110,12 @@
                   "value": "PENDING"
                 },
                 {
-                  "key": "proposalModel",
-                  "value": "PUBLIC"
-                },
-                {
                   "key": "page",
-                  "value": "1"
+                  "value": "2"
                 },
                 {
                   "key": "pageSize",
-                  "value": "10"
+                  "value": "1"
                 }
               ]
             },
@@ -5132,7 +5129,7 @@
                 }
               ]
             },
-            "description": "RF-F008-07, regra 5: filtro pelo estado da proposta e pela modalidade do serviço, com paginação."
+            "description": "RF-F008-07, regra 5: filtro pelo estado da proposta, com paginação."
           },
           "event": [
             {
@@ -5142,10 +5139,11 @@
                 "exec": [
                   "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
                   "const body = pm.response.json();",
-                  "pm.test(\"Só a proposta ao trabalho publicado\", () => {",
-                  "    pm.expect(body.pageSize).to.eql(10);",
-                  "    pm.expect(body.total).to.eql(1);",
-                  "    pm.expect(body.items[0].serviceId).to.eql(Number(pm.collectionVariables.get(\"publicServiceId\")));",
+                  "pm.test(\"Segunda página com a proposta pendente mais antiga\", () => {",
+                  "    pm.expect(body.pageSize).to.eql(1);",
+                  "    pm.expect(body.total).to.eql(2);",
+                  "    pm.expect(body.items).to.have.lengthOf(1);",
+                  "    pm.expect(body.items[0].service.serviceId).to.eql(Number(pm.collectionVariables.get(\"serviceId\")));",
                   "});"
                 ]
               }

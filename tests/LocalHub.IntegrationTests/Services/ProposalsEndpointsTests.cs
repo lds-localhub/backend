@@ -381,23 +381,28 @@ public class ProposalsEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal(20, page.GetProperty("pageSize").GetInt32());
         Assert.Equal(2, page.GetProperty("total").GetInt32());
         var items = page.GetProperty("items").EnumerateArray().ToList();
-        Assert.Equal([secondService, firstService], items.Select(i => i.GetProperty("serviceId").GetInt32()));
+        Assert.Equal([secondService, firstService], items.Select(i => i.GetProperty("service").GetProperty("serviceId").GetInt32()));
+        Assert.Equal(80.00m, items[0].GetProperty("amount").GetDecimal());
+        Assert.Equal("PENDING", items[0].GetProperty("status").GetString());
         var summary = items[0].GetProperty("service");
-        Assert.Equal(secondService, summary.GetProperty("serviceId").GetInt32());
-        Assert.Equal("DIRECT_REQUEST", summary.GetProperty("proposalModel").GetString());
         Assert.Equal(provider.ServiceCategoryId, summary.GetProperty("serviceCategory").GetProperty("serviceCategoryId").GetInt32());
         Assert.Equal("OPEN", summary.GetProperty("status").GetString());
+        Assert.Equal("Cliente Teste", summary.GetProperty("clientName").GetString());
         Assert.False(summary.TryGetProperty("clientId", out _));
+
+        // Only the summary of the lists (API documentation, E27): the detail is consulted in E37.
+        Assert.False(items[0].TryGetProperty("conditions", out _));
+        Assert.False(summary.TryGetProperty("description", out _));
 
         using var secondPage = await GetAsync(provider.Token, "/api/proposals?page=2&pageSize=1");
         var paged = await secondPage.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal(2, paged.GetProperty("total").GetInt32());
-        Assert.Equal(firstService, paged.GetProperty("items")[0].GetProperty("serviceId").GetInt32());
+        Assert.Equal(firstService, paged.GetProperty("items")[0].GetProperty("service").GetProperty("serviceId").GetInt32());
     }
 
     [Fact]
     [Trait("Requisito", "RF-F008-07")]
-    public async Task ListMyProposals_ComFiltros_DevolveSoAsPropostasDoPrestadorQueCorrespondem()
+    public async Task ListMyProposals_ComFiltroDeEstado_DevolveSoAsPropostasDoPrestadorQueCorrespondem()
     {
         var provider = await CreateProviderWithProfileAsync(_client);
         var other = await CreateProviderInCategoryAsync(provider.ServiceCategoryId);
@@ -417,13 +422,10 @@ public class ProposalsEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal(1, await TotalAsync(string.Empty));
         Assert.Equal(1, await TotalAsync("?status=PENDING"));
         Assert.Equal(0, await TotalAsync("?status=ACCEPTED"));
-        Assert.Equal(1, await TotalAsync("?proposalModel=PUBLIC"));
-        Assert.Equal(0, await TotalAsync("?proposalModel=DIRECT_REQUEST"));
     }
 
     [Theory]
     [InlineData("?status=INVALID", "status")]
-    [InlineData("?proposalModel=INVALID", "proposalModel")]
     [InlineData("?page=0", "page")]
     [InlineData("?pageSize=51", "pageSize")]
     [Trait("Requisito", "RF-F008-07")]

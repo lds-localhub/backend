@@ -27,12 +27,11 @@ public class ProposalsController : ControllerBase
     public async Task<ActionResult<PagedResult<MyProposalListItem>>> ListMine(
         CancellationToken cancellationToken,
         [FromQuery] string? status = null,
-        [FromQuery] string? proposalModel = null,
         [FromQuery] int page = PageRequest.DefaultPage,
         [FromQuery] int pageSize = PageRequest.DefaultPageSize)
     {
         return Ok(await _serviceWorkflowService.ListMyProposalsAsync(
-            status, proposalModel, new PageRequest(page, pageSize), cancellationToken));
+            status, new PageRequest(page, pageSize), cancellationToken));
     }
 
     // E37: only the provider that presented the proposal.
