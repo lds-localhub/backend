@@ -108,7 +108,7 @@ public class ServiceStatusHistoryEndpointsTests(LocalHubApiFactory factory)
         AssertChange(change, "OPEN", "CANCELLED", scenario.Client.UserId, ClientName, "CLIENT");
     }
 
-    // ---------- E36 and E22: provider ----------
+    // ---------- E36: provider ----------
 
     // API documentation, E36: only the role of the author, so the hired provider is not identified (RNF-06).
     [Fact]
@@ -138,19 +138,6 @@ public class ServiceStatusHistoryEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal(2, history.Count);
         AssertAnonymousChange(history[0], "OPEN", "ASSIGNED", "CLIENT");
         AssertAnonymousChange(history[1], "ASSIGNED", "CANCELLED", "PROVIDER");
-    }
-
-    // E22 of the provider: the same privacy as E36.
-    [Fact]
-    [Trait("Requisito", "RF-F008-01")]
-    public async Task GetComoPrestador_DevolveOHistoricoSoComOPapelDoAutor()
-    {
-        var scenario = await CreateAssignedScenarioAsync();
-
-        var service = await GetServiceAsync(scenario.Providers[0].Token, scenario.ServiceId);
-
-        var change = Assert.Single(service.GetProperty("history").EnumerateArray());
-        AssertAnonymousChange(change, "OPEN", "ASSIGNED", "CLIENT");
     }
 
     // ---------- Helpers ----------

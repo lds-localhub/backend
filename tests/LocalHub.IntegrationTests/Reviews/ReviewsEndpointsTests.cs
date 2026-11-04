@@ -54,8 +54,6 @@ public class ReviewsEndpointsTests(LocalHubApiFactory factory)
         var stored = await GetJsonAsync(service.Client.Token, $"{ServicesUrl}/{service.ServiceId}");
         Assert.Equal("COMPLETED", stored.GetProperty("status").GetString());
         Assert.True(stored.GetProperty("reviewed").GetBoolean());
-        var asProvider = await GetJsonAsync(provider.Token, $"{ServicesUrl}/{service.ServiceId}");
-        Assert.True(asProvider.GetProperty("reviewed").GetBoolean());
 
         // The review is of the provider of the accepted proposal (E13).
         var profile = await GetJsonAsync(service.Client.Token, ProfileUrl(provider.ProfessionalProfileId));

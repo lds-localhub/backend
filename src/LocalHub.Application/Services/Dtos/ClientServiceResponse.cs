@@ -133,21 +133,20 @@ public record ClientProposalResponse(
     }
 }
 
-// Item of the list of E21: the fields of E20 without directRequests, and the number of PENDING proposals (always 0
-// for the provider).
+// Item of the list of E21: the summary of the service that the lists of the client show (API documentation, E21).
+// directRequestsCount and proposalsCount count the direct requests and the proposals in any state.
 public record ServiceListItem(
     int ServiceId,
-    int ClientId,
+    string Title,
     ProposalModel ProposalModel,
     ServiceCategorySummary ServiceCategory,
-    string Title,
-    string Description,
-    DateOnly RequestedStartDate,
-    DateOnly? RequestedEndDate,
     ServiceStatus Status,
-    string Location,
-    decimal Latitude,
-    decimal Longitude,
     DateTimeOffset CreationDate,
-    DateTimeOffset? ActualCompletionDate,
-    int PendingProposalsCount);
+    int DirectRequestsCount,
+    int ProposalsCount,
+    int PendingProposalsCount,
+    AssignedProvider? AssignedProvider,
+    bool Reviewed);
+
+// The provider of the accepted proposal, in E21; null while no proposal was accepted.
+public record AssignedProvider(int ProfessionalProfileId, string Name);

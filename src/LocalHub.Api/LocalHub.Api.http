@@ -299,11 +299,11 @@ Content-Type: application/json
   "conditions": "Inclui deslocação e material."
 }
 
-### E21 - The services of the client, newest first, with pendingProposalsCount (status and proposalModel filter)
+### E21 - The services of the client, newest first, with the counters, the assigned provider and reviewed (status filter; only clients)
 GET {{LocalHub.Api_HostAddress}}/api/services?status=OPEN&page=1&pageSize=20
 Authorization: Bearer {{login2.response.body.token}}
 
-### E22 - The service as its client sees it: all the direct requests, each with the provider (with reviewCount) and its proposal
+### E22 - The service as its client sees it: all the direct requests, each with the provider (with reviewCount) and its proposal (only the client)
 GET {{LocalHub.Api_HostAddress}}/api/services/{{createService.response.body.serviceId}}
 Authorization: Bearer {{login2.response.body.token}}
 

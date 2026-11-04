@@ -21,21 +21,3 @@ public record CompletedServiceResponse(int ServiceId, ServiceStatus Status, Date
 }
 
 public record ServiceCategorySummary(int ServiceCategoryId, string Name);
-
-public record DirectRequestResponse(
-    int DirectRequestId,
-    int ProfessionalProfileId,
-    DirectRequestStatus Status,
-    DateTimeOffset CreationDate,
-    DateTimeOffset? ResponseDate)
-{
-    public static DirectRequestResponse From(DirectRequest request)
-    {
-        return new DirectRequestResponse(
-            request.DirectRequestId,
-            request.ProfessionalProfileId,
-            request.Status,
-            request.CreationDate,
-            request.ResponseDate);
-    }
-}

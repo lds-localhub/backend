@@ -4062,7 +4062,7 @@
           ]
         },
         {
-          "name": "E22 — Consultar o serviço como destinatário (200)",
+          "name": "E22 — Pedido de um Prestador (403)",
           "request": {
             "method": "GET",
             "header": [],
@@ -4087,7 +4087,7 @@
                 }
               ]
             },
-            "description": "RF-F007-09, RNF-06. O Prestador vê só a sua solicitação direta e a distância; sem clientId nem outros Prestadores."
+            "description": "API v04, E22: só o Cliente que criou o serviço o consulta. O Prestador consulta a solicitação direta (E36), a proposta (E37) ou o trabalho publicado (E38)."
           },
           "event": [
             {
@@ -4095,58 +4095,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
-                  "const body = pm.response.json();",
-                  "pm.test(\"Serviço aberto, com a distância e só a solicitação do Prestador\", () => {",
-                  "    pm.expect(body.serviceId).to.eql(Number(pm.collectionVariables.get(\"serviceId\")));",
-                  "    pm.expect(body.status).to.eql(\"OPEN\");",
-                  "    pm.expect(body.distanceKm).to.be.a(\"number\");",
-                  "    pm.expect(body.directRequests.length).to.eql(1);",
-                  "    pm.expect(body.directRequests[0].professionalProfileId).to.eql(Number(pm.collectionVariables.get(\"profileId\")));",
-                  "    pm.expect(body.myProposal).to.eql(null);",
-                  "    pm.expect(body.acceptedProposal).to.eql(null);",
-                  "});",
-                  "pm.test(\"Sem dados do Cliente\", () => pm.expect(body).to.not.have.property(\"clientId\"));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "E22 — Serviço inexistente (404)",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/services/2147483647",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "services",
-                "2147483647"
-              ]
-            },
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{profileToken}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "description": "API v03, secção 7: 404 para um serviço inexistente."
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test(\"Devolve 404\", () => pm.response.to.have.status(404));"
+                  "pm.test(\"Devolve 403\", () => pm.response.to.have.status(403));"
                 ]
               }
             }
@@ -4492,19 +4441,19 @@
           ]
         },
         {
-          "name": "E22 — O serviço depois da proposta (200)",
+          "name": "E36 — A solicitação depois da proposta (200)",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/services/{{serviceId}}",
+              "raw": "{{baseUrl}}/api/direct-requests/{{directRequestId}}",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
-                "services",
-                "{{serviceId}}"
+                "direct-requests",
+                "{{directRequestId}}"
               ]
             },
             "auth": {
@@ -4517,7 +4466,7 @@
                 }
               ]
             },
-            "description": "RF-F007-09. myProposal é a proposta do Prestador e a solicitação está PROPOSAL_SUBMITTED."
+            "description": "RF-F007-09. A solicitação está PROPOSAL_SUBMITTED, com responseDate e o proposalId da proposta do Prestador."
           },
           "event": [
             {
@@ -4527,11 +4476,10 @@
                 "exec": [
                   "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
                   "const body = pm.response.json();",
-                  "pm.test(\"A proposta e a solicitação respondida\", () => {",
-                  "    pm.expect(body.myProposal.proposalId).to.eql(Number(pm.collectionVariables.get(\"proposalId\")));",
-                  "    pm.expect(body.myProposal.status).to.eql(\"PENDING\");",
-                  "    pm.expect(body.directRequests[0].status).to.eql(\"PROPOSAL_SUBMITTED\");",
-                  "    pm.expect(body.directRequests[0].responseDate).to.be.a(\"string\");",
+                  "pm.test(\"A solicitação respondida, com a proposta\", () => {",
+                  "    pm.expect(body.status).to.eql(\"PROPOSAL_SUBMITTED\");",
+                  "    pm.expect(body.responseDate).to.be.a(\"string\");",
+                  "    pm.expect(body.proposalId).to.eql(Number(pm.collectionVariables.get(\"proposalId\")));",
                   "});"
                 ]
               }
@@ -4821,19 +4769,19 @@
           ]
         },
         {
-          "name": "E22 — O serviço continua aberto depois da recusa (200)",
+          "name": "E36 — A solicitação recusada e o serviço aberto (200)",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/services/{{declineServiceId}}",
+              "raw": "{{baseUrl}}/api/direct-requests/{{declineRequestId}}",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
-                "services",
-                "{{declineServiceId}}"
+                "direct-requests",
+                "{{declineRequestId}}"
               ]
             },
             "auth": {
@@ -4856,9 +4804,9 @@
                 "exec": [
                   "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
                   "const body = pm.response.json();",
-                  "pm.test(\"Serviço OPEN com a solicitação DECLINED\", () => {",
-                  "    pm.expect(body.status).to.eql(\"OPEN\");",
-                  "    pm.expect(body.directRequests[0].status).to.eql(\"DECLINED\");",
+                  "pm.test(\"Solicitação DECLINED com o serviço OPEN\", () => {",
+                  "    pm.expect(body.status).to.eql(\"DECLINED\");",
+                  "    pm.expect(body.service.status).to.eql(\"OPEN\");",
                   "});"
                 ]
               }
@@ -4982,17 +4930,18 @@
           ]
         },
         {
-          "name": "E22 — Consultar o trabalho publicado sem ter proposta (200)",
+          "name": "E38 — Consultar o trabalho publicado sem ter proposta (200)",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/services/{{publicServiceId}}",
+              "raw": "{{baseUrl}}/api/search/services/{{publicServiceId}}",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
+                "search",
                 "services",
                 "{{publicServiceId}}"
               ]
@@ -5017,11 +4966,10 @@
                 "exec": [
                   "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
                   "const body = pm.response.json();",
-                  "pm.test(\"Trabalho publicado sem solicitações nem proposta\", () => {",
-                  "    pm.expect(body.proposalModel).to.eql(\"PUBLIC\");",
-                  "    pm.expect(body.directRequests).to.eql([]);",
-                  "    pm.expect(body.myProposal).to.eql(null);",
-                  "    pm.expect(body).to.not.have.property(\"clientId\");",
+                  "pm.test(\"Trabalho publicado sem proposta nem dados do Cliente\", () => {",
+                  "    pm.expect(body.serviceId).to.eql(Number(pm.collectionVariables.get(\"publicServiceId\")));",
+                  "    pm.expect(body.myProposalId).to.eql(null);",
+                  "    pm.expect(body).to.not.have.property(\"clientName\");",
                   "});"
                 ]
               }
@@ -5890,7 +5838,7 @@
                 }
               ]
             },
-            "description": "RF-F008-01. Os serviços criados pelo Cliente da F001, do mais recente para o mais antigo, com o número de propostas pendentes."
+            "description": "RF-F008-01. Os serviços criados pelo Cliente da F001, do mais recente para o mais antigo, com o resumo das listas: contadores das solicitações e das propostas, o Prestador atribuído e se foi avaliado."
           },
           "event": [
             {
@@ -5904,7 +5852,14 @@
                   "pm.test(\"Inclui o serviço da F009 com propostas pendentes\", () => {",
                   "    pm.expect(service).to.not.eql(undefined);",
                   "    pm.expect(service.pendingProposalsCount).to.be.at.least(1);",
-                  "    pm.expect(service).to.not.have.property(\"directRequests\");",
+                  "    pm.expect(service.directRequestsCount).to.be.at.least(1);",
+                  "    pm.expect(service.proposalsCount).to.be.at.least(1);",
+                  "    pm.expect(service.assignedProvider).to.eql(null);",
+                  "    pm.expect(service.reviewed).to.eql(false);",
+                  "});",
+                  "pm.test(\"Só o resumo das listas\", () => {",
+                  "    pm.expect(service).to.have.all.keys(\"serviceId\", \"title\", \"proposalModel\", \"serviceCategory\", \"status\", \"creationDate\",",
+                  "        \"directRequestsCount\", \"proposalsCount\", \"pendingProposalsCount\", \"assignedProvider\", \"reviewed\");",
                   "});",
                   "pm.test(\"Do mais recente para o mais antigo\", () => {",
                   "    const dates = body.items.map(s => s.creationDate);",
@@ -6323,7 +6278,7 @@
           ]
         },
         {
-          "name": "E21 — O Prestador vê o serviço atribuído (200)",
+          "name": "E21 — O serviço atribuído, com o Prestador (200)",
           "request": {
             "method": "GET",
             "header": [],
@@ -6342,12 +6297,12 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{profileToken}}",
+                  "value": "{{token}}",
                   "type": "string"
                 }
               ]
             },
-            "description": "RF-F008-01. O Prestador só vê os serviços em que a sua proposta foi aceite, com pendingProposalsCount 0."
+            "description": "RF-F008-01. Depois de aceitar a proposta, o serviço está ASSIGNED, sem propostas pendentes, com o Prestador da proposta aceite em assignedProvider."
           },
           "event": [
             {
@@ -6357,9 +6312,10 @@
                 "exec": [
                   "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
                   "const service = pm.response.json().items.find(s => s.serviceId === Number(pm.collectionVariables.get(\"serviceId\")));",
-                  "pm.test(\"Serviço atribuído\", () => {",
+                  "pm.test(\"Serviço atribuído ao Prestador da proposta aceite\", () => {",
                   "    pm.expect(service.status).to.eql(\"ASSIGNED\");",
                   "    pm.expect(service.pendingProposalsCount).to.eql(0);",
+                  "    pm.expect(service.assignedProvider.professionalProfileId).to.eql(Number(pm.collectionVariables.get(\"profileId\")));",
                   "});"
                 ]
               }

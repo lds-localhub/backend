@@ -260,10 +260,11 @@ public class ProposalsEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal("DECLINED", body.GetProperty("status").GetString());
         Assert.NotEqual(JsonValueKind.Null, body.GetProperty("responseDate").ValueKind);
 
-        using var service = await GetAsync(provider.Token, $"{ServicesUrl}/{serviceId}");
-        var seen = await service.Content.ReadFromJsonAsync<JsonElement>();
-        Assert.Equal("OPEN", seen.GetProperty("status").GetString());
-        Assert.Equal("DECLINED", seen.GetProperty("directRequests")[0].GetProperty("status").GetString());
+        // The provider sees the declined request and the service still OPEN in E36.
+        using var detail = await GetAsync(provider.Token, $"/api/direct-requests/{requestId}");
+        var seen = await detail.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("DECLINED", seen.GetProperty("status").GetString());
+        Assert.Equal("OPEN", seen.GetProperty("service").GetProperty("status").GetString());
     }
 
     [Fact]
@@ -529,132 +530,7 @@ public class ProposalsEndpointsTests(LocalHubApiFactory factory)
         await AssertProblemAsync(withoutProfile, MissingProfileType, "/api/direct-requests");
     }
 
-    // ---------- E22 (criterion 8) ----------
-
-    [Fact]
-    [Trait("Requisito", "RF-F007-09")]
-    [Trait("Requisito", "RNF-06")]
-    public async Task GetService_DestinatarioComProposta_VeSoOsSeusDadosEADistancia()
-    {
-        var provider = await CreateProviderWithProfileAsync(_client);
-        var other = await CreateProviderInCategoryAsync(provider.ServiceCategoryId);
-        var (_, serviceId, requests) = await CreateDirectServiceAsync(
-            provider.ServiceCategoryId, provider.ProfessionalProfileId, other.ProfessionalProfileId);
-        using var submitted = await SubmitAsync(provider.Token, serviceId, ValidProposal());
-        using var othersProposal = await SubmitAsync(other.Token, serviceId, ValidProposal());
-        Assert.Equal(HttpStatusCode.Created, submitted.StatusCode);
-        Assert.Equal(HttpStatusCode.Created, othersProposal.StatusCode);
-
-        using var response = await GetAsync(provider.Token, $"{ServicesUrl}/{serviceId}");
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var service = await response.Content.ReadFromJsonAsync<JsonElement>();
-        Assert.Equal(serviceId, service.GetProperty("serviceId").GetInt32());
-        Assert.Equal("DIRECT_REQUEST", service.GetProperty("proposalModel").GetString());
-        Assert.Equal("OPEN", service.GetProperty("status").GetString());
-        Assert.Equal(0m, service.GetProperty("distanceKm").GetDecimal());
-        Assert.False(service.GetProperty("reviewed").GetBoolean());
-        Assert.Empty(service.GetProperty("history").EnumerateArray());
-        Assert.Equal(JsonValueKind.Null, service.GetProperty("acceptedProposal").ValueKind);
-
-        var directRequests = service.GetProperty("directRequests").EnumerateArray().ToList();
-        var own = Assert.Single(directRequests);
-        Assert.Equal(requests[provider.ProfessionalProfileId], own.GetProperty("directRequestId").GetInt32());
-        Assert.Equal("PROPOSAL_SUBMITTED", own.GetProperty("status").GetString());
-        var proposal = service.GetProperty("myProposal");
-        Assert.Equal(80.00m, proposal.GetProperty("amount").GetDecimal());
-        Assert.Equal("PENDING", proposal.GetProperty("status").GetString());
-
-        // Nothing of the Client or of the other provider.
-        Assert.False(service.TryGetProperty("clientId", out _));
-        Assert.DoesNotContain("clientId", await response.Content.ReadAsStringAsync(), StringComparison.Ordinal);
-        Assert.DoesNotContain(requests[other.ProfessionalProfileId].ToString(CultureInfo.InvariantCulture),
-            directRequests.Select(r => r.GetProperty("directRequestId").GetInt32().ToString(CultureInfo.InvariantCulture)));
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F011-01")]
-    public async Task GetService_TrabalhoPublicadoAbertoSemProposta_Devolve200ComMyProposalNulo()
-    {
-        var provider = await CreateProviderWithProfileAsync(_client);
-        var (_, serviceId) = await CreatePublicServiceAsync(provider.ServiceCategoryId);
-
-        using var response = await GetAsync(provider.Token, $"{ServicesUrl}/{serviceId}");
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var service = await response.Content.ReadFromJsonAsync<JsonElement>();
-        Assert.Equal("PUBLIC", service.GetProperty("proposalModel").GetString());
-        Assert.Empty(service.GetProperty("directRequests").EnumerateArray());
-        Assert.Equal(JsonValueKind.Null, service.GetProperty("myProposal").ValueKind);
-        Assert.False(service.TryGetProperty("clientId", out _));
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F011-01")]
-    public async Task GetService_TrabalhoPublicadoNaoAberto_Devolve403()
-    {
-        var provider = await CreateProviderWithProfileAsync(_client);
-        var (_, serviceId) = await CreatePublicServiceAsync(provider.ServiceCategoryId);
-        await CancelServiceAsync(serviceId);
-
-        using var response = await GetAsync(provider.Token, $"{ServicesUrl}/{serviceId}");
-
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-        await AssertProblemAsync(response, ForbiddenType, $"{ServicesUrl}/{serviceId}");
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F011-01")]
-    public async Task GetService_TrabalhoPublicadoDeClienteDesativado_Devolve403()
-    {
-        var provider = await CreateProviderWithProfileAsync(_client);
-        var (client, serviceId) = await CreatePublicServiceAsync(provider.ServiceCategoryId);
-        await DeactivateAsync(client.UserId);
-
-        using var response = await GetAsync(provider.Token, $"{ServicesUrl}/{serviceId}");
-
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-    }
-
-    [Fact]
-    [Trait("Requisito", "RNF-06")]
-    public async Task GetService_SolicitacoesDiretasSemSolicitacaoAoPrestador_Devolve403()
-    {
-        var recipient = await CreateProviderWithProfileAsync(_client);
-        var outsider = await CreateProviderInCategoryAsync(recipient.ServiceCategoryId);
-        var (_, serviceId, _) = await CreateDirectServiceAsync(recipient.ServiceCategoryId, recipient.ProfessionalProfileId);
-
-        using var response = await GetAsync(outsider.Token, $"{ServicesUrl}/{serviceId}");
-
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-        await AssertProblemAsync(response, ForbiddenType, $"{ServicesUrl}/{serviceId}");
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F007-09")]
-    public async Task GetService_ServicoInexistente_Devolve404()
-    {
-        var provider = await CreateProviderWithProfileAsync(_client);
-
-        using var response = await GetAsync(provider.Token, $"{ServicesUrl}/{int.MaxValue}");
-
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-        await AssertProblemAsync(response, NotFoundType, $"{ServicesUrl}/{int.MaxValue}");
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F004-01")]
-    public async Task GetService_PrestadorSemPerfil_Devolve403PerfilEmFalta()
-    {
-        var provider = await CreateProviderWithProfileAsync(_client);
-        var (_, serviceId) = await CreatePublicServiceAsync(provider.ServiceCategoryId);
-        var (token, _, _) = await RegisterProviderAsync(_client);
-
-        using var response = await GetAsync(token, $"{ServicesUrl}/{serviceId}");
-
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-        await AssertProblemAsync(response, MissingProfileType, $"{ServicesUrl}/{serviceId}");
-    }
+    // ---------- E22: only the client that created the service ----------
 
     [Fact]
     [Trait("Requisito", "RF-F011-01")]

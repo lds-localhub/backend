@@ -315,120 +315,23 @@ public class ServiceWorkflowService
                 row.ClientName));
     }
 
-    // E22 (RF-F007-09, RF-F008-01, RF-F011-01), provider side. Access: the provider has a direct request or a proposal
-    // in the service, or the service is a PUBLIC job that is OPEN and whose Client is ACTIVE. The response has only the
-    // own direct request and proposal, and no data of the Client (RNF-06). The history of states is in chronological
-    // order, only with the role of the author of each change (as in E36).
-    public async Task<ProviderServiceResponse> GetForProviderAsync(int serviceId, CancellationToken cancellationToken)
-    {
-        int? profileId = await _db.FindProfileIdAsync(_currentUser.UserId, cancellationToken);
-        if (profileId == null)
-        {
-            throw new ForbiddenException(ProfileService.MissingProfileMessage, ErrorTypes.MissingProfile);
-        }
-
-        var service = await _db.Services.AsNoTracking()
-            .Include(s => s.ServiceCategory)
-            .Include(s => s.Client)
-            .Include(s => s.Review)
-            .Include(s => s.DirectRequests.Where(r => r.ProfessionalProfileId == profileId))
-            .Include(s => s.Proposals.Where(p => p.ProfessionalProfileId == profileId))
-            .SingleOrDefaultAsync(s => s.ServiceId == serviceId, cancellationToken);
-        if (service == null)
-        {
-            throw new NotFoundException("Serviço não encontrado.");
-        }
-
-        bool isParticipant = service.DirectRequests.Count > 0 || service.Proposals.Count > 0;
-        bool isOpenJob = service.ProposalModel == ProposalModel.Public
-                         && service.Status == ServiceStatus.Open
-                         && service.Client.Status == ActivationStatus.Active;
-        if (!isParticipant && !isOpenJob)
-        {
-            throw new ForbiddenException("Não tem permissão para aceder a este serviço.");
-        }
-
-        var location = await _db.Users.AsNoTracking()
-            .Where(u => u.UserId == _currentUser.UserId && u.Latitude != null && u.Longitude != null)
-            .Select(u => new { Latitude = u.Latitude!.Value, Longitude = u.Longitude!.Value })
-            .SingleOrDefaultAsync(cancellationToken);
-        decimal? distanceKm = location == null
-            ? null
-            : GeoDistance.RoundKm(
-                GeoDistance.HaversineKm(location.Latitude, location.Longitude, service.Latitude, service.Longitude));
-
-        var history = await _db.ServiceStatusHistories.AsNoTracking()
-            .Where(h => h.ServiceId == serviceId)
-            .OrderBy(h => h.ChangedAt)
-            .ThenBy(h => h.ServiceStatusHistoryId)
-            .Select(h => new ProviderServiceHistoryResponse(h.PreviousStatus, h.NewStatus, h.ChangedAt, h.ChangedBy.Role))
-            .ToListAsync(cancellationToken);
-
-        var myProposal = service.Proposals.SingleOrDefault();
-        var myResponse = myProposal == null ? null : MyProposalResponse.From(myProposal);
-
-        return new ProviderServiceResponse(
-            service.ServiceId,
-            service.ProposalModel,
-            new ServiceCategorySummary(service.ServiceCategoryId, service.ServiceCategory.Name),
-            service.Title,
-            service.Description,
-            service.RequestedStartDate,
-            service.RequestedEndDate,
-            service.Status,
-            service.Location,
-            service.Latitude,
-            service.Longitude,
-            distanceKm,
-            service.CreationDate,
-            service.ActualCompletionDate,
-            Reviewed: service.Review != null,
-            service.DirectRequests.Select(DirectRequestResponse.From).ToList(),
-            myResponse,
-            myProposal?.Status == ProposalStatus.Accepted ? myResponse : null,
-            history);
-    }
-
-    // E21 (RF-F008-01): the client sees the services it created; the provider, the services in which its proposal was
-    // accepted. Newest first, filtered by state and modality. pendingProposalsCount is always 0 for the provider.
+    // E21 (RF-F008-01): the services that the client created, newest first, optionally filtered by state, with the
+    // summary that the lists show (counters, the provider of the accepted proposal and whether it was reviewed).
     public async Task<PagedResult<ServiceListItem>> ListMineAsync(
-        string? status, string? proposalModel, PageRequest page, CancellationToken cancellationToken)
+        string? status, PageRequest page, CancellationToken cancellationToken)
     {
         var errors = new Dictionary<string, string[]>();
         var statusFilter = EnumQuery.Parse<ServiceStatus>(status, "status", errors);
-        var modelFilter = EnumQuery.Parse<ProposalModel>(proposalModel, "proposalModel", errors);
         page.Validate(errors);
         if (errors.Count > 0)
         {
             throw new ValidationException(errors);
         }
 
-        bool isClient = _currentUser.Role == UserRole.Client;
-        IQueryable<Service> services = _db.Services.AsNoTracking();
-        if (isClient)
-        {
-            services = services.Where(s => s.ClientId == _currentUser.UserId);
-        }
-        else
-        {
-            int? profileId = await _db.FindProfileIdAsync(_currentUser.UserId, cancellationToken);
-            if (profileId == null)
-            {
-                throw new ForbiddenException(ProfileService.MissingProfileMessage, ErrorTypes.MissingProfile);
-            }
-
-            services = services.Where(s => s.Proposals.Any(
-                p => p.ProfessionalProfileId == profileId && p.Status == ProposalStatus.Accepted));
-        }
-
+        var services = _db.Services.AsNoTracking().Where(s => s.ClientId == _currentUser.UserId);
         if (statusFilter != null)
         {
             services = services.Where(s => s.Status == statusFilter);
-        }
-
-        if (modelFilter != null)
-        {
-            services = services.Where(s => s.ProposalModel == modelFilter);
         }
 
         int total = await services.CountAsync(cancellationToken);
@@ -439,28 +342,27 @@ public class ServiceWorkflowService
             .Take(page.PageSize)
             .Select(s => new ServiceListItem(
                 s.ServiceId,
-                s.ClientId,
+                s.Title,
                 s.ProposalModel,
                 new ServiceCategorySummary(s.ServiceCategoryId, s.ServiceCategory.Name),
-                s.Title,
-                s.Description,
-                s.RequestedStartDate,
-                s.RequestedEndDate,
                 s.Status,
-                s.Location,
-                s.Latitude,
-                s.Longitude,
                 s.CreationDate,
-                s.ActualCompletionDate,
-                isClient ? s.Proposals.Count(p => p.Status == ProposalStatus.Pending) : 0))
+                s.DirectRequests.Count,
+                s.Proposals.Count,
+                s.Proposals.Count(p => p.Status == ProposalStatus.Pending),
+                s.Proposals
+                    .Where(p => p.Status == ProposalStatus.Accepted)
+                    .Select(p => new AssignedProvider(p.ProfessionalProfileId, p.ProfessionalProfile.ServiceProvider.Name))
+                    .FirstOrDefault(),
+                s.Review != null))
             .ToListAsync(cancellationToken);
 
         return new PagedResult<ServiceListItem>(page.Page, page.PageSize, total, items);
     }
 
-    // E22 (RF-F007-09, RF-F008-01), client side: only the client that created the service, with all the direct
-    // requests (each with its proposal) and, in PUBLIC, all the proposals received.
-    public async Task<ClientServiceResponse> GetForClientAsync(int serviceId, CancellationToken cancellationToken)
+    // E22 (RF-F007-09, RF-F008-01): only the client that created the service, with all the direct requests (each with
+    // its proposal) and, in PUBLIC, all the proposals received.
+    public async Task<ClientServiceResponse> GetAsync(int serviceId, CancellationToken cancellationToken)
     {
         var service = await FindOwnServiceAsync(_db.Services.AsNoTracking(), serviceId, cancellationToken);
         return await ToClientResponseAsync(service, cancellationToken);

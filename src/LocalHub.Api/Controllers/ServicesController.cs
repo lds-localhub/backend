@@ -49,33 +49,26 @@ public class ServicesController : ControllerBase
         return Created($"/api/services/{service.ServiceId}", service);
     }
 
-    // E21: the client sees the services it created; the provider, those in which its proposal was accepted.
+    // E21: only clients, with the services they created (providers and administrators get 403). The provider follows
+    // its services through the direct requests (E23) and the proposals (E27).
     [HttpGet]
-    [Authorize(Roles = "CLIENT,PROVIDER")]
-    [RequiresProfessionalProfile]
+    [Authorize(Roles = "CLIENT")]
     public async Task<ActionResult<PagedResult<ServiceListItem>>> ListMine(
         CancellationToken cancellationToken,
         [FromQuery] string? status = null,
-        [FromQuery] string? proposalModel = null,
         [FromQuery] int page = PageRequest.DefaultPage,
         [FromQuery] int pageSize = PageRequest.DefaultPageSize)
     {
-        return Ok(await _serviceWorkflowService.ListMineAsync(
-            status, proposalModel, new PageRequest(page, pageSize), cancellationToken));
+        return Ok(await _serviceWorkflowService.ListMineAsync(status, new PageRequest(page, pageSize), cancellationToken));
     }
 
-    // E22: each role sees a different view (ClientServiceResponse or ProviderServiceResponse); administrators get 403.
+    // E22: only the client that created the service (providers and administrators get 403). The provider consults the
+    // service through its direct request (E36), its proposal (E37) or the published job (E38).
     [HttpGet("{serviceId:int}")]
-    [Authorize(Roles = "CLIENT,PROVIDER")]
-    [RequiresProfessionalProfile]
-    public async Task<IActionResult> Get(int serviceId, CancellationToken cancellationToken)
+    [Authorize(Roles = "CLIENT")]
+    public async Task<ActionResult<ClientServiceResponse>> Get(int serviceId, CancellationToken cancellationToken)
     {
-        if (_currentUser.Role == UserRole.Client)
-        {
-            return Ok(await _serviceWorkflowService.GetForClientAsync(serviceId, cancellationToken));
-        }
-
-        return Ok(await _serviceWorkflowService.GetForProviderAsync(serviceId, cancellationToken));
+        return Ok(await _serviceWorkflowService.GetAsync(serviceId, cancellationToken));
     }
 
     // E30: the client that created the service (OPEN or ASSIGNED) or the provider whose proposal was accepted

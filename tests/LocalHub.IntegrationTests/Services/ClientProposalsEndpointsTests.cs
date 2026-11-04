@@ -300,28 +300,52 @@ public class ClientProposalsEndpointsTests(LocalHubApiFactory factory)
         var items = page.GetProperty("items").EnumerateArray().ToList();
         Assert.Equal([newest, scenario.ServiceId], items.Select(i => i.GetProperty("serviceId").GetInt32()));
         Assert.Equal([0, 2], items.Select(i => i.GetProperty("pendingProposalsCount").GetInt32()));
+        Assert.Equal([0, 2], items.Select(i => i.GetProperty("proposalsCount").GetInt32()));
+        Assert.Equal([0, 0], items.Select(i => i.GetProperty("directRequestsCount").GetInt32()));
+        Assert.All(items, i => Assert.Equal(JsonValueKind.Null, i.GetProperty("assignedProvider").ValueKind));
+        Assert.All(items, i => Assert.False(i.GetProperty("reviewed").GetBoolean()));
         Assert.Equal("PUBLIC", items[1].GetProperty("proposalModel").GetString());
         Assert.False(items[1].TryGetProperty("directRequests", out _));
+        // Only the summary of the lists: the detail and the coordinates are not returned (API documentation, E21).
+        Assert.False(items[1].TryGetProperty("description", out _));
+        Assert.False(items[1].TryGetProperty("latitude", out _));
     }
 
     [Fact]
     [Trait("Requisito", "RF-F008-01")]
-    public async Task ListMine_Prestador_DevolveSoOsServicosComASuaPropostaAceite()
+    public async Task ListMine_PropostaAceite_DevolveOPrestadorAtribuidoEOsContadores()
     {
-        var scenario = await CreatePublicScenarioAsync(proposals: 2);
+        var scenario = await CreateDirectScenarioAsync(proposals: 2, silentProviders: 1);
         using var accept = await PostAsync(scenario.Client.Token, AcceptUrl(scenario.ProposalIds[0]));
         Assert.Equal(HttpStatusCode.OK, accept.StatusCode);
 
-        using var winner = await GetAsync(scenario.Providers[0].Token, ServicesUrl);
-        using var loser = await GetAsync(scenario.Providers[1].Token, ServicesUrl);
+        using var response = await GetAsync(scenario.Client.Token, ServicesUrl);
 
-        var winnerPage = await winner.Content.ReadFromJsonAsync<JsonElement>();
-        var item = Assert.Single(winnerPage.GetProperty("items").EnumerateArray());
-        Assert.Equal(scenario.ServiceId, item.GetProperty("serviceId").GetInt32());
+        var page = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var item = Assert.Single(page.GetProperty("items").EnumerateArray());
         Assert.Equal("ASSIGNED", item.GetProperty("status").GetString());
+        Assert.Equal(3, item.GetProperty("directRequestsCount").GetInt32());
+        Assert.Equal(2, item.GetProperty("proposalsCount").GetInt32());
         Assert.Equal(0, item.GetProperty("pendingProposalsCount").GetInt32());
-        var loserPage = await loser.Content.ReadFromJsonAsync<JsonElement>();
-        Assert.Equal(0, loserPage.GetProperty("total").GetInt32());
+        var assigned = item.GetProperty("assignedProvider");
+        Assert.Equal(scenario.Providers[0].ProfessionalProfileId, assigned.GetProperty("professionalProfileId").GetInt32());
+        Assert.Equal("Prestador Teste", assigned.GetProperty("name").GetString());
+    }
+
+    // E21 and E22 are only for the client: the provider follows its services with E23, E27, E36 and E37.
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    [Trait("Requisito", "RF-F008-01")]
+    public async Task ListMineEGetService_Prestador_Devolve403(bool detail)
+    {
+        var scenario = await CreatePublicScenarioAsync(proposals: 1);
+        string url = detail ? $"{ServicesUrl}/{scenario.ServiceId}" : ServicesUrl;
+
+        using var response = await GetAsync(scenario.Providers[0].Token, url);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        await AssertProblemAsync(response, ForbiddenType, url);
     }
 
     [Fact]
@@ -334,12 +358,12 @@ public class ClientProposalsEndpointsTests(LocalHubApiFactory factory)
         int direct = await CreateDirectServiceAsync(client.Token, provider.ServiceCategoryId, provider.ProfessionalProfileId);
         await CancelServiceAsync(published);
 
-        using var byModel = await GetAsync(client.Token, $"{ServicesUrl}?proposalModel=DIRECT_REQUEST");
         using var byStatus = await GetAsync(client.Token, $"{ServicesUrl}?status=CANCELLED");
         using var secondPage = await GetAsync(client.Token, $"{ServicesUrl}?page=2&pageSize=1");
+        using var firstPage = await GetAsync(client.Token, $"{ServicesUrl}?page=1&pageSize=1");
 
-        var model = await byModel.Content.ReadFromJsonAsync<JsonElement>();
-        Assert.Equal(direct, Assert.Single(model.GetProperty("items").EnumerateArray()).GetProperty("serviceId").GetInt32());
+        var first = await firstPage.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(direct, Assert.Single(first.GetProperty("items").EnumerateArray()).GetProperty("serviceId").GetInt32());
         var status = await byStatus.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal(published, Assert.Single(status.GetProperty("items").EnumerateArray()).GetProperty("serviceId").GetInt32());
         var paged = await secondPage.Content.ReadFromJsonAsync<JsonElement>();
@@ -349,7 +373,6 @@ public class ClientProposalsEndpointsTests(LocalHubApiFactory factory)
 
     [Theory]
     [InlineData("?status=INVALID", "status")]
-    [InlineData("?proposalModel=INVALID", "proposalModel")]
     [InlineData("?pageSize=51", "pageSize")]
     [Trait("Requisito", "RF-F008-01")]
     public async Task ListMine_FiltroInvalido_Devolve400(string query, string field)
