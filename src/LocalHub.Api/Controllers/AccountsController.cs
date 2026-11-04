@@ -22,7 +22,7 @@ public class AccountsController : ControllerBase
 
     // E05
     [HttpGet]
-    public async Task<ActionResult<PagedResult<AccountResponse>>> List(
+    public async Task<ActionResult<PagedResult<AccountListItemResponse>>> List(
         [FromQuery] string? role,
         [FromQuery] string? status,
         CancellationToken cancellationToken,
