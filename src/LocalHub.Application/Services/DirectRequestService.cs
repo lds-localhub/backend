@@ -86,31 +86,27 @@ public class DirectRequestService
                 r.Status,
                 r.CreationDate,
                 r.ResponseDate,
-                Service = _db.Services
-                    .Where(s => s.ServiceId == r.ServiceId)
-                    .Select(s => new
-                    {
-                        s.ServiceId,
-                        s.ServiceCategoryId,
-                        CategoryName = s.ServiceCategory.Name,
-                        s.Title,
-                        s.Description,
-                        s.Location,
-                        s.Latitude,
-                        s.Longitude,
-                        s.RequestedStartDate,
-                        s.RequestedEndDate,
-                        s.Status,
-                        s.CreationDate,
-                        ClientName = s.Client.Name,
-                    })
-                    .First(),
-                ProposalId = _db.Proposals
-                    .Where(p => p.ServiceId == r.ServiceId && p.ProfessionalProfileId == r.ProfessionalProfileId)
+                Service = new
+                {
+                    r.ServiceId,
+                    r.Service.ServiceCategoryId,
+                    CategoryName = r.Service.ServiceCategory.Name,
+                    r.Service.Title,
+                    r.Service.Description,
+                    r.Service.Location,
+                    r.Service.Latitude,
+                    r.Service.Longitude,
+                    r.Service.RequestedStartDate,
+                    r.Service.RequestedEndDate,
+                    r.Service.Status,
+                    r.Service.CreationDate,
+                    ClientName = r.Service.Client.Name,
+                },
+                ProposalId = r.Service.Proposals
+                    .Where(p => p.ProfessionalProfileId == r.ProfessionalProfileId)
                     .Select(p => (int?)p.ProposalId)
                     .FirstOrDefault(),
-                History = _db.ServiceStatusHistories
-                    .Where(h => h.ServiceId == r.ServiceId)
+                History = r.Service.StatusHistory
                     .OrderBy(h => h.ChangedAt)
                     .ThenBy(h => h.ServiceStatusHistoryId)
                     .Select(h => new ProviderServiceHistoryResponse(

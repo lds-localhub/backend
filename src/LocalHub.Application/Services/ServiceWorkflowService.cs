@@ -236,7 +236,7 @@ public class ServiceWorkflowService
 
         var row = await _db.Proposals.AsNoTracking()
             .Where(p => p.ProposalId == proposalId)
-            .Join(_db.Services, p => p.ServiceId, s => s.ServiceId, (p, s) => new
+            .Select(p => new
             {
                 p.ProfessionalProfileId,
                 p.Amount,
@@ -245,20 +245,20 @@ public class ServiceWorkflowService
                 p.Status,
                 p.CreationDate,
                 p.DecisionDate,
-                s.ServiceId,
-                s.ProposalModel,
-                s.ServiceCategoryId,
-                CategoryName = s.ServiceCategory.Name,
-                s.Title,
-                s.Description,
-                s.Location,
-                s.Latitude,
-                s.Longitude,
-                s.RequestedStartDate,
-                s.RequestedEndDate,
-                ServiceStatus = s.Status,
-                ServiceCreationDate = s.CreationDate,
-                ClientName = s.Client.Name,
+                p.ServiceId,
+                p.Service.ProposalModel,
+                p.Service.ServiceCategoryId,
+                CategoryName = p.Service.ServiceCategory.Name,
+                p.Service.Title,
+                p.Service.Description,
+                p.Service.Location,
+                p.Service.Latitude,
+                p.Service.Longitude,
+                p.Service.RequestedStartDate,
+                p.Service.RequestedEndDate,
+                ServiceStatus = p.Service.Status,
+                ServiceCreationDate = p.Service.CreationDate,
+                ClientName = p.Service.Client.Name,
             })
             .SingleOrDefaultAsync(cancellationToken);
         if (row == null)
