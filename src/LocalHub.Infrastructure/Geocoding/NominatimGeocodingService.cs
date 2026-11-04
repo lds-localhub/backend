@@ -14,7 +14,7 @@ namespace LocalHub.Infrastructure.Geocoding;
 /// Usa os endpoints «search» e «reverse» no formato jsonv2 e respeita a política de utilização:
 /// User-Agent próprio (configurado no HttpClient) e no máximo um pedido por segundo (<see cref="NominatimRateLimiter"/>).
 /// </summary>
-public sealed partial class NominatimGeocodingService : IGeocodingService
+public sealed class NominatimGeocodingService : IGeocodingService
 {
     /// <summary>Tamanho máximo da morada guardada (coluna address varchar(255) do Modelo de Dados v01).</summary>
     public const int AddressMaxLength = 255;
@@ -147,7 +147,7 @@ public sealed partial class NominatimGeocodingService : IGeocodingService
 
             if (!response.IsSuccessStatusCode)
             {
-                LogUnsuccessfulStatus(_logger, (int)response.StatusCode, path);
+                _logger.LogWarning("O Nominatim respondeu {StatusCode} ao pedido {Path}.", (int)response.StatusCode, path);
                 throw new GeocodingUnavailableException("O Nominatim respondeu com um código de erro.");
             }
 
@@ -156,7 +156,7 @@ public sealed partial class NominatimGeocodingService : IGeocodingService
         }
         catch (HttpRequestException ex)
         {
-            LogRequestFailed(_logger, ex, path);
+            _logger.LogWarning(ex, "Falha no pedido {Path} ao Nominatim.", path);
             throw new GeocodingUnavailableException("Não foi possível contactar o Nominatim.", ex);
         }
         catch (TaskCanceledException ex)
@@ -168,12 +168,12 @@ public sealed partial class NominatimGeocodingService : IGeocodingService
             }
 
             // Tempo limite do HttpClient: não foi o pedido do utilizador a ser cancelado.
-            LogRequestFailed(_logger, ex, path);
+            _logger.LogWarning(ex, "Falha no pedido {Path} ao Nominatim.", path);
             throw new GeocodingUnavailableException("O Nominatim não respondeu a tempo.", ex);
         }
         catch (JsonException ex)
         {
-            LogRequestFailed(_logger, ex, path);
+            _logger.LogWarning(ex, "Falha no pedido {Path} ao Nominatim.", path);
             throw new GeocodingUnavailableException("O Nominatim devolveu uma resposta inválida.", ex);
         }
     }
@@ -204,10 +204,4 @@ public sealed partial class NominatimGeocodingService : IGeocodingService
             && text.ValueKind == JsonValueKind.String
             && decimal.TryParse(text.GetString(), NumberStyles.Float, CultureInfo.InvariantCulture, out value);
     }
-
-    [LoggerMessage(Level = LogLevel.Warning, Message = "O Nominatim respondeu {StatusCode} ao pedido {Path}.")]
-    private static partial void LogUnsuccessfulStatus(ILogger logger, int statusCode, string path);
-
-    [LoggerMessage(Level = LogLevel.Warning, Message = "Falha no pedido {Path} ao Nominatim.")]
-    private static partial void LogRequestFailed(ILogger logger, Exception exception, string path);
 }
