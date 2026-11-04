@@ -71,7 +71,7 @@ public class SearchService
         }
 
         int total = await profiles.CountAsync(cancellationToken);
-        var rows = await profiles
+        var providers = await profiles
             .Select(p => new
             {
                 p.ProfessionalProfileId,
@@ -81,34 +81,39 @@ public class SearchService
                     .ToList(),
                 p.AverageRating,
                 p.ServiceRadiusKm,
-                // Calculated by PostgreSQL (DEC-06), so the page is chosen after ordering by the distance.
-                DistanceKm = GeoDistance.HaversineKm(
-                    p.ServiceProvider.Latitude!.Value,
-                    p.ServiceProvider.Longitude!.Value,
-                    reference.Latitude,
-                    reference.Longitude),
+                Latitude = p.ServiceProvider.Latitude!.Value,
+                Longitude = p.ServiceProvider.Longitude!.Value,
+            })
+            .ToListAsync(cancellationToken);
+
+        // Calculated in memory (DEC-06), so the page is chosen after ordering by the distance.
+        var rows = providers
+            .Select(p => new
+            {
+                Provider = p,
+                DistanceKm = GeoDistance.HaversineKm(p.Latitude, p.Longitude, reference.Latitude, reference.Longitude),
             })
             .OrderBy(r => r.DistanceKm)
-            .ThenBy(r => r.ProfessionalProfileId) // stable order between pages when two providers are at the same distance
+            .ThenBy(r => r.Provider.ProfessionalProfileId) // stable order between pages when two providers are at the same distance
             .Skip(page.Skip)
             .Take(page.PageSize)
-            .ToListAsync(cancellationToken);
+            .ToList();
 
         // Only for the providers of the page, in a single query.
         var reviewCounts = await _db.CountReviewsAsync(
-            rows.Select(r => r.ProfessionalProfileId).ToList(), cancellationToken);
+            rows.Select(r => r.Provider.ProfessionalProfileId).ToList(), cancellationToken);
 
         var items = rows
             .Select(r => new ProviderSearchResult(
-                r.ProfessionalProfileId,
-                r.Name,
-                ProfileCategoryResponse.InDisplayOrder(r.Categories),
-                r.AverageRating,
-                reviewCounts.GetValueOrDefault(r.ProfessionalProfileId),
+                r.Provider.ProfessionalProfileId,
+                r.Provider.Name,
+                ProfileCategoryResponse.InDisplayOrder(r.Provider.Categories),
+                r.Provider.AverageRating,
+                reviewCounts.GetValueOrDefault(r.Provider.ProfessionalProfileId),
                 GeoDistance.RoundKm(r.DistanceKm),
-                r.ServiceRadiusKm,
+                r.Provider.ServiceRadiusKm,
                 // The exact distance, not the rounded one.
-                r.DistanceKm <= r.ServiceRadiusKm))
+                r.DistanceKm <= r.Provider.ServiceRadiusKm))
             .ToList();
 
         return new PagedResult<ProviderSearchResult>(page.Page, page.PageSize, total, items);
@@ -151,51 +156,57 @@ public class SearchService
             jobs = jobs.Where(s => s.ServiceCategoryId == serviceCategoryId);
         }
 
-        // Calculated by PostgreSQL (DEC-06), so the radius filter and the page are applied after the distance.
-        var withDistance = jobs.Select(s => new
-        {
-            Service = s,
-            DistanceKm = GeoDistance.HaversineKm(s.Latitude, s.Longitude, reference.Latitude, reference.Longitude),
-        });
-        if (withinServiceRadius)
-        {
-            // The exact distance, not the rounded one, as in withinServiceRadius.
-            withDistance = withDistance.Where(r => r.DistanceKm <= provider.ServiceRadiusKm);
-        }
-
-        int total = await withDistance.CountAsync(cancellationToken);
-        var rows = await withDistance
-            .OrderBy(r => r.DistanceKm)
-            .ThenBy(r => r.Service.ServiceId) // stable order between pages when two jobs are at the same distance
-            .Skip(page.Skip)
-            .Take(page.PageSize)
-            .Select(r => new
+        var candidates = await jobs
+            .Select(s => new
             {
-                r.Service.ServiceId,
-                r.Service.ServiceCategoryId,
-                CategoryName = r.Service.ServiceCategory.Name,
-                r.Service.Title,
-                r.Service.Description,
-                r.Service.Location,
-                r.Service.RequestedStartDate,
-                r.Service.RequestedEndDate,
-                r.Service.CreationDate,
-                r.DistanceKm,
+                s.ServiceId,
+                s.ServiceCategoryId,
+                CategoryName = s.ServiceCategory.Name,
+                s.Title,
+                s.Description,
+                s.Location,
+                s.Latitude,
+                s.Longitude,
+                s.RequestedStartDate,
+                s.RequestedEndDate,
+                s.CreationDate,
             })
             .ToListAsync(cancellationToken);
 
+        // Calculated in memory (DEC-06), so the radius filter, the total and the page are applied after the distance.
+        var withDistance = candidates
+            .Select(s => new
+            {
+                Job = s,
+                DistanceKm = GeoDistance.HaversineKm(s.Latitude, s.Longitude, reference.Latitude, reference.Longitude),
+            })
+            .ToList();
+        if (withinServiceRadius)
+        {
+            // The exact distance, not the rounded one, as in withinServiceRadius.
+            withDistance = withDistance.Where(r => r.DistanceKm <= provider.ServiceRadiusKm).ToList();
+        }
+
+        int total = withDistance.Count;
+        var rows = withDistance
+            .OrderBy(r => r.DistanceKm)
+            .ThenBy(r => r.Job.ServiceId) // stable order between pages when two jobs are at the same distance
+            .Skip(page.Skip)
+            .Take(page.PageSize)
+            .ToList();
+
         var items = rows
             .Select(r => new PublishedJobSearchResult(
-                r.ServiceId,
-                new ServiceCategorySummary(r.ServiceCategoryId, r.CategoryName),
-                r.Title,
-                r.Description,
-                r.Location,
+                r.Job.ServiceId,
+                new ServiceCategorySummary(r.Job.ServiceCategoryId, r.Job.CategoryName),
+                r.Job.Title,
+                r.Job.Description,
+                r.Job.Location,
                 GeoDistance.RoundKm(r.DistanceKm),
                 r.DistanceKm <= provider.ServiceRadiusKm,
-                r.RequestedStartDate,
-                r.RequestedEndDate,
-                r.CreationDate))
+                r.Job.RequestedStartDate,
+                r.Job.RequestedEndDate,
+                r.Job.CreationDate))
             .ToList();
 
         return new PagedResult<PublishedJobSearchResult>(page.Page, page.PageSize, total, items);

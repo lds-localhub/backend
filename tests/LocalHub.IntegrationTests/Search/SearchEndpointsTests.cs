@@ -370,7 +370,7 @@ public class SearchEndpointsTests(LocalHubApiFactory factory)
         Assert.Empty(body.GetProperty("items").EnumerateArray());
     }
 
-    // ---------- Distance calculated in the database (DEC-06) ----------
+    // ---------- Distance calculated in memory (DEC-06) ----------
 
     // CA8: on a meridian, 1° of latitude is R · π / 180 = 111.19 km.
     [Fact]
@@ -388,7 +388,7 @@ public class SearchEndpointsTests(LocalHubApiFactory factory)
     }
 
     // Points on opposite sides of the Earth (87.5° N, 180° and 87.5° S, 0°): the rounding errors can make the value
-    // under the square root slightly greater than 1, and asin would fail without LEAST (GeoDistanceTranslation).
+    // under the square root slightly greater than 1, and asin would fail without Math.Min (GeoDistance.HaversineKm).
     // The result is half of the circumference, π · R = 20015.1 km.
     [Fact]
     [Trait("Requisito", "RF-F005-01")]

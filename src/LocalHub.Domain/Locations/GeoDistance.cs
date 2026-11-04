@@ -9,9 +9,8 @@ public static class GeoDistance
     // Mean radius of the Earth.
     public const double EarthRadiusKm = 6371.0;
 
-    // In a query, Entity Framework does not run this code: LocalHubDbContext maps the method to the same formula in SQL,
-    // so the distance is calculated by PostgreSQL and the results can be ordered and paged by it (E18; later E19 and
-    // E22). Called in C#, it runs the code below.
+    // The distance is calculated in C#, in memory, after the queries (DEC-06): the searches by distance (E18 and E19)
+    // order and page the results by it.
     public static double HaversineKm(decimal latitude1, decimal longitude1, decimal latitude2, decimal longitude2)
     {
         double phi1 = ToRadians(latitude1);

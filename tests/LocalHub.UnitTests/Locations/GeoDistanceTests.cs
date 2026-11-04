@@ -2,8 +2,7 @@ using LocalHub.Domain.Locations;
 
 namespace LocalHub.UnitTests.Locations;
 
-// The Haversine formula in C# (DEC-06). The same formula in SQL, calculated by PostgreSQL, is tested in
-// SearchEndpointsTests with the same reference values.
+// The Haversine formula in C# (DEC-06).
 [Trait("Category", "Unit")]
 public class GeoDistanceTests
 {

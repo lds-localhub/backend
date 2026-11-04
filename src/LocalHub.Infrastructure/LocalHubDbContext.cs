@@ -2,7 +2,6 @@ using LocalHub.Domain.Accounts;
 using LocalHub.Domain.Categories;
 using LocalHub.Domain.Profiles;
 using LocalHub.Domain.Services;
-using LocalHub.Infrastructure.Locations;
 
 using Microsoft.EntityFrameworkCore;
 
@@ -37,8 +36,5 @@ public class LocalHubDbContext : DbContext
 
         // Every class of this project that implements IEntityTypeConfiguration (folder Configurations).
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(LocalHubDbContext).Assembly);
-
-        // GeoDistance.HaversineKm, used in the searches by distance (DEC-06).
-        GeoDistanceTranslation.Register(modelBuilder);
     }
 }
