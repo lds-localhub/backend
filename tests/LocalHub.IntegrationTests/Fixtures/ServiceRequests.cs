@@ -17,9 +17,8 @@ public static class ServiceRequests
     public const string ServicesUrl = "/api/services";
     public const string IsoDate = "yyyy-MM-dd";
 
-    // The date in Portugal, the one used by E20 to validate the requested dates.
-    public static DateOnly Today => DateOnly.FromDateTime(
-        TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, TimeZoneInfo.FindSystemTimeZoneById("Europe/Lisbon")).DateTime);
+    // The current date in UTC, the one used by E20 to validate the requested dates (API documentation, section 4.3).
+    public static DateOnly Today => DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime);
 
     public static async Task<TestClient> RegisterClientAsync(HttpClient client, bool withLocation = true)
     {

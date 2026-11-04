@@ -6,8 +6,10 @@ using System.Text.Json;
 using LocalHub.Infrastructure;
 using LocalHub.IntegrationTests.Fixtures;
 
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Time.Testing;
 
 using static LocalHub.IntegrationTests.Fixtures.AuthRequests;
 using static LocalHub.IntegrationTests.Fixtures.ProfileRequests;
@@ -174,6 +176,30 @@ public class ServicesEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var service = await response.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal(Iso(Today), service.GetProperty("requestedStartDate").GetString());
+    }
+
+    // The current date is calculated in UTC (API documentation, section 4.3): at 23:30 UTC on 15 July it is already
+    // 16 July in Portugal (UTC+1 in the summer), but the date of today is still 15 July.
+    [Theory]
+    [InlineData(15, HttpStatusCode.Created)]
+    [InlineData(14, HttpStatusCode.BadRequest)]
+    [Trait("Requisito", "RF-F010-01")]
+    public async Task Create_DataPretendidaPertoDaMeiaNoite_ComparaComADataUtc(int day, HttpStatusCode expected)
+    {
+        // A separate API with its own clock, so that the time does not affect the other tests.
+        var clock = new FakeTimeProvider(new DateTimeOffset(2027, 7, 15, 23, 30, 0, TimeSpan.Zero));
+        using var api = factory.WithWebHostBuilder(builder =>
+            builder.ConfigureTestServices(services => services.AddSingleton<TimeProvider>(clock)));
+        using var http = api.CreateClient();
+        int categoryId = await NewCategoryAsync();
+        var client = await RegisterClientAsync(http);
+        var body = PublicBody(categoryId);
+        body["requestedStartDate"] = Iso(new DateOnly(2027, 7, day));
+        body["requestedEndDate"] = null;
+
+        using var response = await SendJsonAsync(http, HttpMethod.Post, ServicesUrl, client.Token, body);
+
+        Assert.Equal(expected, response.StatusCode);
     }
 
     [Fact]

@@ -28,9 +28,6 @@ public class ServiceWorkflowService
     private const string RecipientsField = "professionalProfileIds";
     private const string AcceptedProposalIndex = "UX_Proposal_serviceId_accepted";
 
-    // The requested dates are compared with the date in Portugal (RF-F010-01, rule 5).
-    private static readonly TimeZoneInfo Portugal = TimeZoneInfo.FindSystemTimeZoneById("Europe/Lisbon");
-
     private readonly LocalHubDbContext _db;
     private readonly LocationResolver _locationResolver;
     private readonly ICurrentUser _currentUser;
@@ -545,8 +542,8 @@ public class ServiceWorkflowService
     private static void CollectRequestErrors(FieldErrors errors, CreateServiceRequest request, DateTimeOffset now)
     {
         // RF-F010-01, rule 5: a single date (start only) or an interval. The start cannot be before today and the end
-        // cannot be before the start.
-        DateOnly today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(now, Portugal).DateTime);
+        // cannot be before the start. The current date is calculated in UTC (API documentation, section 4.3).
+        DateOnly today = DateOnly.FromDateTime(now.UtcDateTime);
         if (request.RequestedStartDate < today)
         {
             errors.Add(StartDateField, "A data pretendida tem de ser igual ou posterior à data de hoje.");
