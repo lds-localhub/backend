@@ -762,7 +762,7 @@
                 }
               ]
             },
-            "description": "RF-F002-01. Lista paginada das contas de Clientes e Prestadores, ordenada pelo nome."
+            "description": "RF-F002-01. Lista paginada das contas de Clientes e Prestadores, ordenada pelo nome, com os alertas de conduta de cada conta (alerts)."
           },
           "event": [
             {
@@ -780,6 +780,12 @@
                   "});",
                   "pm.test(\"Só contas de Clientes e Prestadores\", () => {",
                   "    body.items.forEach(a => pm.expect([\"CLIENT\", \"PROVIDER\"]).to.include(a.role));",
+                  "});",
+                  "pm.test(\"Cada conta tem a lista de alertas de conduta\", () => {",
+                  "    body.items.forEach(a => {",
+                  "        pm.expect(a.alerts).to.be.an(\"array\");",
+                  "        a.alerts.forEach(al => pm.expect([\"ASSIGNED_CANCELLATIONS\", \"LOW_AVERAGE_RATING\"]).to.include(al.type));",
+                  "    });",
                   "});"
                 ]
               }
