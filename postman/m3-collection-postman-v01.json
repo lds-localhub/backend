@@ -3764,7 +3764,7 @@
           ]
         },
         {
-          "name": "E20 — Campos em falta e data no passado (400)",
+          "name": "E20 — Campos em falta (400)",
           "request": {
             "method": "POST",
             "header": [
@@ -3785,7 +3785,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"proposalModel\": \"PUBLIC\",\n  \"title\": \"Pedido de serviço\",\n  \"description\": \"\",\n  \"requestedStartDate\": \"2020-01-01\",\n  \"location\": \"Avenida da Liberdade, Braga\"\n}",
+              "raw": "{\n  \"proposalModel\": \"PUBLIC\",\n  \"title\": \"Pedido de serviço\",\n  \"description\": \"\",\n  \"requestedStartDate\": \"{{serviceStartDate}}\",\n  \"location\": \"Avenida da Liberdade, Braga\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -3802,7 +3802,7 @@
                 }
               ]
             },
-            "description": "RF-F010-01, regras 2 a 5: os erros de todos os campos são devolvidos na mesma resposta."
+            "description": "RF-F010-01, regra 2: a categoria e a descrição são obrigatórias; os erros dos campos em falta são devolvidos em errors."
           },
           "event": [
             {
@@ -3812,7 +3812,62 @@
                 "exec": [
                   "pm.test(\"Devolve 400\", () => pm.response.to.have.status(400));",
                   "const errors = pm.response.json().errors;",
-                  "pm.test(\"Erros por campo\", () => pm.expect(errors).to.have.all.keys(\"serviceCategoryId\", \"description\", \"requestedStartDate\"));"
+                  "pm.test(\"Erros nos campos em falta\", () => pm.expect(errors).to.have.all.keys(\"serviceCategoryId\", \"description\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E20 — Data no passado (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/services",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "services"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"proposalModel\": \"PUBLIC\",\n  \"serviceCategoryId\": {{profileCategoryId}},\n  \"title\": \"Pedido de serviço\",\n  \"description\": \"Pintar a sala.\",\n  \"requestedStartDate\": \"2020-01-01\",\n  \"location\": \"Avenida da Liberdade, Braga\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F010-01, regra 5: a data pretendida não pode ser anterior à data atual (em UTC, API v04, secção 4.3)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 400\", () => pm.response.to.have.status(400));",
+                  "const errors = pm.response.json().errors;",
+                  "pm.test(\"Erro só em requestedStartDate\", () => pm.expect(errors).to.have.all.keys(\"requestedStartDate\"));"
                 ]
               }
             }
