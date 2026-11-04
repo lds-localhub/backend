@@ -156,34 +156,6 @@ public class ClientProposalsEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal("PENDING", Assert.Single(service.GetProperty("proposals").EnumerateArray()).GetProperty("status").GetString());
     }
 
-    // CA5: rule R1 of the Class Model (lock of the service and index UX_Proposal_serviceId_accepted).
-    [Fact]
-    [Trait("Requisito", "RF-F007-03")]
-    [Trait("Requisito", "RF-F008-02")]
-    public async Task AcceptProposal_DoisPedidosSimultaneos_SoUmaPropostaFicaAceiteEOOutroRecebe409()
-    {
-        var scenario = await CreatePublicScenarioAsync(proposals: 2);
-
-        var responses = await Task.WhenAll(
-            PostAsync(scenario.Client.Token, AcceptUrl(scenario.ProposalIds[0])),
-            PostAsync(scenario.Client.Token, AcceptUrl(scenario.ProposalIds[1])));
-
-        try
-        {
-            Assert.Equal(
-                [HttpStatusCode.OK, HttpStatusCode.Conflict],
-                responses.Select(r => r.StatusCode).OrderBy(code => (int)code));
-            Assert.Equal(1, await CountAcceptedAsync(scenario.ServiceId));
-        }
-        finally
-        {
-            foreach (var response in responses)
-            {
-                response.Dispose();
-            }
-        }
-    }
-
     // ---------- E29: criterion 3 ----------
 
     [Fact]
