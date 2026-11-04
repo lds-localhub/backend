@@ -114,7 +114,7 @@ public class ProfileService
 
         profile.Update(request.Introduction!, request.ContactDetails!, request.Experience!,
             request.ServiceRadiusKm!.Value);
-        profile.ReplaceCategories(categories);
+        profile.SetCategories(categories);
         profile.ServiceProvider.SetLocation(
             location.Address, location.Coordinates.Latitude, location.Coordinates.Longitude);
         await _db.SaveChangesAsync(cancellationToken);

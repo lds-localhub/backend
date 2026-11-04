@@ -71,12 +71,12 @@ public class ProfessionalProfileTests
     [Fact]
     [Trait("Requisito", "RF-F004-04")]
     [Trait("Requisito", "RF-F004-02")]
-    public void ReplaceCategories_NovaLista_RemoveAsQueSaemEAcrescentaAsNovas()
+    public void SetCategories_NovaLista_RemoveAsQueSaemEAcrescentaAsNovas()
     {
         var profile = ProfessionalProfile.Create(Provider, "Apresentação", "Telefone", "Experiência",
             [Category(1, "A"), Category(2, "B")], 10);
 
-        profile.ReplaceCategories([Category(2, "B"), Category(3, "C")]);
+        profile.SetCategories([Category(2, "B"), Category(3, "C")]);
 
         Assert.Equal([2, 3], profile.ServiceAreas.Select(a => a.ServiceCategoryId).Order());
     }
@@ -85,13 +85,13 @@ public class ProfessionalProfileTests
     // inactive category is refused by the ProfileService (integration tests).
     [Fact]
     [Trait("Requisito", "RF-F004-04")]
-    public void ReplaceCategories_CategoriaJaAssociadaEntretantoDesativada_Mantem()
+    public void SetCategories_CategoriaJaAssociadaEntretantoDesativada_Mantem()
     {
         var category = Category(1, "Canalização");
         var profile = ProfessionalProfile.Create(Provider, "Apresentação", "Telefone", "Experiência", [category], 10);
         category.Deactivate();
 
-        profile.ReplaceCategories([category, Category(2, "Pintura")]);
+        profile.SetCategories([category, Category(2, "Pintura")]);
 
         Assert.Equal([1, 2], profile.ServiceAreas.Select(a => a.ServiceCategoryId).Order());
     }

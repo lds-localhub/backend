@@ -68,7 +68,7 @@ public class ProfessionalProfile
             Experience = experience.Trim(),
             ServiceRadiusKm = serviceRadiusKm,
         };
-        profile.ReplaceCategories(categories);
+        profile.SetCategories(categories);
 
         return profile;
     }
@@ -86,7 +86,7 @@ public class ProfessionalProfile
 
     // RF-F004-04 (E12 and E14): the list replaces the previous one and each category is associated only once.
     // The ProfileService checks before that the list is not empty and that the new categories are active.
-    public void ReplaceCategories(IReadOnlyCollection<ServiceCategory> categories)
+    public void SetCategories(IReadOnlyCollection<ServiceCategory> categories)
     {
         var distinct = categories
             .GroupBy(c => c.ServiceCategoryId)
