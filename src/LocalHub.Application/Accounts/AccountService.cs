@@ -35,11 +35,6 @@ public class AccountService
     private const string PasswordDigits = "23456789";
     private const int TemporaryPasswordLength = 10;
 
-    // Thresholds of the conduct alerts (RF-F002-01, rules 5 to 7).
-    private const int MinAssignedServices = 3;
-    private const int MinReviews = 3;
-    private const decimal MaxLowAverageRating = 2.0m;
-
     private readonly LocalHubDbContext _db;
     private readonly IPasswordHasher<User> _passwordHasher;
     private readonly ICurrentUser _currentUser;
@@ -185,31 +180,19 @@ public class AccountService
         var result = new Dictionary<int, List<AccountAlertResponse>>();
         foreach (var account in accounts)
         {
-            var list = new List<AccountAlertResponse>();
             int assigned = account.Role == UserRole.Provider
                 ? providerAssigned.GetValueOrDefault(account.UserId)
                 : clientAssigned.GetValueOrDefault(account.UserId);
-            int cancellations = cancelled.GetValueOrDefault(account.UserId);
-
-            // count / total >= 50%, without rounding.
-            if (assigned >= MinAssignedServices && cancellations * 2 >= assigned)
+            var alerts = new List<AccountAlertResponse?>
             {
-                list.Add(new AccountAlertResponse(
-                    AccountAlertType.AssignedCancellations, Count: cancellations, Total: assigned));
+                AccountAlertResponse.ForAssignedCancellations(cancelled.GetValueOrDefault(account.UserId), assigned),
+            };
+            if (account.Role == UserRole.Provider && ratings.TryGetValue(account.UserId, out var rating))
+            {
+                alerts.Add(AccountAlertResponse.ForLowAverageRating(rating.AverageRating, rating.ReviewCount));
             }
 
-            if (account.Role == UserRole.Provider
-                && ratings.TryGetValue(account.UserId, out var rating)
-                && rating.AverageRating <= MaxLowAverageRating
-                && rating.ReviewCount >= MinReviews)
-            {
-                list.Add(new AccountAlertResponse(
-                    AccountAlertType.LowAverageRating,
-                    AverageRating: rating.AverageRating,
-                    ReviewCount: rating.ReviewCount));
-            }
-
-            result[account.UserId] = list;
+            result[account.UserId] = alerts.OfType<AccountAlertResponse>().ToList();
         }
 
         return result;
