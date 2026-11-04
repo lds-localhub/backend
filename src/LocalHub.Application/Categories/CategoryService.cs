@@ -1,4 +1,5 @@
 using LocalHub.Application.Categories.Dtos;
+using LocalHub.Application.Common;
 using LocalHub.Application.Common.Exceptions;
 using LocalHub.Domain.Accounts;
 using LocalHub.Domain.Categories;
@@ -27,7 +28,7 @@ public class CategoryService
 
     // E08: only the active categories, unless the administrator asks for all of them (RF-F003-04).
     // The controller checks that includeInactive is only used by the administrator.
-    public async Task<IReadOnlyList<CategoryResponse>> ListAsync(bool includeInactive, CancellationToken cancellationToken)
+    public async Task<ListResult<CategoryResponse>> ListAsync(bool includeInactive, CancellationToken cancellationToken)
     {
         var query = _db.ServiceCategories.AsNoTracking();
         if (!includeInactive)
@@ -35,11 +36,12 @@ public class CategoryService
             query = query.Where(c => c.Status == ActivationStatus.Active);
         }
 
-        return await query
+        var items = await query
             .OrderBy(c => c.Name)
             .ThenBy(c => c.ServiceCategoryId)
             .Select(c => new CategoryResponse(c.ServiceCategoryId, c.Name, c.Status))
             .ToListAsync(cancellationToken);
+        return new ListResult<CategoryResponse>(items.Count, items);
     }
 
     // E09: the new category is active and its name is unique, ignoring upper and lower case (RF-F003-01).

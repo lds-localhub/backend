@@ -1311,10 +1311,11 @@
                 "exec": [
                   "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
                   "const body = pm.response.json();",
-                  "pm.test(\"Lista só com categorias ativas\", () => {",
-                  "    pm.expect(body).to.be.an(\"array\");",
-                  "    body.forEach(c => pm.expect(c.status).to.eql(\"ACTIVE\"));",
-                  "});"
+                  "pm.test(\"Lista sem paginação, com total e items\", () => {",
+                  "    pm.expect(body).to.have.all.keys(\"total\", \"items\");",
+                  "    pm.expect(body.total).to.eql(body.items.length);",
+                  "});",
+                  "pm.test(\"Lista só com categorias ativas\", () => body.items.forEach(c => pm.expect(c.status).to.eql(\"ACTIVE\")));"
                 ]
               }
             }
@@ -1985,7 +1986,7 @@
                 "exec": [
                   "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
                   "const id = Number(pm.collectionVariables.get(\"categoryId\"));",
-                  "pm.test(\"Sem a categoria desativada\", () => pm.expect(pm.response.json().map(c => c.serviceCategoryId)).to.not.include(id));"
+                  "pm.test(\"Sem a categoria desativada\", () => pm.expect(pm.response.json().items.map(c => c.serviceCategoryId)).to.not.include(id));"
                 ]
               }
             }
@@ -2032,7 +2033,7 @@
                 "exec": [
                   "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
                   "const id = Number(pm.collectionVariables.get(\"categoryId\"));",
-                  "const category = pm.response.json().find(c => c.serviceCategoryId === id);",
+                  "const category = pm.response.json().items.find(c => c.serviceCategoryId === id);",
                   "pm.test(\"Inclui a categoria desativada\", () => pm.expect(category.status).to.eql(\"INACTIVE\"));"
                 ]
               }

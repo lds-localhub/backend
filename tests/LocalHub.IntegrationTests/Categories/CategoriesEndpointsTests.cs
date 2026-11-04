@@ -354,8 +354,12 @@ public class CategoriesEndpointsTests(LocalHubApiFactory factory)
         string url = includeInactive ? $"{CategoriesUrl}?includeInactive=true" : CategoriesUrl;
         using var response = await SendWithTokenAsync(_client, HttpMethod.Get, url, token);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        // A list without pages: { "total", "items" } (API documentation, section 4.4).
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
-        return body.EnumerateArray().Select(c => c.Clone()).ToList();
+        Assert.False(body.TryGetProperty("page", out _));
+        var items = body.GetProperty("items").EnumerateArray().Select(c => c.Clone()).ToList();
+        Assert.Equal(items.Count, body.GetProperty("total").GetInt32());
+        return items;
     }
 
     private static string? StatusOf(List<JsonElement> categories, int id) =>

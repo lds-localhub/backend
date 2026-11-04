@@ -28,7 +28,7 @@ public class CategoriesController : ControllerBase
     // without a session gets 401 and a request of another role gets 403 (API documentation, E08).
     [HttpGet]
     [AllowAnonymous]
-    public async Task<ActionResult<IReadOnlyList<CategoryResponse>>> List(
+    public async Task<ActionResult<ListResult<CategoryResponse>>> List(
         CancellationToken cancellationToken,
         [FromQuery] bool includeInactive = false)
     {
