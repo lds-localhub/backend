@@ -24,8 +24,9 @@ public class DirectRequestService
         _timeProvider = timeProvider;
     }
 
-    // E23 (RF-F007-09), provider side: only the requests sent to the profile of the provider, newest first. The
-    // proposal of the provider is the one for the same service. The data of the Client is not returned.
+    // E23 (RF-F007-09), provider side: only the requests sent to the profile of the provider, newest first, with the
+    // summary that the lists show. The proposal of the provider is the one for the same service. Of the Client, only
+    // the name is returned, without any contacts.
     public async Task<PagedResult<DirectRequestListItem>> ListAsync(
         string? status, PageRequest page, CancellationToken cancellationToken)
     {
@@ -46,48 +47,26 @@ public class DirectRequestService
         }
 
         int total = await requests.CountAsync(cancellationToken);
-        var rows = await requests
+        var items = await requests
             .OrderByDescending(r => r.CreationDate)
             .ThenByDescending(r => r.DirectRequestId)
             .Skip(page.Skip)
             .Take(page.PageSize)
-            .Select(r => new
-            {
-                r.DirectRequestId,
-                r.Status,
-                r.CreationDate,
-                r.ResponseDate,
-                Service = _db.Services
-                    .Where(s => s.ServiceId == r.ServiceId)
-                    .Select(s => new DirectRequestServiceSummary(
-                        s.ServiceId,
-                        new ServiceCategorySummary(s.ServiceCategoryId, s.ServiceCategory.Name),
-                        s.Title,
-                        s.Description,
-                        s.Location,
-                        s.RequestedStartDate,
-                        s.RequestedEndDate,
-                        s.Status))
-                    .First(),
-                Proposal = _db.Proposals
-                    .Where(p => p.ServiceId == r.ServiceId && p.ProfessionalProfileId == r.ProfessionalProfileId)
-                    .Select(p => new { p.ProposalId, p.Amount, p.Conditions, p.Obs, p.Status })
-                    .FirstOrDefault(),
-            })
-            .ToListAsync(cancellationToken);
-
-        var items = rows
             .Select(r => new DirectRequestListItem(
                 r.DirectRequestId,
                 r.Status,
-                r.CreationDate,
-                r.ResponseDate,
-                r.Service,
-                r.Proposal == null
-                    ? null
-                    : new DirectRequestProposalSummary(
-                        r.Proposal.ProposalId, r.Proposal.Amount, r.Proposal.Conditions, r.Proposal.Obs, r.Proposal.Status)))
-            .ToList();
+                r.Service.Proposals
+                    .Where(p => p.ProfessionalProfileId == r.ProfessionalProfileId)
+                    .Select(p => (int?)p.ProposalId)
+                    .FirstOrDefault(),
+                new DirectRequestServiceSummary(
+                    r.ServiceId,
+                    r.Service.Title,
+                    new ServiceCategorySummary(r.Service.ServiceCategoryId, r.Service.ServiceCategory.Name),
+                    r.Service.RequestedStartDate,
+                    r.Service.RequestedEndDate,
+                    r.Service.Client.Name)))
+            .ToListAsync(cancellationToken);
 
         return new PagedResult<DirectRequestListItem>(page.Page, page.PageSize, total, items);
     }

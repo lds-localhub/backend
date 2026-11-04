@@ -54,12 +54,12 @@ public class ProposalsEndpointsTests(LocalHubApiFactory factory)
         Assert.EndsWith("Z", proposal.GetProperty("creationDate").GetString(), StringComparison.Ordinal);
         Assert.Equal(JsonValueKind.Null, proposal.GetProperty("decisionDate").ValueKind);
 
-        using var list = await GetAsync(provider.Token, "/api/direct-requests");
-        var item = (await list.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("items")[0];
-        Assert.Equal(requests[provider.ProfessionalProfileId], item.GetProperty("directRequestId").GetInt32());
-        Assert.Equal("PROPOSAL_SUBMITTED", item.GetProperty("status").GetString());
-        Assert.NotEqual(JsonValueKind.Null, item.GetProperty("responseDate").ValueKind);
-        Assert.Equal(proposalId, item.GetProperty("proposal").GetProperty("proposalId").GetInt32());
+        // The request was answered with this proposal (E36).
+        using var detail = await GetAsync(provider.Token, $"/api/direct-requests/{requests[provider.ProfessionalProfileId]}");
+        var request = await detail.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("PROPOSAL_SUBMITTED", request.GetProperty("status").GetString());
+        Assert.NotEqual(JsonValueKind.Null, request.GetProperty("responseDate").ValueKind);
+        Assert.Equal(proposalId, request.GetProperty("proposalId").GetInt32());
     }
 
     [Fact]
@@ -457,7 +457,7 @@ public class ProposalsEndpointsTests(LocalHubApiFactory factory)
 
     [Fact]
     [Trait("Requisito", "RF-F007-09")]
-    public async Task ListDirectRequests_SolicitacoesRecebidas_DevolveSoAsDoPrestadorSemDadosDoCliente()
+    public async Task ListDirectRequests_SolicitacoesRecebidas_DevolveSoAsDoPrestadorComOResumoSemContactosDoCliente()
     {
         var provider = await CreateProviderWithProfileAsync(_client);
         var other = await CreateProviderInCategoryAsync(provider.ServiceCategoryId);
@@ -465,6 +465,8 @@ public class ProposalsEndpointsTests(LocalHubApiFactory factory)
             provider.ServiceCategoryId, provider.ProfessionalProfileId, other.ProfessionalProfileId);
         var (_, secondService, secondRequests) = await CreateDirectServiceAsync(
             provider.ServiceCategoryId, provider.ProfessionalProfileId);
+        using var submitted = await SubmitAsync(provider.Token, firstService, ValidProposal());
+        int proposalId = (await submitted.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("proposalId").GetInt32();
 
         using var response = await GetAsync(provider.Token, "/api/direct-requests");
 
@@ -475,10 +477,16 @@ public class ProposalsEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal([secondService, firstService], items.Select(i => i.GetProperty("service").GetProperty("serviceId").GetInt32()));
         Assert.Equal(secondRequests[provider.ProfessionalProfileId], items[0].GetProperty("directRequestId").GetInt32());
         Assert.Equal("PENDING", items[0].GetProperty("status").GetString());
-        Assert.Equal(JsonValueKind.Null, items[0].GetProperty("proposal").ValueKind);
+        Assert.Equal(JsonValueKind.Null, items[0].GetProperty("proposalId").ValueKind);
+        Assert.Equal("PROPOSAL_SUBMITTED", items[1].GetProperty("status").GetString());
+        Assert.Equal(proposalId, items[1].GetProperty("proposalId").GetInt32());
+
+        // Only the summary of the lists (API documentation, E23): the detail is consulted in E36.
         var service = items[0].GetProperty("service");
         Assert.Equal(provider.ServiceCategoryId, service.GetProperty("serviceCategory").GetProperty("serviceCategoryId").GetInt32());
-        Assert.Equal("OPEN", service.GetProperty("status").GetString());
+        Assert.Equal("Cliente Teste", service.GetProperty("clientName").GetString());
+        Assert.False(service.TryGetProperty("description", out _));
+        Assert.False(items[0].TryGetProperty("creationDate", out _));
         Assert.DoesNotContain("clientId", await response.Content.ReadAsStringAsync(), StringComparison.Ordinal);
     }
 

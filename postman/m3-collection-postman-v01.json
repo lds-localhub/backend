@@ -3947,7 +3947,7 @@
                 }
               ]
             },
-            "description": "RF-F007-09. O Prestador vê as solicitações dirigidas ao seu perfil, da mais recente para a mais antiga, sem dados do Cliente."
+            "description": "RF-F007-09. O Prestador vê as solicitações dirigidas ao seu perfil, da mais recente para a mais antiga, com o resumo das listas: o proposalId e o serviço com o nome do Cliente, sem contactos."
           },
           "event": [
             {
@@ -3965,10 +3965,14 @@
                   "});",
                   "pm.test(\"A solicitação do serviço criado em E20 está pendente e sem proposta\", () => {",
                   "    pm.expect(mine.status).to.eql(\"PENDING\");",
-                  "    pm.expect(mine.responseDate).to.eql(null);",
-                  "    pm.expect(mine.proposal).to.eql(null);",
+                  "    pm.expect(mine.proposalId).to.eql(null);",
                   "});",
-                  "pm.test(\"Sem dados do Cliente\", () => pm.expect(pm.response.text()).to.not.include(\"clientId\"));",
+                  "pm.test(\"Só o resumo das listas, com o nome do Cliente\", () => {",
+                  "    pm.expect(mine).to.have.all.keys(\"directRequestId\", \"status\", \"proposalId\", \"service\");",
+                  "    pm.expect(mine.service).to.have.all.keys(\"serviceId\", \"title\", \"serviceCategory\", \"requestedStartDate\", \"requestedEndDate\", \"clientName\");",
+                  "    pm.expect(mine.service.clientName).to.be.a(\"string\");",
+                  "});",
+                  "pm.test(\"Sem contactos do Cliente\", () => pm.expect(pm.response.text()).to.not.include(\"clientId\"));",
                   "pm.collectionVariables.set(\"directRequestId\", mine.directRequestId);"
                 ]
               }

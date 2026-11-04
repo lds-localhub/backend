@@ -2,32 +2,22 @@ using LocalHub.Domain.Services;
 
 namespace LocalHub.Application.Services.Dtos;
 
-// Item of the list of E23, as the provider sees it: the request, the summary of the service and the proposal of
-// the provider, when there is one. It has no data of the Client.
+// Item of the list of E23, as the provider sees it: the request, the proposal that the provider presented in it
+// (consulted in E37, or null) and the summary of the service (API documentation, E23). The detail is consulted in E36.
 public record DirectRequestListItem(
     int DirectRequestId,
     DirectRequestStatus Status,
-    DateTimeOffset CreationDate,
-    DateTimeOffset? ResponseDate,
-    DirectRequestServiceSummary Service,
-    DirectRequestProposalSummary? Proposal);
+    int? ProposalId,
+    DirectRequestServiceSummary Service);
 
+// The service of a request in E23: of the Client, only the name, without any contacts (RNF-06).
 public record DirectRequestServiceSummary(
     int ServiceId,
-    ServiceCategorySummary ServiceCategory,
     string Title,
-    string Description,
-    string Location,
+    ServiceCategorySummary ServiceCategory,
     DateOnly RequestedStartDate,
     DateOnly? RequestedEndDate,
-    ServiceStatus Status);
-
-public record DirectRequestProposalSummary(
-    int ProposalId,
-    decimal Amount,
-    string Conditions,
-    string? Obs,
-    ProposalStatus Status);
+    string ClientName);
 
 // Direct request as returned by E24.
 public record DirectRequestStatusResponse(
