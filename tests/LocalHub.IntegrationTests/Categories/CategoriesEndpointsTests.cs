@@ -3,13 +3,11 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 
-using LocalHub.Infrastructure.Categories;
 using LocalHub.IntegrationTests.Fixtures;
 
-using Microsoft.AspNetCore.TestHost;
-using Microsoft.Extensions.DependencyInjection;
-
 using static LocalHub.IntegrationTests.Fixtures.AuthRequests;
+using static LocalHub.IntegrationTests.Fixtures.ProfileRequests;
+using static LocalHub.IntegrationTests.Fixtures.ServiceRequests;
 
 namespace LocalHub.IntegrationTests.Categories;
 
@@ -306,28 +304,28 @@ public class CategoriesEndpointsTests(LocalHubApiFactory factory)
         await AssertProblemAsync(response, NotFoundType, url);
     }
 
-    // The professional profiles and the services are not implemented yet (CategoryUsage), so the use of the category
-    // is simulated here: the API is started with a test ICategoryUsage that reports 3 active providers and 1 service.
+    // A category in the profile of an active provider and in an OPEN service, both created through the API.
     [Fact]
     [Trait("Requisito", "RF-F003-03")]
     public async Task Deactivate_CategoriaComPrestadoresAtivosOuServicosEmCurso_Devolve409ComMotivoEMantemAtiva()
     {
         string adminToken = await LoginAsAdminAsync(_client);
-        var category = await CreateAsync(adminToken, $"Teste Em Utilização {NewTag()}");
-        string url = $"{CategoriesUrl}/{category.Id}/deactivate";
-        using var factoryWithUsage = factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
-            services.AddScoped<ICategoryUsage>(_ => new FixedCategoryUsage(new CategoryUsageCount(3, 1)))));
-        using var clientWithUsage = factoryWithUsage.CreateClient();
+        var provider = await CreateProviderWithProfileAsync(_client);
+        var client = await RegisterClientAsync(_client);
+        using var created = await ProfileRequests.SendJsonAsync(
+            _client, HttpMethod.Post, ServicesUrl, client.Token, PublicBody(provider.ServiceCategoryId));
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        string url = $"{CategoriesUrl}/{provider.ServiceCategoryId}/deactivate";
 
-        using var response = await SendWithTokenAsync(clientWithUsage, HttpMethod.Post, url, adminToken);
+        using var response = await SendWithTokenAsync(_client, HttpMethod.Post, url, adminToken);
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
         var body = await AssertProblemAsync(response, ConflictType, url);
         Assert.Equal("Categoria em utilização", body.GetProperty("title").GetString());
         Assert.Equal(
-            "A categoria está associada a 3 Prestadores ativos e a 1 serviço em curso.",
+            "A categoria está associada a 1 Prestador ativo e a 1 serviço em curso.",
             body.GetProperty("detail").GetString());
-        Assert.Equal("ACTIVE", StatusOf(await ListAsync(adminToken, includeInactive: true), category.Id));
+        Assert.Equal("ACTIVE", StatusOf(await ListAsync(adminToken, includeInactive: true), provider.ServiceCategoryId));
     }
 
     // ---------- helpers ----------
@@ -370,11 +368,5 @@ public class CategoriesEndpointsTests(LocalHubApiFactory factory)
         using var request = new HttpRequestMessage(method, url) { Content = JsonContent.Create(body) };
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         return await _client.SendAsync(request);
-    }
-
-    private sealed class FixedCategoryUsage(CategoryUsageCount usage) : ICategoryUsage
-    {
-        public Task<CategoryUsageCount> CountAsync(int serviceCategoryId, CancellationToken cancellationToken) =>
-            Task.FromResult(usage);
     }
 }

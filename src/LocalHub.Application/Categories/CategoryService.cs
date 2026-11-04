@@ -4,8 +4,8 @@ using LocalHub.Application.Common.Exceptions;
 using LocalHub.Domain.Accounts;
 using LocalHub.Domain.Categories;
 using LocalHub.Domain.Common;
+using LocalHub.Domain.Services;
 using LocalHub.Infrastructure;
-using LocalHub.Infrastructure.Categories;
 
 using Microsoft.EntityFrameworkCore;
 
@@ -18,12 +18,10 @@ public class CategoryService
     private const string DuplicateNameMessage = "Já existe uma categoria com este nome.";
 
     private readonly LocalHubDbContext _db;
-    private readonly ICategoryUsage _categoryUsage;
 
-    public CategoryService(LocalHubDbContext db, ICategoryUsage categoryUsage)
+    public CategoryService(LocalHubDbContext db)
     {
         _db = db;
-        _categoryUsage = categoryUsage;
     }
 
     // E08: only the active categories, unless the administrator asks for all of them (RF-F003-04).
@@ -78,7 +76,7 @@ public class CategoryService
         // An inactive category gets the "already inactive" error, whatever its use.
         if (category.Status == ActivationStatus.Active)
         {
-            var usage = await _categoryUsage.CountAsync(serviceCategoryId, cancellationToken);
+            var usage = await CountUsageAsync(serviceCategoryId, cancellationToken);
             if (usage.IsInUse)
             {
                 throw new CategoryInUseException(DescribeUsage(usage));
@@ -110,6 +108,23 @@ public class CategoryService
         }
 
         return $"A categoria está associada {string.Join(" e ", parts)}.";
+    }
+
+    // ActiveProviders counts the profiles of the category whose provider has an ACTIVE account (F004).
+    // ServicesInProgress counts the services of the category in the state OPEN or ASSIGNED (RF-F003-03, rule 1).
+    private async Task<CategoryUsageCount> CountUsageAsync(int serviceCategoryId, CancellationToken cancellationToken)
+    {
+        int activeProviders = await _db.ProfessionalProfiles
+            .Where(p => p.ServiceProvider.Status == ActivationStatus.Active
+                        && p.ServiceAreas.Any(a => a.ServiceCategoryId == serviceCategoryId))
+            .CountAsync(cancellationToken);
+
+        int servicesInProgress = await _db.Services
+            .Where(s => s.ServiceCategoryId == serviceCategoryId
+                        && (s.Status == ServiceStatus.Open || s.Status == ServiceStatus.Assigned))
+            .CountAsync(cancellationToken);
+
+        return new CategoryUsageCount(activeProviders, servicesInProgress);
     }
 
     private async Task<ServiceCategory> FindAsync(int serviceCategoryId, CancellationToken cancellationToken)

@@ -1,5 +1,4 @@
 using LocalHub.Application.Categories;
-using LocalHub.Infrastructure.Categories;
 
 namespace LocalHub.UnitTests.Application.Categories;
 

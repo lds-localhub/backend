@@ -1,10 +1,4 @@
-namespace LocalHub.Infrastructure.Categories;
-
-// Tells whether a category is still used by providers or services, so that it cannot be deactivated (RF-F003-03).
-public interface ICategoryUsage
-{
-    Task<CategoryUsageCount> CountAsync(int serviceCategoryId, CancellationToken cancellationToken);
-}
+namespace LocalHub.Application.Categories;
 
 // ActiveProviders: providers with an ACTIVE account and the category in their professional profile.
 // ServicesInProgress: services of the category in the state OPEN or ASSIGNED (RF-F003-03, rule 1).
