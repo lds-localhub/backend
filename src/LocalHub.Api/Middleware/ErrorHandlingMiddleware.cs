@@ -98,7 +98,7 @@ public class ErrorHandlingMiddleware : IMiddleware
     private static Task HandleDomainAsync(HttpContext context, DomainException exception)
     {
         Dictionary<string, string[]>? errors = null;
-        if (exception.Field is not null)
+        if (exception.Field != null)
         {
             errors = new Dictionary<string, string[]>();
             errors[exception.Field] = new[] { exception.Message };

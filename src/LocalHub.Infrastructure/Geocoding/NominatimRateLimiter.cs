@@ -21,9 +21,9 @@ public sealed class NominatimRateLimiter : IDisposable
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            if (_lastRequestAt is { } last)
+            if (_lastRequestAt != null)
             {
-                TimeSpan wait = last + _minInterval - _timeProvider.GetUtcNow();
+                TimeSpan wait = _lastRequestAt.Value + _minInterval - _timeProvider.GetUtcNow();
                 if (wait > TimeSpan.Zero)
                 {
                     await Task.Delay(wait, _timeProvider, cancellationToken).ConfigureAwait(false);

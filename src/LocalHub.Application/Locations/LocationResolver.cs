@@ -22,7 +22,7 @@ public class LocationResolver
     {
         string trimmed = address.Trim();
         Coordinates? coordinates = await _geocodingService.GeocodeAsync(trimmed, cancellationToken);
-        if (coordinates is null)
+        if (coordinates == null)
         {
             throw new ValidationException(field, "Não foi possível encontrar esta morada. Confirme-a.");
         }
@@ -42,7 +42,7 @@ public class LocationResolver
             return location.Coordinates;
         }
 
-        if (registeredLocation is null)
+        if (registeredLocation == null)
         {
             throw new ValidationException("address", "Indique a morada da localização de referência.");
         }

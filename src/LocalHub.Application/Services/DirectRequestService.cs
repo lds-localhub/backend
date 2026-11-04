@@ -40,7 +40,7 @@ public class DirectRequestService
         int profileId = await GetMyProfileIdAsync(cancellationToken);
 
         var requests = _db.DirectRequests.AsNoTracking().Where(r => r.ProfessionalProfileId == profileId);
-        if (statusFilter is not null)
+        if (statusFilter != null)
         {
             requests = requests.Where(r => r.Status == statusFilter);
         }
@@ -83,7 +83,7 @@ public class DirectRequestService
                 r.CreationDate,
                 r.ResponseDate,
                 r.Service,
-                r.Proposal is null
+                r.Proposal == null
                     ? null
                     : new DirectRequestProposalSummary(
                         r.Proposal.ProposalId, r.Proposal.Amount, r.Proposal.Conditions, r.Proposal.Obs, r.Proposal.Status)))
@@ -139,7 +139,7 @@ public class DirectRequestService
                     .ToList(),
             })
             .SingleOrDefaultAsync(cancellationToken);
-        if (row is null)
+        if (row == null)
         {
             throw new NotFoundException("Solicitação direta não encontrada.");
         }
@@ -180,7 +180,7 @@ public class DirectRequestService
         var service = await _db.Services
             .Include(s => s.DirectRequests)
             .SingleOrDefaultAsync(s => s.DirectRequests.Any(r => r.DirectRequestId == directRequestId), cancellationToken);
-        if (service is null)
+        if (service == null)
         {
             throw new NotFoundException("Solicitação direta não encontrada.");
         }
@@ -196,7 +196,7 @@ public class DirectRequestService
     private async Task<int> GetMyProfileIdAsync(CancellationToken cancellationToken)
     {
         int? profileId = await _db.FindProfileIdAsync(_currentUser.UserId, cancellationToken);
-        if (profileId is null)
+        if (profileId == null)
         {
             throw new ForbiddenException(ProfileService.MissingProfileMessage, ErrorTypes.MissingProfile);
         }

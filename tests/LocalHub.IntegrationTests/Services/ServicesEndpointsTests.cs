@@ -125,10 +125,11 @@ public class ServicesEndpointsTests(LocalHubApiFactory factory)
         body[field] = field switch
         {
             // "101", "1001" and "256": a text with that number of characters.
-            "title" or "description" or "location" when value is not null && int.TryParse(value, out int length) =>
-                new string('a', length),
+            "title" when value != null && int.TryParse(value, out int length) => new string('a', length),
+            "description" when value != null && int.TryParse(value, out int length) => new string('a', length),
+            "location" when value != null && int.TryParse(value, out int length) => new string('a', length),
             // Days from today: the start yesterday, or the end before a start in two days.
-            "requestedStartDate" when value is not null => Iso(Today.AddDays(int.Parse(value, CultureInfo.InvariantCulture))),
+            "requestedStartDate" when value != null => Iso(Today.AddDays(int.Parse(value, CultureInfo.InvariantCulture))),
             "requestedEndDate" => Iso(Today.AddDays(int.Parse(value!, CultureInfo.InvariantCulture))),
             _ => value,
         };

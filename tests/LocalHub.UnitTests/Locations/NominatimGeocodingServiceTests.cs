@@ -205,7 +205,7 @@ public class NominatimGeocodingServiceTests
             RequestUris.Add(request.RequestUri!);
             UserAgents.Add(request.Headers.UserAgent.ToString());
 
-            if (_exception is not null)
+            if (_exception != null)
             {
                 return Task.FromException<HttpResponseMessage>(_exception);
             }

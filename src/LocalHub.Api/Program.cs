@@ -56,7 +56,7 @@ builder.Services.AddControllers(o =>
             var errors = new Dictionary<string, string[]>();
             foreach (var entry in context.ModelState)
             {
-                if (entry.Value?.Errors.Count is null or 0)
+                if (entry.Value == null || entry.Value.Errors.Count == 0)
                 {
                     continue;
                 }

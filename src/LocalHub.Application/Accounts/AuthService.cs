@@ -82,7 +82,7 @@ public class AuthService
         var user = await UsersWithEmail(request.Email!).SingleOrDefaultAsync(cancellationToken);
 
         // Unknown e-mail and wrong password get the same response (RF-F001-02).
-        if (user is null)
+        if (user == null)
         {
             throw new InvalidCredentialsException();
         }
@@ -121,7 +121,7 @@ public class AuthService
     {
         var session = await _db.UserSessions.SingleOrDefaultAsync(
             s => s.SessionId == _currentUser.SessionId, cancellationToken);
-        if (session is null)
+        if (session == null)
         {
             return;
         }
@@ -138,7 +138,7 @@ public class AuthService
         var user = await _db.Users
             .Include(u => u.Sessions.Where(s => s.RevokedAt == null && s.SessionId != currentSessionId))
             .SingleOrDefaultAsync(u => u.UserId == _currentUser.UserId, cancellationToken);
-        if (user is null)
+        if (user == null)
         {
             throw new NotFoundException("Utilizador não encontrado.");
         }
@@ -166,7 +166,7 @@ public class AuthService
             .Include(s => s.User)
             .SingleOrDefaultAsync(s => s.SessionId == sessionId, cancellationToken);
 
-        return session is not null
+        return session != null
                && session.IsValid(_timeProvider.GetUtcNow())
                && session.User.Status == ActivationStatus.Active;
     }

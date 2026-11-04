@@ -28,7 +28,7 @@ public record ReportPeriod(DateOnly? StartDate, DateOnly? EndDate)
             throw new ValidationException(errors);
         }
 
-        if (start is not null && end is not null && start > end)
+        if (start != null && end != null && start > end)
         {
             throw new ValidationException(InvertedMessage);
         }
@@ -37,11 +37,11 @@ public record ReportPeriod(DateOnly? StartDate, DateOnly? EndDate)
     }
 
     // First instant of the start date in UTC; null without start date.
-    public DateTimeOffset? From => StartDate is null ? null : StartOfDay(StartDate.Value);
+    public DateTimeOffset? From => StartDate == null ? null : StartOfDay(StartDate.Value);
 
     // First instant of the day after the end date in UTC (exclusive limit); null without end date. The last day that
     // DateOnly represents (9999-12-31) has no day after it, so it does not limit the period either.
-    public DateTimeOffset? Until => EndDate is null || EndDate.Value == DateOnly.MaxValue
+    public DateTimeOffset? Until => EndDate == null || EndDate.Value == DateOnly.MaxValue
         ? null
         : StartOfDay(EndDate.Value.AddDays(1));
 

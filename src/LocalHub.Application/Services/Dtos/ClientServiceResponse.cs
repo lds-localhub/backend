@@ -61,7 +61,7 @@ public record ClientServiceResponse(
             service.CreationDate,
             service.ActualCompletionDate,
             service.Client.Name,
-            Reviewed: service.Review is not null,
+            Reviewed: service.Review != null,
             service.StatusHistory
                 .OrderBy(h => h.ChangedAt)
                 .ThenBy(h => h.ServiceStatusHistoryId)
@@ -104,7 +104,7 @@ public record ClientDirectRequestResponse(
             request.CreationDate,
             request.ResponseDate,
             ProviderSummary.From(request.ProfessionalProfile, reviewCounts),
-            proposal is null ? null : MyProposalResponse.From(proposal));
+            proposal == null ? null : MyProposalResponse.From(proposal));
     }
 }
 

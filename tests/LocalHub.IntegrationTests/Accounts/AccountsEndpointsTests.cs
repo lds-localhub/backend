@@ -39,7 +39,11 @@ public class AccountsEndpointsTests(LocalHubApiFactory factory)
 
         var accounts = await ListAllAsync(adminToken, "");
 
-        Assert.All(accounts, a => Assert.True(a.GetProperty("role").GetString() is "CLIENT" or "PROVIDER"));
+        Assert.All(accounts, a =>
+        {
+            string? role = a.GetProperty("role").GetString();
+            Assert.True(role == "CLIENT" || role == "PROVIDER");
+        });
         var emails = accounts.Select(a => a.GetProperty("email").GetString()).ToList();
         Assert.DoesNotContain(AdminEmail, emails);
         Assert.Contains(client.Email, emails);

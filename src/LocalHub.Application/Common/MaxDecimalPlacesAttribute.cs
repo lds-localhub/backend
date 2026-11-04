@@ -16,11 +16,12 @@ public sealed class MaxDecimalPlacesAttribute : ValidationAttribute
 
     public override bool IsValid(object? value)
     {
-        if (value is not decimal number)
+        if (value == null)
         {
             return true;
         }
 
+        decimal number = (decimal)value;
         return decimal.Round(number, _decimalPlaces) == number;
     }
 }

@@ -110,13 +110,13 @@ public class ReportService
     private IQueryable<Service> CreatedIn(ReportPeriod period)
     {
         var services = _db.Services.AsNoTracking();
-        if (period.From is not null)
+        if (period.From != null)
         {
             var from = period.From.Value;
             services = services.Where(s => s.CreationDate >= from);
         }
 
-        if (period.Until is not null)
+        if (period.Until != null)
         {
             var until = period.Until.Value;
             services = services.Where(s => s.CreationDate < until);

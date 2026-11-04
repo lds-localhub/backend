@@ -23,7 +23,7 @@ public static class ClientReport
     {
         // Rule 4: only the COMPLETED services, the most recent first.
         var completedHistory = services
-            .Where(s => s.Status == ServiceStatus.Completed && s.ActualCompletionDate is not null)
+            .Where(s => s.Status == ServiceStatus.Completed && s.ActualCompletionDate != null)
             .OrderByDescending(s => s.ActualCompletionDate)
             .ThenByDescending(s => s.ServiceId)
             .Select(s => new CompletedServiceItem(

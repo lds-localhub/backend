@@ -55,7 +55,7 @@ public class AccountService
     {
         var user = await _db.Users.AsNoTracking()
             .SingleOrDefaultAsync(u => u.UserId == _currentUser.UserId, cancellationToken);
-        if (user is null)
+        if (user == null)
         {
             throw new NotFoundException("Utilizador não encontrado.");
         }
@@ -102,12 +102,12 @@ public class AccountService
         }
 
         var query = _db.Users.AsNoTracking().Where(u => u.Role != UserRole.Admin);
-        if (roleFilter is not null)
+        if (roleFilter != null)
         {
             query = query.Where(u => u.Role == roleFilter);
         }
 
-        if (statusFilter is not null)
+        if (statusFilter != null)
         {
             query = query.Where(u => u.Status == statusFilter);
         }
@@ -144,7 +144,7 @@ public class AccountService
         var user = await _db.Users
             .Include(u => u.Sessions.Where(s => s.RevokedAt == null))
             .SingleOrDefaultAsync(u => u.UserId == userId, cancellationToken);
-        if (user is null)
+        if (user == null)
         {
             throw new NotFoundException("Conta não encontrada.");
         }
@@ -159,7 +159,7 @@ public class AccountService
     public async Task<AccountResponse> ActivateAsync(int userId, CancellationToken cancellationToken)
     {
         var user = await _db.Users.SingleOrDefaultAsync(u => u.UserId == userId, cancellationToken);
-        if (user is null)
+        if (user == null)
         {
             throw new NotFoundException("Conta não encontrada.");
         }
@@ -178,7 +178,7 @@ public class AccountService
         var user = await _db.Users
             .Include(u => u.Sessions.Where(s => s.RevokedAt == null))
             .SingleOrDefaultAsync(u => u.UserId == userId, cancellationToken);
-        if (user is null)
+        if (user == null)
         {
             throw new NotFoundException("Conta não encontrada.");
         }

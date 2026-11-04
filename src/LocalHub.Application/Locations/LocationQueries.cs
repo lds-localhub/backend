@@ -17,14 +17,14 @@ public static class LocationQueries
             .Select(u => new { Latitude = u.Latitude!.Value, Longitude = u.Longitude!.Value })
             .SingleOrDefaultAsync(cancellationToken);
 
-        return location is null ? null : Coordinates.Rounded(location.Latitude, location.Longitude);
+        return location == null ? null : Coordinates.Rounded(location.Latitude, location.Longitude);
     }
 
     // The distanceKm of a service seen by a provider (E36 to E38): from the provider's location to the service, with one
     // decimal place, or null while the provider has no location.
     public static decimal? DistanceKm(Coordinates? from, decimal latitude, decimal longitude)
     {
-        if (from is null)
+        if (from == null)
         {
             return null;
         }

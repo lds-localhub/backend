@@ -42,13 +42,13 @@ public class UserSession
     // Valid while it was not revoked (logout or deactivated account) and has not expired.
     public bool IsValid(DateTimeOffset now)
     {
-        return RevokedAt is null && now < ExpiresAt;
+        return RevokedAt == null && now < ExpiresAt;
     }
 
     public void Revoke(DateTimeOffset now)
     {
         // A session that was already revoked keeps its original revocation date.
-        if (RevokedAt is null)
+        if (RevokedAt == null)
         {
             RevokedAt = now;
         }

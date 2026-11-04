@@ -56,7 +56,7 @@ public class ServiceWorkflowService
     public async Task<ClientServiceResponse> CreateAsync(CreateServiceRequest request, CancellationToken cancellationToken)
     {
         var client = await _db.Users.SingleOrDefaultAsync(u => u.UserId == _currentUser.UserId, cancellationToken);
-        if (client is null)
+        if (client == null)
         {
             throw new NotFoundException("Utilizador não encontrado.");
         }
@@ -73,7 +73,7 @@ public class ServiceWorkflowService
 
         var category = await _db.ServiceCategories
             .SingleOrDefaultAsync(c => c.ServiceCategoryId == request.ServiceCategoryId, cancellationToken);
-        if (category is null)
+        if (category == null)
         {
             errors.Add(CategoryField, "A categoria indicada não existe.");
         }
@@ -102,7 +102,7 @@ public class ServiceWorkflowService
         // coordinates are used without calling the Nominatim. Otherwise the address is converted into coordinates,
         // without changing the registered location (RF-F009-01, rule 3; RF-F010-01, rule 6).
         string address = request.Location!.Trim();
-        var location = address == client.Address && client.Latitude is not null && client.Longitude is not null
+        var location = address == client.Address && client.Latitude != null && client.Longitude != null
             ? new ResolvedLocation(client.Address, Coordinates.Rounded(client.Latitude.Value, client.Longitude.Value))
             : await _locationResolver.ResolveAddressAsync(address, LocationField, cancellationToken);
 
@@ -136,7 +136,7 @@ public class ServiceWorkflowService
         var provider = await _db.ProfessionalProfiles
             .Include(p => p.ServiceAreas)
             .SingleOrDefaultAsync(p => p.ServiceProviderId == _currentUser.UserId, cancellationToken);
-        if (provider is null)
+        if (provider == null)
         {
             throw new ForbiddenException(ProfileService.MissingProfileMessage, ErrorTypes.MissingProfile);
         }
@@ -148,7 +148,7 @@ public class ServiceWorkflowService
             .Include(s => s.DirectRequests.Where(r => r.ProfessionalProfileId == profileId))
             .Include(s => s.Proposals.Where(p => p.ProfessionalProfileId == profileId))
             .SingleOrDefaultAsync(s => s.ServiceId == serviceId, cancellationToken);
-        if (service is null)
+        if (service == null)
         {
             throw new NotFoundException("Serviço não encontrado.");
         }
@@ -195,7 +195,7 @@ public class ServiceWorkflowService
         }
 
         int? profileId = await _db.FindProfileIdAsync(_currentUser.UserId, cancellationToken);
-        if (profileId is null)
+        if (profileId == null)
         {
             throw new ForbiddenException(ProfileService.MissingProfileMessage, ErrorTypes.MissingProfile);
         }
@@ -203,12 +203,12 @@ public class ServiceWorkflowService
         var rows = _db.Proposals.AsNoTracking()
             .Where(p => p.ProfessionalProfileId == profileId)
             .Join(_db.Services, p => p.ServiceId, s => s.ServiceId, (p, s) => new { Proposal = p, Service = s });
-        if (statusFilter is not null)
+        if (statusFilter != null)
         {
             rows = rows.Where(r => r.Proposal.Status == statusFilter);
         }
 
-        if (modelFilter is not null)
+        if (modelFilter != null)
         {
             rows = rows.Where(r => r.Service.ProposalModel == modelFilter);
         }
@@ -248,7 +248,7 @@ public class ServiceWorkflowService
     public async Task<ProviderProposalResponse> GetMyProposalAsync(int proposalId, CancellationToken cancellationToken)
     {
         int? profileId = await _db.FindProfileIdAsync(_currentUser.UserId, cancellationToken);
-        if (profileId is null)
+        if (profileId == null)
         {
             throw new ForbiddenException(ProfileService.MissingProfileMessage, ErrorTypes.MissingProfile);
         }
@@ -280,7 +280,7 @@ public class ServiceWorkflowService
                 ClientName = s.Client.Name,
             })
             .SingleOrDefaultAsync(cancellationToken);
-        if (row is null)
+        if (row == null)
         {
             throw new NotFoundException("Proposta não encontrada.");
         }
@@ -322,7 +322,7 @@ public class ServiceWorkflowService
     public async Task<ProviderServiceResponse> GetForProviderAsync(int serviceId, CancellationToken cancellationToken)
     {
         int? profileId = await _db.FindProfileIdAsync(_currentUser.UserId, cancellationToken);
-        if (profileId is null)
+        if (profileId == null)
         {
             throw new ForbiddenException(ProfileService.MissingProfileMessage, ErrorTypes.MissingProfile);
         }
@@ -334,7 +334,7 @@ public class ServiceWorkflowService
             .Include(s => s.DirectRequests.Where(r => r.ProfessionalProfileId == profileId))
             .Include(s => s.Proposals.Where(p => p.ProfessionalProfileId == profileId))
             .SingleOrDefaultAsync(s => s.ServiceId == serviceId, cancellationToken);
-        if (service is null)
+        if (service == null)
         {
             throw new NotFoundException("Serviço não encontrado.");
         }
@@ -352,7 +352,7 @@ public class ServiceWorkflowService
             .Where(u => u.UserId == _currentUser.UserId && u.Latitude != null && u.Longitude != null)
             .Select(u => new { Latitude = u.Latitude!.Value, Longitude = u.Longitude!.Value })
             .SingleOrDefaultAsync(cancellationToken);
-        decimal? distanceKm = location is null
+        decimal? distanceKm = location == null
             ? null
             : GeoDistance.RoundKm(
                 GeoDistance.HaversineKm(location.Latitude, location.Longitude, service.Latitude, service.Longitude));
@@ -365,7 +365,7 @@ public class ServiceWorkflowService
             .ToListAsync(cancellationToken);
 
         var myProposal = service.Proposals.SingleOrDefault();
-        var myResponse = myProposal is null ? null : MyProposalResponse.From(myProposal);
+        var myResponse = myProposal == null ? null : MyProposalResponse.From(myProposal);
 
         return new ProviderServiceResponse(
             service.ServiceId,
@@ -382,7 +382,7 @@ public class ServiceWorkflowService
             distanceKm,
             service.CreationDate,
             service.ActualCompletionDate,
-            Reviewed: service.Review is not null,
+            Reviewed: service.Review != null,
             service.DirectRequests.Select(DirectRequestResponse.From).ToList(),
             myResponse,
             myProposal?.Status == ProposalStatus.Accepted ? myResponse : null,
@@ -412,7 +412,7 @@ public class ServiceWorkflowService
         else
         {
             int? profileId = await _db.FindProfileIdAsync(_currentUser.UserId, cancellationToken);
-            if (profileId is null)
+            if (profileId == null)
             {
                 throw new ForbiddenException(ProfileService.MissingProfileMessage, ErrorTypes.MissingProfile);
             }
@@ -421,12 +421,12 @@ public class ServiceWorkflowService
                 p => p.ProfessionalProfileId == profileId && p.Status == ProposalStatus.Accepted));
         }
 
-        if (statusFilter is not null)
+        if (statusFilter != null)
         {
             services = services.Where(s => s.Status == statusFilter);
         }
 
-        if (modelFilter is not null)
+        if (modelFilter != null)
         {
             services = services.Where(s => s.ProposalModel == modelFilter);
         }
@@ -522,7 +522,7 @@ public class ServiceWorkflowService
     public async Task<ServiceStatusResponse> CancelAsProviderAsync(int serviceId, CancellationToken cancellationToken)
     {
         int? profileId = await _db.FindProfileIdAsync(_currentUser.UserId, cancellationToken);
-        if (profileId is null)
+        if (profileId == null)
         {
             throw new ForbiddenException(ProfileService.MissingProfileMessage, ErrorTypes.MissingProfile);
         }
@@ -534,7 +534,7 @@ public class ServiceWorkflowService
         var service = await _db.Services
             .Include(s => s.Proposals).ThenInclude(p => p.ProfessionalProfile).ThenInclude(p => p.ServiceProvider)
             .SingleOrDefaultAsync(s => s.ServiceId == serviceId, cancellationToken);
-        if (service is null)
+        if (service == null)
         {
             throw new NotFoundException("Serviço não encontrado.");
         }
@@ -585,7 +585,7 @@ public class ServiceWorkflowService
             .Include(s => s.StatusHistory).ThenInclude(h => h.ChangedBy)
             .AsSplitQuery()
             .SingleOrDefaultAsync(s => s.ServiceId == serviceId, cancellationToken);
-        if (service is null)
+        if (service == null)
         {
             throw new NotFoundException("Serviço não encontrado.");
         }
@@ -606,7 +606,7 @@ public class ServiceWorkflowService
             .Where(p => p.ProposalId == proposalId)
             .Select(p => (int?)p.ServiceId)
             .SingleOrDefaultAsync(cancellationToken);
-        if (serviceId is null)
+        if (serviceId == null)
         {
             throw new NotFoundException("Proposta não encontrada.");
         }
@@ -665,13 +665,13 @@ public class ServiceWorkflowService
         {
             errors.Add(StartDateField, "A data pretendida tem de ser igual ou posterior à data de hoje.");
         }
-        else if (request.RequestedEndDate is not null && request.RequestedEndDate < request.RequestedStartDate)
+        else if (request.RequestedEndDate != null && request.RequestedEndDate < request.RequestedStartDate)
         {
             errors.Add(EndDateField, "A data de fim tem de ser igual ou posterior à data de início.");
         }
 
         // PUBLIC does not accept the field at all, not even an empty list (API documentation, E20).
-        if (request.ProposalModel == ProposalModel.Public && request.ProfessionalProfileIds is not null)
+        if (request.ProposalModel == ProposalModel.Public && request.ProfessionalProfileIds != null)
         {
             errors.Add(RecipientsField,
                 "Um trabalho publicado não tem destinatários: não indique professionalProfileIds.");
@@ -698,7 +698,7 @@ public class ServiceWorkflowService
             {
                 messages.Add($"{provider} tem a conta desativada.");
             }
-            else if (serviceCategoryId is not null
+            else if (serviceCategoryId != null
                      && profile.ServiceAreas.All(a => a.ServiceCategoryId != serviceCategoryId))
             {
                 messages.Add($"{provider} não tem a categoria do serviço no perfil.");

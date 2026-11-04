@@ -112,15 +112,16 @@ public sealed partial class NominatimGeocodingService : IGeocodingService
         }
 
         string? road = ReadString(details, "road");
-        if (road is null)
+        if (road == null)
         {
             return null;
         }
 
-        string street = ReadString(details, "house_number") is { } number ? $"{road} {number}" : road;
+        string? number = ReadString(details, "house_number");
+        string street = number != null ? $"{road} {number}" : road;
         string? locality = ReadString(details, "city") ?? ReadString(details, "town")
             ?? ReadString(details, "village") ?? ReadString(details, "municipality");
-        string place = string.Join(' ', new[] { ReadString(details, "postcode"), locality }.Where(p => p is not null));
+        string place = string.Join(' ', new[] { ReadString(details, "postcode"), locality }.Where(p => p != null));
 
         return place.Length == 0 ? street : $"{street}, {place}";
     }

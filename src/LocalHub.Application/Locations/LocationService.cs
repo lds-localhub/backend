@@ -36,7 +36,7 @@ public class LocationService
     {
         string? address = await _geocodingService.ReverseGeocodeAsync(
             Coordinates.Rounded(latitude, longitude), cancellationToken);
-        if (address is null)
+        if (address == null)
         {
             throw new ValidationException(AddressNotFoundMessage);
         }
@@ -52,7 +52,7 @@ public class LocationService
         var location = await _resolver.ResolveAddressAsync(request.Address!, "address", cancellationToken);
 
         var user = await _db.Users.SingleOrDefaultAsync(u => u.UserId == _currentUser.UserId, cancellationToken);
-        if (user is null)
+        if (user == null)
         {
             throw new NotFoundException("Utilizador não encontrado.");
         }

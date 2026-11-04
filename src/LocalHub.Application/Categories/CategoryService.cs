@@ -114,7 +114,7 @@ public class CategoryService
     {
         var category = await _db.ServiceCategories
             .SingleOrDefaultAsync(c => c.ServiceCategoryId == serviceCategoryId, cancellationToken);
-        if (category is null)
+        if (category == null)
         {
             throw new NotFoundException("Categoria não encontrada.");
         }

@@ -22,7 +22,7 @@ public sealed class RequiresProfessionalProfileAttribute : Attribute, IAsyncReso
         if (currentUser.IsAuthenticated && currentUser.Role == UserRole.Provider)
         {
             var profileService = services.GetRequiredService<ProfileService>();
-            if (await profileService.GetMyProfileIdAsync(context.HttpContext.RequestAborted) is null)
+            if (await profileService.GetMyProfileIdAsync(context.HttpContext.RequestAborted) == null)
             {
                 // Converted into the 403 response by the ErrorHandlingMiddleware.
                 throw new ForbiddenException(ProfileService.MissingProfileMessage, ErrorTypes.MissingProfile);

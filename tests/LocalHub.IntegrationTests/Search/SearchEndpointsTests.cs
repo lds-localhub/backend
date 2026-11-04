@@ -499,7 +499,7 @@ public class SearchEndpointsTests(LocalHubApiFactory factory)
             _client, HttpMethod.Post, $"{ServicesUrl}/{serviceId}/complete", client.Token);
         Assert.Equal(HttpStatusCode.OK, complete.StatusCode);
 
-        if (rating is not null)
+        if (rating != null)
         {
             using var review = await SendJsonAsync(
                 _client, HttpMethod.Post, $"{ServicesUrl}/{serviceId}/review", client.Token, new { rating });

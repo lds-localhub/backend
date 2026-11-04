@@ -129,13 +129,13 @@ public class SearchService
         }
 
         var provider = await FindProviderAsync(cancellationToken);
-        if (serviceCategoryId is not null)
+        if (serviceCategoryId != null)
         {
             await EnsureCategoryIsActiveAsync(serviceCategoryId.Value, cancellationToken);
         }
 
         // The profile always has a location (E12 and E14 require the address); without it there is no distance.
-        if (provider.Location is null)
+        if (provider.Location == null)
         {
             var locationErrors = new FieldErrors();
             locationErrors.Add("address", "Indique a morada no seu perfil profissional para pesquisar trabalhos publicados.");
@@ -146,7 +146,7 @@ public class SearchService
         Coordinates reference = provider.Location!;
 
         var jobs = _db.Services.AsNoTracking().Where(Service.IsOpenPublishedJob);
-        if (serviceCategoryId is not null)
+        if (serviceCategoryId != null)
         {
             jobs = jobs.Where(s => s.ServiceCategoryId == serviceCategoryId);
         }
@@ -230,12 +230,12 @@ public class SearchService
                     .FirstOrDefault(),
             })
             .SingleOrDefaultAsync(cancellationToken);
-        if (job is null)
+        if (job == null)
         {
             throw new NotFoundException("Trabalho publicado não encontrado.");
         }
 
-        bool withinServiceRadius = provider.Location is not null
+        bool withinServiceRadius = provider.Location != null
                                    && GeoDistance.HaversineKm(
                                        provider.Location.Latitude, provider.Location.Longitude, job.Latitude, job.Longitude)
                                    <= provider.ServiceRadiusKm;
@@ -262,7 +262,7 @@ public class SearchService
             .Where(p => p.ServiceProviderId == _currentUser.UserId)
             .Select(p => new { p.ProfessionalProfileId, p.ServiceRadiusKm })
             .SingleOrDefaultAsync(cancellationToken);
-        if (profile is null)
+        if (profile == null)
         {
             throw new ForbiddenException(ProfileService.MissingProfileMessage, ErrorTypes.MissingProfile);
         }
@@ -302,6 +302,6 @@ public class SearchService
             .Select(u => new { Latitude = u.Latitude!.Value, Longitude = u.Longitude!.Value })
             .SingleOrDefaultAsync(cancellationToken);
 
-        return location is null ? null : Coordinates.Rounded(location.Latitude, location.Longitude);
+        return location == null ? null : Coordinates.Rounded(location.Latitude, location.Longitude);
     }
 }

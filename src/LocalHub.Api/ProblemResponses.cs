@@ -30,7 +30,7 @@ public static class ProblemResponses
         context.Response.StatusCode = status;
 
         // HttpValidationProblemDetails also has the "errors" field, with the message of each field.
-        ProblemDetails problem = errors is null ? new ProblemDetails() : new HttpValidationProblemDetails(errors);
+        ProblemDetails problem = errors == null ? new ProblemDetails() : new HttpValidationProblemDetails(errors);
         Fill(problem, context, status, title, detail, type);
         return context.Response.WriteAsJsonAsync(problem, problem.GetType(), options: null, "application/problem+json");
     }
@@ -38,7 +38,7 @@ public static class ProblemResponses
     // type: one of ErrorTypes, or null for the default type of the status code (link to the section of RFC 9110).
     public static void Fill(ProblemDetails problem, HttpContext context, int status, string title, string detail, string? type)
     {
-        problem.Type = type is null ? DefaultType(status) : TypePrefix + type;
+        problem.Type = type == null ? DefaultType(status) : TypePrefix + type;
         problem.Title = title;
         problem.Status = status;
         problem.Detail = detail;

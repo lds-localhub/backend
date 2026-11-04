@@ -97,8 +97,9 @@ public class ProposalsEndpointsTests(LocalHubApiFactory factory)
         var body = ValidProposal();
         body[field] = field switch
         {
-            "amount" when value is not null => decimal.Parse(value, CultureInfo.InvariantCulture),
-            "conditions" or "obs" when value is not null => new string('a', int.Parse(value, CultureInfo.InvariantCulture)),
+            "amount" when value != null => decimal.Parse(value, CultureInfo.InvariantCulture),
+            "conditions" when value != null => new string('a', int.Parse(value, CultureInfo.InvariantCulture)),
+            "obs" when value != null => new string('a', int.Parse(value, CultureInfo.InvariantCulture)),
             _ => null,
         };
 

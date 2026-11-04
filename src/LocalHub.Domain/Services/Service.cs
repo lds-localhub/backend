@@ -136,7 +136,7 @@ public class Service
         }
 
         var request = _directRequests.SingleOrDefault(r => r.ProfessionalProfileId == provider.ProfessionalProfileId);
-        if (ProposalModel == ProposalModel.DirectRequest && request is null)
+        if (ProposalModel == ProposalModel.DirectRequest && request == null)
         {
             throw new DomainException(DomainErrorKind.Forbidden,
                 "Não recebeu uma solicitação direta para este serviço.");
@@ -163,7 +163,7 @@ public class Service
     public DirectRequest DeclineDirectRequest(int directRequestId, int professionalProfileId, DateTimeOffset now)
     {
         var request = _directRequests.SingleOrDefault(r => r.DirectRequestId == directRequestId);
-        if (request is null)
+        if (request == null)
         {
             throw new DomainException(DomainErrorKind.Conflict,
                 "A solicitação direta não pertence a este serviço.");
@@ -274,7 +274,7 @@ public class Service
     public void CancelByProvider(int professionalProfileId, DateTimeOffset now)
     {
         var accepted = _proposals.SingleOrDefault(p => p.Status == ProposalStatus.Accepted);
-        if (accepted is null || accepted.ProfessionalProfileId != professionalProfileId)
+        if (accepted == null || accepted.ProfessionalProfileId != professionalProfileId)
         {
             throw new DomainException(DomainErrorKind.Forbidden,
                 "Só o Prestador com a proposta aceite pode cancelar o serviço, e apenas no estado atribuído.");
@@ -323,7 +323,7 @@ public class Service
                 "Só é possível avaliar um serviço no estado realizado.");
         }
 
-        if (Review is not null)
+        if (Review != null)
         {
             throw new DomainException(DomainErrorKind.Conflict, "Este serviço já foi avaliado.",
                 errorType: Review.AlreadyExistsErrorType);
@@ -366,7 +366,7 @@ public class Service
         }
 
         var proposal = _proposals.SingleOrDefault(p => p.ProposalId == proposalId);
-        if (proposal is null)
+        if (proposal == null)
         {
             throw new DomainException(DomainErrorKind.Conflict, "A proposta não pertence a este serviço.");
         }

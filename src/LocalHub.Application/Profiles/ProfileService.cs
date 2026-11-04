@@ -41,7 +41,7 @@ public class ProfileService
     public async Task<ProfileResponse> CreateAsync(CreateProfileRequest request, CancellationToken cancellationToken)
     {
         var provider = await _db.Users.SingleOrDefaultAsync(u => u.UserId == _currentUser.UserId, cancellationToken);
-        if (provider is null)
+        if (provider == null)
         {
             throw new NotFoundException("Utilizador não encontrado.");
         }
@@ -78,7 +78,7 @@ public class ProfileService
 
         if (_currentUser.Role == UserRole.Provider)
         {
-            if (profile is null)
+            if (profile == null)
             {
                 throw new NotFoundException("Perfil não encontrado.");
             }
@@ -92,7 +92,7 @@ public class ProfileService
         }
 
         // The profile of a provider with a deactivated account is not shown to the client (RF-F004-03, rule 2).
-        if (profile is null || profile.ServiceProvider.Status != ActivationStatus.Active)
+        if (profile == null || profile.ServiceProvider.Status != ActivationStatus.Active)
         {
             throw new NotFoundException("Perfil não encontrado.");
         }
@@ -139,7 +139,7 @@ public class ProfileService
     {
         var profile = await WithDetails(_db.ProfessionalProfiles)
             .SingleOrDefaultAsync(p => p.ServiceProviderId == _currentUser.UserId, cancellationToken);
-        if (profile is null)
+        if (profile == null)
         {
             throw new ForbiddenException(MissingProfileMessage, ErrorTypes.MissingProfile);
         }

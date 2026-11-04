@@ -41,7 +41,7 @@ public class ReviewService
             .Include(s => s.Proposals.Where(p => p.Status == ProposalStatus.Accepted))
             .ThenInclude(p => p.ProfessionalProfile)
             .SingleOrDefaultAsync(s => s.ServiceId == serviceId, cancellationToken);
-        if (service is null)
+        if (service == null)
         {
             throw new NotFoundException("Serviço não encontrado.");
         }
@@ -105,7 +105,7 @@ public class ReviewService
             .SingleOrDefaultAsync(cancellationToken);
         if (_currentUser.Role == UserRole.Provider)
         {
-            if (profile is null)
+            if (profile == null)
             {
                 throw new NotFoundException("Perfil não encontrado.");
             }
@@ -117,7 +117,7 @@ public class ReviewService
         }
 
         // The profile of a provider with a deactivated account is not shown to the client (RF-F004-03, rule 2).
-        else if (profile is null || profile.Status != ActivationStatus.Active)
+        else if (profile == null || profile.Status != ActivationStatus.Active)
         {
             throw new NotFoundException("Perfil não encontrado.");
         }

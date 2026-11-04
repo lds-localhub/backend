@@ -56,13 +56,13 @@ public static class ProviderReport
             r => FirstDayOfMonth(DateOnly.FromDateTime(r.CreationDate.UtcDateTime)), r => r.Rating);
 
         var first = ratingsByMonth.Min(month => month.Key);
-        if (period.StartDate is not null && FirstDayOfMonth(period.StartDate.Value) > first)
+        if (period.StartDate != null && FirstDayOfMonth(period.StartDate.Value) > first)
         {
             first = FirstDayOfMonth(period.StartDate.Value);
         }
 
         var last = FirstDayOfMonth(today);
-        if (period.EndDate is not null && FirstDayOfMonth(period.EndDate.Value) < last)
+        if (period.EndDate != null && FirstDayOfMonth(period.EndDate.Value) < last)
         {
             last = FirstDayOfMonth(period.EndDate.Value);
         }
