@@ -466,7 +466,8 @@ public class ServiceWorkflowService
             .Include(s => s.DirectRequests).ThenInclude(r => r.ProfessionalProfile).ThenInclude(p => p.ServiceProvider)
             .Include(s => s.Proposals).ThenInclude(p => p.ProfessionalProfile).ThenInclude(p => p.ServiceProvider)
             .Include(s => s.StatusHistory).ThenInclude(h => h.ChangedBy)
-            .AsSplitQuery()
+            // A single service has few direct requests, proposals and changes of state, so one query is enough.
+            .AsSingleQuery()
             .SingleOrDefaultAsync(s => s.ServiceId == serviceId, cancellationToken);
         if (service == null)
         {
