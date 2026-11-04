@@ -169,7 +169,7 @@ public class DirectRequestService
         var request = service.DeclineDirectRequest(directRequestId, profileId, now);
         await _db.SaveChangesAsync(cancellationToken);
 
-        return DirectRequestStatusResponse.From(service.ServiceId, request);
+        return DirectRequestStatusResponse.From(request);
     }
 
     private async Task<int> GetMyProfileIdAsync(CancellationToken cancellationToken)

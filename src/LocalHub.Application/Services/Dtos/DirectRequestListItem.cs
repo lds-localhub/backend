@@ -19,23 +19,11 @@ public record DirectRequestServiceSummary(
     DateOnly? RequestedEndDate,
     string ClientName);
 
-// Direct request as returned by E24.
-public record DirectRequestStatusResponse(
-    int DirectRequestId,
-    int ServiceId,
-    int ProfessionalProfileId,
-    DirectRequestStatus Status,
-    DateTimeOffset CreationDate,
-    DateTimeOffset? ResponseDate)
+// Response of E24: only what changed in the direct request (API documentation, E24).
+public record DirectRequestStatusResponse(int DirectRequestId, DirectRequestStatus Status, DateTimeOffset? ResponseDate)
 {
-    public static DirectRequestStatusResponse From(int serviceId, DirectRequest request)
+    public static DirectRequestStatusResponse From(DirectRequest request)
     {
-        return new DirectRequestStatusResponse(
-            request.DirectRequestId,
-            serviceId,
-            request.ProfessionalProfileId,
-            request.Status,
-            request.CreationDate,
-            request.ResponseDate);
+        return new DirectRequestStatusResponse(request.DirectRequestId, request.Status, request.ResponseDate);
     }
 }

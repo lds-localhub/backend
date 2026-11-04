@@ -45,8 +45,9 @@ public class ProposalsEndpointsTests(LocalHubApiFactory factory)
         var proposal = await response.Content.ReadFromJsonAsync<JsonElement>();
         int proposalId = proposal.GetProperty("proposalId").GetInt32();
         Assert.Equal($"/api/proposals/{proposalId}", response.Headers.Location?.OriginalString);
-        Assert.Equal(serviceId, proposal.GetProperty("serviceId").GetInt32());
-        Assert.Equal(provider.ProfessionalProfileId, proposal.GetProperty("professionalProfileId").GetInt32());
+        // Only the fields of the proposal (API documentation, E25): the service and the profile are those of the request.
+        Assert.False(proposal.TryGetProperty("serviceId", out _));
+        Assert.False(proposal.TryGetProperty("professionalProfileId", out _));
         Assert.Equal(80.00m, proposal.GetProperty("amount").GetDecimal());
         Assert.Equal("Inclui deslocação e material.", proposal.GetProperty("conditions").GetString());
         Assert.Equal("Disponível dia 9 às 18h30.", proposal.GetProperty("obs").GetString());
@@ -247,7 +248,7 @@ public class ProposalsEndpointsTests(LocalHubApiFactory factory)
     public async Task Decline_DestinatarioDeSolicitacaoPendente_Devolve200RecusadaEServicoContinuaAberto()
     {
         var provider = await CreateProviderWithProfileAsync(_client);
-        var (_, serviceId, requests) = await CreateDirectServiceAsync(provider.ServiceCategoryId, provider.ProfessionalProfileId);
+        var (_, _, requests) = await CreateDirectServiceAsync(provider.ServiceCategoryId, provider.ProfessionalProfileId);
         int requestId = requests[provider.ProfessionalProfileId];
 
         using var response = await PostAsync(provider.Token, $"/api/direct-requests/{requestId}/decline");
@@ -255,10 +256,10 @@ public class ProposalsEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal(requestId, body.GetProperty("directRequestId").GetInt32());
-        Assert.Equal(serviceId, body.GetProperty("serviceId").GetInt32());
-        Assert.Equal(provider.ProfessionalProfileId, body.GetProperty("professionalProfileId").GetInt32());
         Assert.Equal("DECLINED", body.GetProperty("status").GetString());
         Assert.NotEqual(JsonValueKind.Null, body.GetProperty("responseDate").ValueKind);
+        // Only what changed in the request (API documentation, E24).
+        Assert.Equal(3, body.EnumerateObject().Count());
 
         // The provider sees the declined request and the service still OPEN in E36.
         using var detail = await GetAsync(provider.Token, $"/api/direct-requests/{requestId}");

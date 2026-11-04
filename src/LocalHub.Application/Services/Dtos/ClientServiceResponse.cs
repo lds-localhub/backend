@@ -91,7 +91,7 @@ public record ClientDirectRequestResponse(
     DateTimeOffset CreationDate,
     DateTimeOffset? ResponseDate,
     ProviderSummary ProfessionalProfile,
-    MyProposalResponse? Proposal)
+    ProposalResponse? Proposal)
 {
     // proposals are the proposals of the service; the one of the request is the one of the same profile.
     public static ClientDirectRequestResponse From(
@@ -104,7 +104,7 @@ public record ClientDirectRequestResponse(
             request.CreationDate,
             request.ResponseDate,
             ProviderSummary.From(request.ProfessionalProfile, reviewCounts),
-            proposal == null ? null : MyProposalResponse.From(proposal));
+            proposal == null ? null : ProposalResponse.From(proposal));
     }
 }
 

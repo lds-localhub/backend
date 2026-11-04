@@ -4374,15 +4374,16 @@
                   "pm.test(\"Devolve 201\", () => pm.response.to.have.status(201));",
                   "const body = pm.response.json();",
                   "pm.test(\"Proposta pendente com os dados enviados\", () => {",
-                  "    pm.expect(body.serviceId).to.eql(Number(pm.collectionVariables.get(\"serviceId\")));",
-                  "    pm.expect(body.professionalProfileId).to.eql(Number(pm.collectionVariables.get(\"profileId\")));",
                   "    pm.expect(body.amount).to.eql(80);",
                   "    pm.expect(body.conditions).to.eql(\"Inclui deslocação e material.\");",
                   "    pm.expect(body.obs).to.eql(\"Disponível dia 9 às 18h30.\");",
                   "    pm.expect(body.status).to.eql(\"PENDING\");",
                   "    pm.expect(body.decisionDate).to.eql(null);",
                   "});",
-                  "pm.test(\"Cabeçalho Location\", () => pm.expect(pm.response.headers.get(\"Location\")).to.eql(`/api/services/${body.serviceId}/proposals/${body.proposalId}`));",
+                  "pm.test(\"Só os campos da proposta\", () => {",
+                  "    pm.expect(body).to.have.all.keys(\"proposalId\", \"amount\", \"conditions\", \"obs\", \"status\", \"creationDate\", \"decisionDate\");",
+                  "});",
+                  "pm.test(\"Cabeçalho Location\", () => pm.expect(pm.response.headers.get(\"Location\")).to.eql(`/api/proposals/${body.proposalId}`));",
                   "pm.collectionVariables.set(\"proposalId\", body.proposalId);"
                 ]
               }
@@ -4680,10 +4681,10 @@
                   "const body = pm.response.json();",
                   "pm.test(\"Solicitação recusada\", () => {",
                   "    pm.expect(body.directRequestId).to.eql(Number(pm.collectionVariables.get(\"declineRequestId\")));",
-                  "    pm.expect(body.serviceId).to.eql(Number(pm.collectionVariables.get(\"declineServiceId\")));",
                   "    pm.expect(body.status).to.eql(\"DECLINED\");",
                   "    pm.expect(body.responseDate).to.be.a(\"string\");",
-                  "});"
+                  "});",
+                  "pm.test(\"Só o que mudou na solicitação\", () => pm.expect(body).to.have.all.keys(\"directRequestId\", \"status\", \"responseDate\"));"
                 ]
               }
             }
