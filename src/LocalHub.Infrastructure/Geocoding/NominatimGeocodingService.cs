@@ -51,7 +51,7 @@ public sealed class NominatimGeocodingService : IGeocodingService
             ["email"] = _options.Email,
         };
 
-        using JsonDocument document = await SendAsync("search", query, cancellationToken).ConfigureAwait(false);
+        using JsonDocument document = await SendAsync("search", query, cancellationToken);
         JsonElement root = document.RootElement;
 
         if (root.ValueKind != JsonValueKind.Array || root.GetArrayLength() == 0)
@@ -80,7 +80,7 @@ public sealed class NominatimGeocodingService : IGeocodingService
             ["email"] = _options.Email,
         };
 
-        using JsonDocument document = await SendAsync("reverse", query, cancellationToken).ConfigureAwait(false);
+        using JsonDocument document = await SendAsync("reverse", query, cancellationToken);
         JsonElement root = document.RootElement;
 
         // Sem morada, o Nominatim responde 200 com { "error": "Unable to geocode" }.
@@ -139,11 +139,11 @@ public sealed class NominatimGeocodingService : IGeocodingService
     {
         Uri requestUri = BuildRelativeUri(path, query);
 
-        await _rateLimiter.WaitTurnAsync(cancellationToken).ConfigureAwait(false);
+        await _rateLimiter.WaitTurnAsync(cancellationToken);
 
         try
         {
-            using HttpResponseMessage response = await _httpClient.GetAsync(requestUri, cancellationToken).ConfigureAwait(false);
+            using HttpResponseMessage response = await _httpClient.GetAsync(requestUri, cancellationToken);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -151,8 +151,8 @@ public sealed class NominatimGeocodingService : IGeocodingService
                 throw new GeocodingUnavailableException("O Nominatim respondeu com um código de erro.");
             }
 
-            using Stream content = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-            return await JsonDocument.ParseAsync(content, cancellationToken: cancellationToken).ConfigureAwait(false);
+            using Stream content = await response.Content.ReadAsStreamAsync(cancellationToken);
+            return await JsonDocument.ParseAsync(content, cancellationToken: cancellationToken);
         }
         catch (HttpRequestException ex)
         {
