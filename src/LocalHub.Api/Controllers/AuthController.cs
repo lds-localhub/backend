@@ -19,13 +19,14 @@ public class AuthController : ControllerBase
         _accountService = accountService;
     }
 
-    // E01
+    // E01: 201 without Location (API documentation, section 4.5): the registration does not start a session, so the new
+    // account cannot be consulted yet.
     [HttpPost("register")]
     [AllowAnonymous]
     public async Task<ActionResult<RegisterResponse>> Register(RegisterRequest request, CancellationToken cancellationToken)
     {
         var response = await _authService.RegisterAsync(request, cancellationToken);
-        return Created("/api/auth/me", response);
+        return StatusCode(StatusCodes.Status201Created, response);
     }
 
     // E02

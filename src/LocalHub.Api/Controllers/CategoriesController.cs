@@ -48,12 +48,13 @@ public class CategoriesController : ControllerBase
         return Ok(await _categoryService.ListAsync(includeInactive, cancellationToken));
     }
 
-    // E09
+    // E09: 201 without Location (API documentation, section 4.5): there is no endpoint to consult one category; the
+    // categories are listed in E08.
     [HttpPost]
     public async Task<ActionResult<CategoryResponse>> Create(CategoryRequest request, CancellationToken cancellationToken)
     {
         var category = await _categoryService.CreateAsync(request, cancellationToken);
-        return Created($"/api/categories/{category.ServiceCategoryId}", category);
+        return StatusCode(StatusCodes.Status201Created, category);
     }
 
     // E10

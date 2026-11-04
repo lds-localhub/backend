@@ -93,7 +93,7 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test(\"Devolve 201\", () => pm.response.to.have.status(201));",
-                  "pm.test(\"Location aponta para /api/auth/me\", () => pm.expect(pm.response.headers.get(\"Location\")).to.eql(\"/api/auth/me\"));",
+                  "pm.test(\"Sem cabeçalho Location\", () => pm.expect(pm.response.headers.has(\"Location\")).to.eql(false));",
                   "pm.test(\"Conta ativa com o papel pedido\", () => {",
                   "    const body = pm.response.json();",
                   "    pm.expect(body.email).to.eql(pm.collectionVariables.get(\"email\"));",
@@ -1671,7 +1671,7 @@
                   "    pm.expect(body.name).to.eql(pm.collectionVariables.get(\"categoryName\"));",
                   "    pm.expect(body.status).to.eql(\"ACTIVE\");",
                   "});",
-                  "pm.test(\"Cabeçalho Location\", () => pm.expect(pm.response.headers.get(\"Location\")).to.eql(`/api/categories/${body.serviceCategoryId}`));",
+                  "pm.test(\"Sem cabeçalho Location\", () => pm.expect(pm.response.headers.has(\"Location\")).to.eql(false));",
                   "pm.collectionVariables.set(\"categoryId\", body.serviceCategoryId);"
                 ]
               }

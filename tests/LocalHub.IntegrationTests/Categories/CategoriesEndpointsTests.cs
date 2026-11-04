@@ -122,7 +122,7 @@ public class CategoriesEndpointsTests(LocalHubApiFactory factory)
         int id = body.GetProperty("serviceCategoryId").GetInt32();
         Assert.Equal(name, body.GetProperty("name").GetString());
         Assert.Equal("ACTIVE", body.GetProperty("status").GetString());
-        Assert.Equal($"{CategoriesUrl}/{id}", response.Headers.Location?.OriginalString);
+        Assert.Null(response.Headers.Location);
         Assert.Equal("ACTIVE", StatusOf(await ListAsync(adminToken, includeInactive: true), id));
     }
 

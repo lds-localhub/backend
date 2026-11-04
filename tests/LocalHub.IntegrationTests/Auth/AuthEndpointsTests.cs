@@ -25,14 +25,14 @@ public class AuthEndpointsTests(LocalHubApiFactory factory)
 
     [Fact]
     [Trait("Requisito", "RF-F001-01")]
-    public async Task Register_ClienteValido_Devolve201ComLocationEContaAtiva()
+    public async Task Register_ClienteValido_Devolve201SemLocationEContaAtiva()
     {
         string email = NewEmail();
 
         using var response = await RegisterAsync(_client, "Ana Costa", email, ValidPassword, "CLIENT");
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-        Assert.Equal("/api/auth/me", response.Headers.Location?.OriginalString);
+        Assert.Null(response.Headers.Location);
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal(email, body.GetProperty("email").GetString());
         Assert.Equal("CLIENT", body.GetProperty("role").GetString());
