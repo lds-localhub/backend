@@ -4595,7 +4595,6 @@
                 "exec": [
                   "pm.test(\"Devolve 201\", () => pm.response.to.have.status(201));",
                   "const body = pm.response.json();",
-                  "pm.collectionVariables.set(\"declineServiceId\", body.serviceId);",
                   "pm.collectionVariables.set(\"declineRequestId\", body.directRequests[0].directRequestId);"
                 ]
               }
@@ -8397,10 +8396,6 @@
     },
     {
       "key": "proposalId",
-      "value": ""
-    },
-    {
-      "key": "declineServiceId",
       "value": ""
     },
     {
