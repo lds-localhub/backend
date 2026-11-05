@@ -26,16 +26,6 @@ public class DataSeeder
         await AddIfMissingAsync(
             User.CreateAdministrator("Ana Almeida", "ana.almeida@localhub.test", _password, hashPassword),
             cancellationToken);
-        await AddIfMissingAsync(
-            User.CreateAdministrator("Rui Rocha", "rui.rocha@localhub.test", _password, hashPassword),
-            cancellationToken);
-        await AddIfMissingAsync(
-            User.Register("Carla Costa", "carla.costa@localhub.test", UserRole.Client, _password, hashPassword),
-            cancellationToken);
-        await AddIfMissingAsync(
-            User.Register("Hugo Henriques", "hugo.henriques@localhub.test", UserRole.Provider, _password,
-                hashPassword),
-            cancellationToken);
 
         await _db.SaveChangesAsync(cancellationToken);
     }
