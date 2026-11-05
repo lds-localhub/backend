@@ -28,7 +28,7 @@ public class ServiceLifecycleTests
     [Trait("Requisito", "RF-F008-06")]
     [InlineData(ServiceStatus.Completed)]
     [InlineData(ServiceStatus.Cancelled)]
-    public void CancelByClient_EstadoFinal_LancaInvalidTransitionEOEstadoMantemSe(ServiceStatus state)
+    public void CancelByClient_FinalState_ThrowsInvalidTransitionAndKeepsState(ServiceStatus state)
     {
         var service = AssignedService(out _);
         MoveTo(service, state);
@@ -45,7 +45,7 @@ public class ServiceLifecycleTests
     [Fact]
     [Trait("Requisito", "RF-F007-05")]
     [Trait("Requisito", "RF-F008-04")]
-    public void CancelByProvider_PropostaNaoAceite_LancaForbidden()
+    public void CancelByProvider_ProposalNotAccepted_ThrowsForbidden()
     {
         var service = AssignedService(out _);
 
@@ -64,7 +64,7 @@ public class ServiceLifecycleTests
     [InlineData(ServiceStatus.Open)]
     [InlineData(ServiceStatus.Completed)]
     [InlineData(ServiceStatus.Cancelled)]
-    public void Complete_ServicoNaoAtribuido_LancaInvalidTransition(ServiceStatus state)
+    public void Complete_ServiceNotAssigned_ThrowsInvalidTransition(ServiceStatus state)
     {
         Service service;
         if (state == ServiceStatus.Open)

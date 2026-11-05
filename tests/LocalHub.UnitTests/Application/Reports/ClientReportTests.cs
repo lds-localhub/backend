@@ -14,7 +14,7 @@ public class ClientReportTests
     // Rule 3 (criterion 2).
     [Fact]
     [Trait("Requisito", "RF-F013-02")]
-    public void Parse_DataInicialPosteriorAFinal_LancaErroGlobal()
+    public void Parse_StartDateAfterEndDate_ThrowsGlobalError()
     {
         var exception = Assert.Throws<ValidationException>(() => ReportPeriod.Parse("2026-10-31", "2026-10-01"));
 

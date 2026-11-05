@@ -12,7 +12,7 @@ public class GeoDistanceTests
     // On a meridian, 1° of latitude is R · π / 180 = 111.19 km.
     [Fact]
     [Trait("Requisito", "RF-F005-01")]
-    public void HaversineKm_UmGrauDeLatitude_DevolveADistanciaDeReferencia()
+    public void HaversineKm_OneDegreeOfLatitude_ReturnsReferenceDistance()
     {
         double distance = GeoDistance.HaversineKm(41.1579m, -8.6291m, 42.1579m, -8.6291m);
 

@@ -36,7 +36,7 @@ public class ServicesEndpointsTests(LocalHubApiFactory factory)
     [Fact]
     [Trait("Requisito", "RF-F009-01")]
     [Trait("Requisito", "RF-F009-03")]
-    public async Task Create_SolicitacoesDiretasComDoisPrestadoresElegiveis_Devolve201ComServicoAbertoEDuasSolicitacoesPendentes()
+    public async Task Create_DirectRequestsToTwoEligibleProviders_Returns201WithOpenServiceAndTwoPendingDirectRequests()
     {
         var first = await CreateProviderWithProfileAsync(_client);
         var second = await CreateProviderInCategoryAsync(first.ServiceCategoryId);
@@ -92,7 +92,7 @@ public class ServicesEndpointsTests(LocalHubApiFactory factory)
 
     [Fact]
     [Trait("Requisito", "RF-F010-01")]
-    public async Task Create_TrabalhoPublicado_Devolve201AbertoComDirectRequestsVazio()
+    public async Task Create_PublicService_Returns201OpenWithEmptyDirectRequests()
     {
         int categoryId = await NewCategoryAsync();
         var client = await RegisterClientAsync(_client);
@@ -112,7 +112,7 @@ public class ServicesEndpointsTests(LocalHubApiFactory factory)
 
     [Fact]
     [Trait("Requisito", "RF-F010-01")]
-    public async Task Create_VariosCamposInvalidos_Devolve400ComErroEmCadaCampo()
+    public async Task Create_SeveralInvalidFields_Returns400WithErrorPerField()
     {
         var client = await RegisterClientAsync(_client);
         var body = new Dictionary<string, object?> { ["proposalModel"] = "PUBLIC", ["description"] = "" };
@@ -131,7 +131,7 @@ public class ServicesEndpointsTests(LocalHubApiFactory factory)
     [Fact]
     [Trait("Requisito", "RF-F009-01")]
     [Trait("Requisito", "RF-F015-03")]
-    public async Task Create_GeocodificacaoIndisponivel_Devolve503ENaoCriaServicoNemSolicitacoes()
+    public async Task Create_GeocodingUnavailable_Returns503AndCreatesNoServiceOrDirectRequests()
     {
         var provider = await CreateProviderWithProfileAsync(_client);
         var client = await RegisterClientAsync(_client);

@@ -24,7 +24,7 @@ public class ServiceReviewTests
     [InlineData(ServiceStatus.Open)]
     [InlineData(ServiceStatus.Assigned)]
     [InlineData(ServiceStatus.Cancelled)]
-    public void AddReview_ServicoNaoRealizado_LancaInvalidTransition(ServiceStatus state)
+    public void AddReview_ServiceNotCompleted_ThrowsInvalidTransition(ServiceStatus state)
     {
         var service = ServiceIn(state);
 
@@ -37,7 +37,7 @@ public class ServiceReviewTests
     // Criterion 3: a second review is refused with avaliacao-existente and the first one does not change.
     [Fact]
     [Trait("Requisito", "RF-F012-01")]
-    public void AddReview_SegundaAvaliacao_LancaConflictAvaliacaoExistente()
+    public void AddReview_SecondReview_ThrowsConflictReviewExists()
     {
         var service = CompletedService();
         var first = service.AddReview(ClientId, 4, "Bom trabalho.", ReviewDate);

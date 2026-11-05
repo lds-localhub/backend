@@ -25,7 +25,7 @@ public class AuthEndpointsTests(LocalHubApiFactory factory)
 
     [Fact]
     [Trait("Requisito", "RF-F001-01")]
-    public async Task Register_ClienteValido_Devolve201SemLocationEContaAtiva()
+    public async Task Register_ValidClient_Returns201WithoutLocationAndActiveAccount()
     {
         string email = NewEmail();
 
@@ -41,7 +41,7 @@ public class AuthEndpointsTests(LocalHubApiFactory factory)
 
     [Fact]
     [Trait("Requisito", "RF-F001-01")]
-    public async Task Register_CamposInvalidosEPapelAdministrador_Devolve400ComErroPorCampo()
+    public async Task Register_InvalidFieldsAndAdministratorRole_Returns400WithErrorPerField()
     {
         using var response = await RegisterAsync(_client, "", "invalido", "curta", "ADMIN");
 
@@ -59,7 +59,7 @@ public class AuthEndpointsTests(LocalHubApiFactory factory)
     [InlineData("abcdefgh")] // 8 characters, no digit
     [InlineData("1234567")] // no letter and only 7 characters
     [Trait("Requisito", "RF-F001-01")]
-    public async Task Register_PalavraPasseFraca_Devolve400ComErroNaPalavraPasseENaoCriaConta(string password)
+    public async Task Register_WeakPassword_Returns400WithPasswordErrorAndCreatesNoAccount(string password)
     {
         string email = NewEmail();
 
@@ -74,7 +74,7 @@ public class AuthEndpointsTests(LocalHubApiFactory factory)
     [Fact]
     [Trait("Requisito", "RF-F001-02")]
     [Trait("Requisito", "RF-F001-05")]
-    public async Task Login_AdministradorDoConjuntoInicial_Devolve200ComTokenESessaoDeOitoHoras()
+    public async Task Login_SeededAdministrator_Returns200WithTokenAndEightHourSession()
     {
         using var response = await LoginAsync(_client, AdminEmail, LocalHubApiFactory.SeedPassword);
 
@@ -90,7 +90,7 @@ public class AuthEndpointsTests(LocalHubApiFactory factory)
 
     [Fact]
     [Trait("Requisito", "RF-F001-02")]
-    public async Task Login_PalavraPasseErradaOuEmailDesconhecido_Devolve401ComMesmaMensagem()
+    public async Task Login_WrongPasswordOrUnknownEmail_Returns401WithSameMessage()
     {
         using var wrongPassword = await LoginAsync(_client, AdminEmail, "errada123");
         using var unknownEmail = await LoginAsync(_client, NewEmail(), "errada123");
@@ -107,7 +107,7 @@ public class AuthEndpointsTests(LocalHubApiFactory factory)
 
     [Fact]
     [Trait("Requisito", "RF-F001-06")]
-    public async Task Login_AdministradorNaAplicacaoMobile_Devolve403AdministracaoSoWebSemCriarSessao()
+    public async Task Login_AdministratorOnMobileApp_Returns403WebOnlyAdministrationWithoutSession()
     {
         int sessionsBefore = await CountSessionsAsync(AdminEmail);
 
@@ -123,7 +123,7 @@ public class AuthEndpointsTests(LocalHubApiFactory factory)
     [Fact]
     [Trait("Requisito", "RF-F001-07")]
     [Trait("Requisito", "RNF-01")]
-    public async Task ChangePassword_DadosValidos_NovaPalavraPasseSubstituiAnterior()
+    public async Task ChangePassword_ValidData_NewPasswordReplacesPrevious()
     {
         string email = NewEmail();
         string token = await RegisterAndLoginAsync(_client, email, "CLIENT");
@@ -143,7 +143,7 @@ public class AuthEndpointsTests(LocalHubApiFactory factory)
 
     [Fact]
     [Trait("Requisito", "RF-F001-07")]
-    public async Task ChangePassword_DadosValidos_RevogaOutrasSessoesEMantemAtual()
+    public async Task ChangePassword_ValidData_RevokesOtherSessionsAndKeepsCurrent()
     {
         string email = NewEmail();
         string tokenA = await RegisterAndLoginAsync(_client, email, "CLIENT");

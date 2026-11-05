@@ -35,7 +35,7 @@ public class OpenServicesEndpointsTests(LocalHubApiFactory factory)
     [Fact]
     [Trait("Requisito", "RF-F006-01")]
     [Trait("Requisito", "RF-F002-02")]
-    public async Task SearchServices_SoDevolveTrabalhosPublicadosAbertosDeClientesAtivos()
+    public async Task SearchServices_MixedServices_ReturnsOnlyOpenPublicServicesOfActiveClients()
     {
         var provider = await CreateProviderAsync(15);
         int eligible = await CreatePublicServiceAsync(provider.ServiceCategoryId, FakeGeocodingService.AddressAt2Km);
@@ -63,7 +63,7 @@ public class OpenServicesEndpointsTests(LocalHubApiFactory factory)
     [Fact]
     [Trait("Requisito", "RF-F006-01")]
     [Trait("Requisito", "RNF-06")]
-    public async Task SearchServices_TrabalhosA2_10E30Km_DevolveOrdenadosPorDistanciaSemDadosDoCliente()
+    public async Task SearchServices_ServicesAt2_10And30Km_ReturnsSortedByDistanceWithoutClientData()
     {
         var provider = await CreateProviderAsync(15);
         // Created out of order, so the order of the results can only come from the distance.
@@ -100,7 +100,7 @@ public class OpenServicesEndpointsTests(LocalHubApiFactory factory)
     [Fact]
     [Trait("Requisito", "RF-F011-01")]
     [Trait("Requisito", "RNF-06")]
-    public async Task GetService_TrabalhoPublicadoAberto_Devolve200ComODetalheESemDadosDoCliente()
+    public async Task GetService_OpenPublicService_Returns200WithDetailWithoutClientData()
     {
         var provider = await CreateProviderAsync(15);
         int serviceId = await CreatePublicServiceAsync(provider.ServiceCategoryId, FakeGeocodingService.AddressAt10Km);

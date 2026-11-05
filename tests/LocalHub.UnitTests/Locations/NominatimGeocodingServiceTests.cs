@@ -16,7 +16,7 @@ public class NominatimGeocodingServiceTests
 
     [Fact]
     [Trait("Requisito", "RF-F015-03")]
-    public async Task GeocodeAsync_MoradaEncontrada_DevolveCoordenadas()
+    public async Task GeocodeAsync_AddressFound_ReturnsCoordinates()
     {
         using StubHandler handler = new(HttpStatusCode.OK, """[{"lat":"41.1579000","lon":"-8.6291000","display_name":"Praça da Liberdade, Porto"}]""");
         NominatimGeocodingService service = CreateService(handler);
@@ -32,7 +32,7 @@ public class NominatimGeocodingServiceTests
     [Trait("Requisito", "RF-F015-03")]
     [InlineData(HttpStatusCode.ServiceUnavailable)]
     [InlineData(HttpStatusCode.TooManyRequests)]
-    public async Task GeocodeAsync_NominatimComErro_LancaGeocodingUnavailable(HttpStatusCode status)
+    public async Task GeocodeAsync_NominatimError_ThrowsGeocodingUnavailable(HttpStatusCode status)
     {
         using StubHandler handler = new(status, string.Empty);
         NominatimGeocodingService service = CreateService(handler);

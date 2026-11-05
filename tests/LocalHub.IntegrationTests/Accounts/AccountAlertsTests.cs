@@ -25,7 +25,7 @@ public class AccountAlertsTests(LocalHubApiFactory factory)
     // The provider cancels 4 of 5 assigned services: the cancellations count only for the provider.
     [Fact]
     [Trait("Requisito", "RF-F002-01")]
-    public async Task List_PrestadorCancelaQuatroDeCinco_DevolveAlertaSoAoPrestador()
+    public async Task List_ProviderCancelsFourOfFive_ReturnsAlertOnlyForProvider()
     {
         var provider = await CreateProviderAsync();
         var client = await RegisterClientAsync(_client);

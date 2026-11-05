@@ -31,7 +31,7 @@ public class ProfilesEndpointsTests(LocalHubApiFactory factory)
     [Fact]
     [Trait("Requisito", "RF-F004-01")]
     [Trait("Requisito", "RF-F015-01")]
-    public async Task Create_DadosValidos_Devolve201ComPerfilEGuardaLocalizacao()
+    public async Task Create_ValidData_Returns201WithProfileAndSavesLocation()
     {
         string adminToken = await LoginAsAdminAsync(_client);
         string categoryName = $"Teste Criar {Guid.NewGuid():N}";
@@ -69,7 +69,7 @@ public class ProfilesEndpointsTests(LocalHubApiFactory factory)
 
     [Fact]
     [Trait("Requisito", "RF-F004-01")]
-    public async Task Create_SemApresentacaoContactoNemCategorias_Devolve400ComErroEmCadaCampoENaoCriaPerfil()
+    public async Task Create_WithoutIntroductionContactOrCategories_Returns400WithErrorPerFieldAndCreatesNoProfile()
     {
         var (token, _, _) = await RegisterProviderAsync(_client);
         var body = ValidProfileBody();
@@ -91,7 +91,7 @@ public class ProfilesEndpointsTests(LocalHubApiFactory factory)
 
     [Fact]
     [Trait("Requisito", "RF-F004-03")]
-    public async Task Get_ClientePerfilDePrestadorAtivo_Devolve200ComTodosOsCampos()
+    public async Task Get_ClientActiveProviderProfile_Returns200WithAllFields()
     {
         var provider = await CreateProviderWithProfileAsync(_client);
         string clientToken = await RegisterAndLoginAsync(_client, NewEmail(), "CLIENT");
@@ -113,7 +113,7 @@ public class ProfilesEndpointsTests(LocalHubApiFactory factory)
     [Fact]
     [Trait("Requisito", "RF-F004-03")]
     [Trait("Requisito", "RNF-06")]
-    public async Task Get_PrestadorPerfilDeOutroPrestador_Devolve403()
+    public async Task Get_ProviderOtherProviderProfile_Returns403()
     {
         var owner = await CreateProviderWithProfileAsync(_client);
         var other = await CreateProviderWithProfileAsync(_client);
@@ -130,7 +130,7 @@ public class ProfilesEndpointsTests(LocalHubApiFactory factory)
     [Fact]
     [Trait("Requisito", "RF-F004-02")]
     [Trait("Requisito", "RF-F004-04")]
-    public async Task UpdateMine_DadosValidos_Devolve200EAlteracaoVisivelNaConsulta()
+    public async Task UpdateMine_ValidData_Returns200AndChangeVisibleOnGet()
     {
         var provider = await CreateProviderWithProfileAsync(_client);
         string adminToken = await LoginAsAdminAsync(_client);
@@ -156,7 +156,7 @@ public class ProfilesEndpointsTests(LocalHubApiFactory factory)
     [InlineData("GET", "/api/profiles/1")]
     [InlineData("PUT", MeUrl)]
     [Trait("Requisito", "RF-F004-01")]
-    public async Task EndpointDePrestador_PrestadorSemPerfil_Devolve403PerfilEmFalta(string method, string url)
+    public async Task ProviderEndpoint_ProviderWithoutProfile_Returns403MissingProfile(string method, string url)
     {
         var (token, _, _) = await RegisterProviderAsync(_client);
         // A valid body of E14: the profile filter is an action filter, so it runs after the validation of the body

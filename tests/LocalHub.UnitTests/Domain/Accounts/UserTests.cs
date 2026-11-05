@@ -10,7 +10,7 @@ public class UserTests
 
     [Fact]
     [Trait("Requisito", "RF-F002-02")]
-    public void Deactivate_Administrador_LancaConflitoEMantemContaAtiva()
+    public void Deactivate_Administrator_ThrowsConflictAndKeepsAccountActive()
     {
         var user = TestUsers.CreateAdministrator("Rui Rocha", "rui.rocha@localhub.test");
 

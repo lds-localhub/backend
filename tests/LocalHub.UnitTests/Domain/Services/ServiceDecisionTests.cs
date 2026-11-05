@@ -24,7 +24,7 @@ public class ServiceDecisionTests
     // CA2: a second acceptance in the same service.
     [Fact]
     [Trait("Requisito", "RF-F007-07")]
-    public void AcceptProposal_ServicoJaAtribuido_LancaInvalidTransitionSemAlterarAProposta()
+    public void AcceptProposal_ServiceAlreadyAssigned_ThrowsInvalidTransitionWithoutChangingProposal()
     {
         var service = CreatePublic();
         Submit(service, Profile(12), 101);
@@ -40,7 +40,7 @@ public class ServiceDecisionTests
     // CA2: RF-F002-02, rule 7.
     [Fact]
     [Trait("Requisito", "RF-F002-02")]
-    public void AcceptProposal_PrestadorComContaDesativada_LancaConflictEOServicoFicaAberto()
+    public void AcceptProposal_ProviderWithInactiveAccount_ThrowsConflictAndServiceStaysOpen()
     {
         var provider = Profile(12);
         var service = CreatePublic();

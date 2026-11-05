@@ -24,7 +24,7 @@ public class SessionTests(LocalHubApiFactory factory)
 
     [Fact]
     [Trait("Requisito", "RNF-02")]
-    public async Task PedidoProtegido_DepoisDeOitoHoras_Devolve401()
+    public async Task ProtectedRequest_AfterEightHours_Returns401()
     {
         // A separate API with its own clock, so that moving the time does not affect the other tests.
         // The clock starts at the real time, so the JWT stays valid and only the session check can reject it.
@@ -46,7 +46,7 @@ public class SessionTests(LocalHubApiFactory factory)
     [Fact]
     [Trait("Requisito", "RF-F001-04")]
     [Trait("Requisito", "RNF-02")]
-    public async Task PedidoProtegido_DepoisDeTerminarSessao_Devolve401()
+    public async Task ProtectedRequest_AfterLogout_Returns401()
     {
         string token = await RegisterAndLoginAsync(_client, NewEmail());
 
@@ -60,7 +60,7 @@ public class SessionTests(LocalHubApiFactory factory)
     [Fact]
     [Trait("Requisito", "RF-F002-02")]
     [Trait("Requisito", "RNF-02")]
-    public async Task PedidoProtegido_DepoisDeDesativarConta_Devolve401()
+    public async Task ProtectedRequest_AfterAccountDeactivation_Returns401()
     {
         string email = NewEmail();
         string token = await RegisterAndLoginAsync(_client, email);

@@ -25,7 +25,7 @@ public class ServiceStatusHistoryEndpointsTests(LocalHubApiFactory factory)
     // API documentation, E36: only the role of the author, so the hired provider is not identified (RNF-06).
     [Fact]
     [Trait("Requisito", "RF-F007-09")]
-    public async Task GetDirectRequest_DevolveOHistoricoSoComOPapelDoAutor()
+    public async Task GetDirectRequest_StatusHistory_ShowsOnlyAuthorRole()
     {
         var scenario = await CreateDirectScenarioAsync();
         var provider = scenario.Providers[0];

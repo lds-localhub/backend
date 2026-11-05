@@ -29,7 +29,7 @@ public class AccountsEndpointsTests(LocalHubApiFactory factory)
 
     [Fact]
     [Trait("Requisito", "RF-F002-01")]
-    public async Task List_SemFiltros_DevolveApenasClientesEPrestadoresOrdenadosPorNome()
+    public async Task List_NoFilters_ReturnsOnlyClientsAndProvidersSortedByName()
     {
         string tag = Guid.NewGuid().ToString("N");
         // Registered in reverse order, so that the order of the list comes from the name.
@@ -53,7 +53,7 @@ public class AccountsEndpointsTests(LocalHubApiFactory factory)
 
     [Fact]
     [Trait("Requisito", "RF-F002-02")]
-    public async Task Deactivate_ContaAtiva_Devolve200ComContaDesativadaERevogaAsSessoes()
+    public async Task Deactivate_ActiveAccount_Returns200WithInactiveAccountAndRevokesSessions()
     {
         var account = await RegisterAccountAsync("CLIENT");
         await LoginAndGetTokenAsync(_client, account.Email, ValidPassword);
@@ -77,7 +77,7 @@ public class AccountsEndpointsTests(LocalHubApiFactory factory)
 
     [Fact]
     [Trait("Requisito", "RF-F002-04")]
-    public async Task Login_ContaDesativadaPeloAdministrador_Devolve403ContaDesativadaSemIniciarSessao()
+    public async Task Login_AccountDeactivatedByAdministrator_Returns403AccountDeactivatedWithoutSession()
     {
         var account = await RegisterAccountAsync("PROVIDER");
         string adminToken = await LoginAsAdminAsync(_client);
@@ -95,7 +95,7 @@ public class AccountsEndpointsTests(LocalHubApiFactory factory)
 
     [Fact]
     [Trait("Requisito", "RF-F002-03")]
-    public async Task Activate_ContaDesativada_Devolve200SurgeAtivaNaListaEUtilizadorVoltaAIniciarSessao()
+    public async Task Activate_InactiveAccount_Returns200ShownActiveInListAndUserCanLogInAgain()
     {
         var account = await RegisterAccountAsync("CLIENT");
         string adminToken = await LoginAsAdminAsync(_client);
@@ -117,7 +117,7 @@ public class AccountsEndpointsTests(LocalHubApiFactory factory)
 
     [Fact]
     [Trait("Requisito", "RF-F002-05")]
-    public async Task ResetPassword_PalavraPasseTemporaria_IniciaSessaoEAnteriorDeixaDeFuncionar()
+    public async Task ResetPassword_TemporaryPassword_LogsInAndPreviousPasswordStopsWorking()
     {
         var account = await RegisterAccountAsync("CLIENT");
         string adminToken = await LoginAsAdminAsync(_client);
@@ -132,7 +132,7 @@ public class AccountsEndpointsTests(LocalHubApiFactory factory)
 
     [Fact]
     [Trait("Requisito", "RF-F002-05")]
-    public async Task ResetPassword_SessoesAnteriores_PassamADevolver401()
+    public async Task ResetPassword_PreviousSessions_Return401()
     {
         var account = await RegisterAccountAsync("PROVIDER");
         string userToken = await LoginAndGetTokenAsync(_client, account.Email, ValidPassword);

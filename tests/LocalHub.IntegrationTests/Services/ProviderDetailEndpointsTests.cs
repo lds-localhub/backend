@@ -30,7 +30,7 @@ public class ProviderDetailEndpointsTests(LocalHubApiFactory factory)
     [Fact]
     [Trait("Requisito", "RF-F007-09")]
     [Trait("Requisito", "RNF-06")]
-    public async Task GetDirectRequest_Destinatario_Devolve200ComOServicoEONomeDoClienteSemContactos()
+    public async Task GetDirectRequest_Recipient_Returns200WithServiceAndClientNameWithoutContacts()
     {
         var provider = await CreateProviderWithProfileAsync(_client);
         var other = await CreateProviderInCategoryAsync(provider.ServiceCategoryId);
@@ -71,7 +71,7 @@ public class ProviderDetailEndpointsTests(LocalHubApiFactory factory)
     [Fact]
     [Trait("Requisito", "RF-F007-09")]
     [Trait("Requisito", "RNF-06")]
-    public async Task GetDirectRequest_SolicitacaoDeOutroPrestador_Devolve403()
+    public async Task GetDirectRequest_OtherProviderDirectRequest_Returns403()
     {
         var provider = await CreateProviderWithProfileAsync(_client);
         var other = await CreateProviderInCategoryAsync(provider.ServiceCategoryId);
@@ -90,7 +90,7 @@ public class ProviderDetailEndpointsTests(LocalHubApiFactory factory)
     [Fact]
     [Trait("Requisito", "RF-F008-07")]
     [Trait("Requisito", "RNF-06")]
-    public async Task GetProposal_PrestadorQueAApresentou_Devolve200ComOServicoEONomeDoClienteSemContactos()
+    public async Task GetProposal_SubmittingProvider_Returns200WithServiceAndClientNameWithoutContacts()
     {
         var provider = await CreateProviderWithProfileAsync(_client);
         var (_, serviceId, _) = await CreateDirectServiceAsync(provider.ServiceCategoryId, provider.ProfessionalProfileId);
@@ -123,7 +123,7 @@ public class ProviderDetailEndpointsTests(LocalHubApiFactory factory)
     [Fact]
     [Trait("Requisito", "RF-F008-07")]
     [Trait("Requisito", "RNF-06")]
-    public async Task GetProposal_PropostaDeOutroPrestador_Devolve403()
+    public async Task GetProposal_OtherProviderProposal_Returns403()
     {
         var provider = await CreateProviderWithProfileAsync(_client);
         var other = await CreateProviderInCategoryAsync(provider.ServiceCategoryId);

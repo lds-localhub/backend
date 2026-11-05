@@ -22,7 +22,7 @@ public class ProfessionalProfileTests
     [InlineData(new short[] { 5, 4, 4 }, 4.3)]
     [InlineData(new short[] { 5, 4, 4, 1 }, 3.5)]
     [InlineData(new short[] { 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 4 }, 5.0)]
-    public void RecalculateAverageRating_ComAvaliacoes_MediaComUmaCasaDecimal(short[] ratings, double expected)
+    public void RecalculateAverageRating_WithReviews_AverageWithOneDecimalPlace(short[] ratings, double expected)
     {
         var profile = CreateValid(Provider);
 

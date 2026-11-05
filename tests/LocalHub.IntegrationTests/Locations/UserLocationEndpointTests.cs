@@ -27,7 +27,7 @@ public class UserLocationEndpointTests(LocalHubApiFactory factory)
     [Fact]
     [Trait("Requisito", "RF-F015-02")]
     [Trait("Requisito", "RF-F015-03")]
-    public async Task SetLocation_ClienteMoradaValida_Devolve200EGuardaMoradaECoordenadas()
+    public async Task SetLocation_ClientValidAddress_Returns200AndSavesAddressAndCoordinates()
     {
         string token = await RegisterAndLoginAsync(_client, NewEmail(), "CLIENT");
 
@@ -49,7 +49,7 @@ public class UserLocationEndpointTests(LocalHubApiFactory factory)
 
     [Fact]
     [Trait("Requisito", "RF-F015-03")]
-    public async Task SetLocation_MoradaNaoEncontrada_Devolve400NaMoradaENaoAlteraALocalizacao()
+    public async Task SetLocation_AddressNotFound_Returns400OnAddressAndKeepsLocation()
     {
         string token = await RegisterAndLoginAsync(_client, NewEmail(), "CLIENT");
         using var first = await PutLocationAsync(token, new { address = FakeGeocodingService.KnownAddress });

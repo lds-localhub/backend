@@ -26,7 +26,7 @@ public class ServiceLifecycleEndpointsTests(LocalHubApiFactory factory)
 
     [Fact]
     [Trait("Requisito", "RF-F007-05")]
-    public async Task Cancel_ClienteComServicoAberto_CancelaEAnulaAsPropostasESolicitacoesPendentes()
+    public async Task Cancel_ClientWithOpenService_CancelsAndVoidsPendingProposalsAndDirectRequests()
     {
         var scenario = await CreateDirectScenarioAsync(proposals: 2, silentProviders: 1);
         int pending = scenario.ProposalIds[0];
@@ -64,7 +64,7 @@ public class ServiceLifecycleEndpointsTests(LocalHubApiFactory factory)
 
     [Fact]
     [Trait("Requisito", "RF-F008-04")]
-    public async Task Cancel_ClienteComTrabalhoAberto_CancelaEAnulaAsPropostasPendentes()
+    public async Task Cancel_ClientWithOpenPublicService_CancelsAndVoidsPendingProposals()
     {
         var scenario = await CreatePublicScenarioAsync(proposals: 2);
 
@@ -82,7 +82,7 @@ public class ServiceLifecycleEndpointsTests(LocalHubApiFactory factory)
     [Fact]
     [Trait("Requisito", "RF-F007-05")]
     [Trait("Requisito", "RF-F008-04")]
-    public async Task Cancel_PrestadorContratado_CancelaEDevolveOServicoEOEstado()
+    public async Task Cancel_ContractedProvider_CancelsAndReturnsServiceAndState()
     {
         var scenario = await CreateAssignedScenarioAsync();
 
@@ -101,7 +101,7 @@ public class ServiceLifecycleEndpointsTests(LocalHubApiFactory factory)
     // Rule 2: a provider that only received a direct request.
     [Fact]
     [Trait("Requisito", "RF-F007-05")]
-    public async Task Cancel_PrestadorQueSoRecebeuASolicitacao_Devolve403EMantemOsEstados()
+    public async Task Cancel_ProviderWithOnlyDirectRequest_Returns403AndKeepsStates()
     {
         var scenario = await CreateDirectScenarioAsync(proposals: 0, silentProviders: 1);
         string url = CancelUrl(scenario.ServiceId);
@@ -119,7 +119,7 @@ public class ServiceLifecycleEndpointsTests(LocalHubApiFactory factory)
 
     [Fact]
     [Trait("Requisito", "RF-F007-05")]
-    public async Task Cancel_OutroCliente_Devolve403()
+    public async Task Cancel_OtherClient_Returns403()
     {
         var scenario = await CreatePublicScenarioAsync(proposals: 1);
         var other = await RegisterClientAsync(_client);
@@ -137,7 +137,7 @@ public class ServiceLifecycleEndpointsTests(LocalHubApiFactory factory)
     [Fact]
     [Trait("Requisito", "RF-F007-07")]
     [Trait("Requisito", "RF-F008-06")]
-    public async Task Cancel_ServicoRealizado_Devolve409TransicaoInvalidaEMantemOEstado()
+    public async Task Cancel_CompletedService_Returns409InvalidTransitionAndKeepsState()
     {
         var scenario = await CreateAssignedScenarioAsync();
         using (var complete = await PostAsync(scenario.Client.Token, CompleteUrl(scenario.ServiceId)))
@@ -159,7 +159,7 @@ public class ServiceLifecycleEndpointsTests(LocalHubApiFactory factory)
     [Fact]
     [Trait("Requisito", "RF-F007-06")]
     [Trait("Requisito", "RF-F008-05")]
-    public async Task Complete_ServicoAtribuido_FicaRealizadoComADataDeRealizacao()
+    public async Task Complete_AssignedService_BecomesCompletedWithCompletionDate()
     {
         var scenario = await CreateAssignedScenarioAsync();
 

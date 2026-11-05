@@ -22,7 +22,7 @@ public class ServiceProposalTests
 
     [Fact]
     [Trait("Requisito", "RF-F011-02")]
-    public void SubmitProposal_PrestadorSemACategoria_LancaForbidden()
+    public void SubmitProposal_ProviderWithoutCategory_ThrowsForbidden()
     {
         var service = CreatePublic(NewClient());
 
@@ -37,7 +37,7 @@ public class ServiceProposalTests
     [InlineData(ServiceStatus.Completed)]
     [InlineData(ServiceStatus.Cancelled)]
     [Trait("Requisito", "RF-F011-02")]
-    public void SubmitProposal_ServicoNaoAberto_LancaInvalidTransition(ServiceStatus status)
+    public void SubmitProposal_ServiceNotOpen_ThrowsInvalidTransition(ServiceStatus status)
     {
         var service = CreatePublic(NewClient());
         typeof(Service).GetProperty(nameof(Service.Status))!.SetValue(service, status);
@@ -50,7 +50,7 @@ public class ServiceProposalTests
 
     [Fact]
     [Trait("Requisito", "RF-F011-02")]
-    public void SubmitProposal_SegundaPropostaDoMesmoPrestador_LancaConflict()
+    public void SubmitProposal_SecondProposalFromSameProvider_ThrowsConflict()
     {
         var provider = Profile(12, Plumbing);
         var service = CreatePublic(NewClient());

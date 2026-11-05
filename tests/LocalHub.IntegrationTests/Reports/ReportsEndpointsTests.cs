@@ -34,7 +34,7 @@ public class ReportsEndpointsTests(LocalHubApiFactory factory)
     // a service cancelled while OPEN are not contracted.
     [Fact]
     [Trait("Requisito", "RF-F013-01")]
-    public async Task Relatorio_TresServicosContratados_ContaUmEmCadaEstadoEIgnoraOsNaoAtribuidos()
+    public async Task ClientReport_ThreeContractedServices_CountsOnePerStateAndIgnoresUnassigned()
     {
         var provider = await CreateProviderAsync();
         var client = await RegisterClientAsync(_client);
@@ -61,7 +61,7 @@ public class ReportsEndpointsTests(LocalHubApiFactory factory)
 
     [Fact]
     [Trait("Requisito", "RF-F013-01")]
-    public async Task Relatorio_SoIncluiOsServicosDoProprioCliente()
+    public async Task ClientReport_OtherClientServices_AreNotIncluded()
     {
         var provider = await CreateProviderAsync();
         var other = await RegisterClientAsync(_client);
@@ -83,7 +83,7 @@ public class ReportsEndpointsTests(LocalHubApiFactory factory)
     // at 2026-09-30T23:30Z belongs to September, although it is already 1 October in Portugal.
     [Fact]
     [Trait("Requisito", "RF-F013-02")]
-    public async Task Relatorio_PeriodoDeOutubro_SoContaOsServicosCriadosNesseMesEmUtc()
+    public async Task ClientReport_OctoberPeriod_CountsOnlyServicesCreatedThatMonthInUtc()
     {
         var provider = await CreateProviderAsync();
         var client = await RegisterClientAsync(_client);
@@ -111,7 +111,7 @@ public class ReportsEndpointsTests(LocalHubApiFactory factory)
     // the proposal of the provider was accepted, and not the service that the client gave to another provider.
     [Fact]
     [Trait("Requisito", "RF-F014-01")]
-    public async Task RelatorioPrestador_ServicosComPropostaAceite_ContaRealizadosEDistribuiPorCategoriaEEstado()
+    public async Task ProviderReport_ServicesWithAcceptedProposal_CountsCompletedAndGroupsByCategoryAndState()
     {
         string adminToken = await LoginAsAdminAsync(_client);
         int plumbing = await CreateCategoryAsync(_client, adminToken, $"Canalização {Guid.NewGuid():N}");
@@ -148,7 +148,7 @@ public class ReportsEndpointsTests(LocalHubApiFactory factory)
     // the service, in UTC, although they were created later.
     [Fact]
     [Trait("Requisito", "RF-F014-02")]
-    public async Task RelatorioPrestador_PeriodoDeOutubro_SoContaOsServicosCriadosNesseMesEOQueDelesDepende()
+    public async Task ProviderReport_OctoberPeriod_CountsOnlyServicesCreatedThatMonthAndTheirData()
     {
         var provider = await CreateProviderAsync();
         var other = await CreateProviderInCategoriesAsync(provider.ServiceCategoryId);

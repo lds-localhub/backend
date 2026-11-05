@@ -27,7 +27,7 @@ public class GeocodingEndpointsTests(LocalHubApiFactory factory)
     [Fact]
     [Trait("Requisito", "RF-F015-06")]
     [Trait("Requisito", "RF-F001-03")]
-    public async Task Reverse_CoordenadasComMorada_Devolve200ComAMoradaSemGravarDados()
+    public async Task Reverse_CoordinatesWithAddress_Returns200WithAddressWithoutSavingData()
     {
         var before = await CountUsersWithLocationAsync();
 
@@ -45,7 +45,7 @@ public class GeocodingEndpointsTests(LocalHubApiFactory factory)
     [InlineData("latitude=90.5&longitude=-8.6291", "latitude")]
     [InlineData("latitude=41.1579&longitude=180.5", "longitude")]
     [Trait("Requisito", "RF-F015-04")]
-    public async Task Reverse_CoordenadasEmFaltaOuForaDosIntervalos_Devolve400ComErroNoCampo(string query, string field)
+    public async Task Reverse_MissingOrOutOfRangeCoordinates_Returns400WithFieldError(string query, string field)
     {
         using var response = await SendWithTokenAsync(_client, HttpMethod.Get, $"{ReverseUrl}?{query}", token: null);
 

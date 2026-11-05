@@ -28,7 +28,7 @@ public class ReviewsEndpointsTests(LocalHubApiFactory factory)
     [Fact]
     [Trait("Requisito", "RF-F012-01")]
     [Trait("Requisito", "RF-F012-02")]
-    public async Task Review_ServicoRealizado_Devolve201EAtualizaOPerfilEOServico()
+    public async Task Review_CompletedService_Returns201AndUpdatesProfileAndService()
     {
         var provider = await CreateProviderWithProfileAsync(_client);
         var service = await CreateCompletedServiceAsync(provider);
@@ -72,7 +72,7 @@ public class ReviewsEndpointsTests(LocalHubApiFactory factory)
     [Theory]
     [MemberData(nameof(InvalidBodies))]
     [Trait("Requisito", "RF-F012-01")]
-    public async Task Review_DadosInvalidos_Devolve400SemAvaliar(string body, string field)
+    public async Task Review_InvalidData_Returns400WithoutReview(string body, string field)
     {
         var provider = await CreateProviderWithProfileAsync(_client);
         var service = await CreateCompletedServiceAsync(provider);
@@ -95,7 +95,7 @@ public class ReviewsEndpointsTests(LocalHubApiFactory factory)
 
     [Fact]
     [Trait("Requisito", "RF-F012-01")]
-    public async Task Review_OutroCliente_Devolve403()
+    public async Task Review_OtherClient_Returns403()
     {
         var provider = await CreateProviderWithProfileAsync(_client);
         var service = await CreateCompletedServiceAsync(provider);
@@ -115,7 +115,7 @@ public class ReviewsEndpointsTests(LocalHubApiFactory factory)
     [Fact]
     [Trait("Requisito", "RF-F004-03")]
     [Trait("Requisito", "RF-F012-01")]
-    public async Task ListReviews_Cliente_DevolveAsAvaliacoesDaMaisRecenteParaAMaisAntigaPaginadas()
+    public async Task ListReviews_Client_ReturnsReviewsNewestFirstPaginated()
     {
         var provider = await CreateProviderWithProfileAsync(_client);
         var reviews = new List<(TestClient Client, int ReviewId)>();
@@ -149,7 +149,7 @@ public class ReviewsEndpointsTests(LocalHubApiFactory factory)
 
     [Fact]
     [Trait("Requisito", "RF-F004-03")]
-    public async Task ListReviews_PrestadorDeOutroPerfil_Devolve403()
+    public async Task ListReviews_ProviderOfOtherProfile_Returns403()
     {
         var provider = await CreateProviderWithProfileAsync(_client);
         var other = await CreateProviderWithProfileAsync(_client);

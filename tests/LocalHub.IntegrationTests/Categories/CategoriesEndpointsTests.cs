@@ -29,7 +29,7 @@ public class CategoriesEndpointsTests(LocalHubApiFactory factory)
 
     [Fact]
     [Trait("Requisito", "RF-F003-04")]
-    public async Task List_SemSessao_DevolveApenasCategoriasAtivasOrdenadasPorNome()
+    public async Task List_WithoutSession_ReturnsOnlyActiveCategoriesSortedByName()
     {
         string adminToken = await LoginAsAdminAsync(_client);
         string tag = NewTag();
@@ -53,7 +53,7 @@ public class CategoriesEndpointsTests(LocalHubApiFactory factory)
 
     [Fact]
     [Trait("Requisito", "RF-F003-01")]
-    public async Task Create_NomeNovo_Devolve201ComLocationECategoriaAtivaNaLista()
+    public async Task Create_NewName_Returns201WithLocationAndActiveCategoryInList()
     {
         string adminToken = await LoginAsAdminAsync(_client);
         string name = $"Teste Criar {NewTag()}";
@@ -71,7 +71,7 @@ public class CategoriesEndpointsTests(LocalHubApiFactory factory)
 
     [Fact]
     [Trait("Requisito", "RF-F003-01")]
-    public async Task Create_NomeExistenteComOutrasMaiusculas_Devolve409ComErroNoNome()
+    public async Task Create_ExistingNameWithDifferentCase_Returns409WithNameError()
     {
         string adminToken = await LoginAsAdminAsync(_client);
         string name = $"Teste Canalização {NewTag()}";
@@ -89,7 +89,7 @@ public class CategoriesEndpointsTests(LocalHubApiFactory factory)
 
     [Fact]
     [Trait("Requisito", "RF-F003-02")]
-    public async Task Rename_NomeValidoENaoUtilizado_Devolve200ENovoNomeNaLista()
+    public async Task Rename_ValidUnusedName_Returns200AndNewNameInList()
     {
         string adminToken = await LoginAsAdminAsync(_client);
         var category = await CreateAsync(adminToken, $"Teste Antigo {NewTag()}");
@@ -113,7 +113,7 @@ public class CategoriesEndpointsTests(LocalHubApiFactory factory)
     [Fact]
     [Trait("Requisito", "RF-F003-03")]
     [Trait("Requisito", "RF-F003-04")]
-    public async Task Deactivate_CategoriaSemUtilizacao_Devolve200EDeixaDeAparecerNaListaPublica()
+    public async Task Deactivate_UnusedCategory_Returns200AndLeavesPublicList()
     {
         string adminToken = await LoginAsAdminAsync(_client);
         var category = await CreateAsync(adminToken, $"Teste Desativar {NewTag()}");
@@ -133,7 +133,7 @@ public class CategoriesEndpointsTests(LocalHubApiFactory factory)
     // A category in the profile of an active provider and in an OPEN service, both created through the API.
     [Fact]
     [Trait("Requisito", "RF-F003-03")]
-    public async Task Deactivate_CategoriaComPrestadoresAtivosOuServicosEmCurso_Devolve409ComMotivoEMantemAtiva()
+    public async Task Deactivate_CategoryWithActiveProvidersOrOngoingServices_Returns409WithReasonAndStaysActive()
     {
         string adminToken = await LoginAsAdminAsync(_client);
         var provider = await CreateProviderWithProfileAsync(_client);

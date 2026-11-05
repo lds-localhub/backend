@@ -39,7 +39,7 @@ public class SearchEndpointsTests(LocalHubApiFactory factory)
     [Trait("Requisito", "RF-F005-01")]
     [Trait("Requisito", "RF-F005-02")]
     [Trait("Requisito", "RF-F001-03")]
-    public async Task SearchProviders_VisitanteComMorada_Devolve200ComAListaPaginada()
+    public async Task SearchProviders_VisitorWithAddress_Returns200WithPaginatedList()
     {
         int categoryId = await NewCategoryAsync();
         var provider = await CreateProviderAsync("Canalizações Silva", FakeGeocodingService.AddressAt2Km, 15, categoryId);
@@ -63,7 +63,7 @@ public class SearchEndpointsTests(LocalHubApiFactory factory)
     [Trait("Requisito", "RF-F005-01")]
     [Trait("Requisito", "RF-F015-05")]
     [Trait("Requisito", "RF-F002-02")]
-    public async Task SearchProviders_SoDevolvePrestadoresAtivosComACategoriaELocalizacao()
+    public async Task SearchProviders_MixedProviders_ReturnsOnlyActiveProvidersWithCategoryAndLocation()
     {
         string adminToken = await LoginAsAdminAsync(_client);
         string suffix = Guid.NewGuid().ToString("N");
@@ -91,7 +91,7 @@ public class SearchEndpointsTests(LocalHubApiFactory factory)
     // CA3 (RF-F005-01, rules 4 and 6, criteria 4 and 6) and CA8: on a meridian the distances are the known values R · Δφ.
     [Fact]
     [Trait("Requisito", "RF-F005-01")]
-    public async Task SearchProviders_PrestadoresA2_10E30Km_DevolveOrdenadosPorDistanciaComOsDadosDeCadaResultado()
+    public async Task SearchProviders_ProvidersAt2_10And30Km_ReturnsSortedByDistanceWithResultData()
     {
         string adminToken = await LoginAsAdminAsync(_client);
         string categoryName = $"Pesquisa {Guid.NewGuid():N}";
@@ -124,7 +124,7 @@ public class SearchEndpointsTests(LocalHubApiFactory factory)
     [Fact]
     [Trait("Requisito", "RF-F005-02")]
     [Trait("Requisito", "RF-F015-02")]
-    public async Task SearchProviders_ClienteComLocalizacaoRegistada_UsaALocalizacaoSemIndicarMorada()
+    public async Task SearchProviders_ClientWithSavedLocation_UsesLocationWithoutAddress()
     {
         int categoryId = await NewCategoryAsync();
         var at30 = await CreateProviderAsync("A 30 km", FakeGeocodingService.AddressAt30Km, 25, categoryId);
@@ -145,7 +145,7 @@ public class SearchEndpointsTests(LocalHubApiFactory factory)
     [InlineData("SILVA")]
     [InlineData("  CANALIZAÇÕES  ")]
     [Trait("Requisito", "RF-F009-02")]
-    public async Task SearchProviders_FiltroPeloNome_NaoDistingueMaiusculasDeMinusculas(string name)
+    public async Task SearchProviders_NameFilter_IsCaseInsensitive(string name)
     {
         int categoryId = await NewCategoryAsync();
         var silva = await CreateProviderAsync("Canalizações Silva", FakeGeocodingService.AddressAt10Km, 15, categoryId);

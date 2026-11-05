@@ -34,7 +34,7 @@ public class ProposalsEndpointsTests(LocalHubApiFactory factory)
 
     [Fact]
     [Trait("Requisito", "RF-F007-01")]
-    public async Task SubmitProposal_DestinatarioDeSolicitacaoPendente_Devolve201ESolicitacaoPassaAPropostaApresentada()
+    public async Task SubmitProposal_RecipientOfPendingDirectRequest_Returns201AndDirectRequestBecomesProposalSubmitted()
     {
         var provider = await CreateProviderWithProfileAsync(_client);
         var (_, serviceId, requests) = await CreateDirectServiceAsync(provider.ServiceCategoryId, provider.ProfessionalProfileId);
@@ -65,7 +65,7 @@ public class ProposalsEndpointsTests(LocalHubApiFactory factory)
 
     [Fact]
     [Trait("Requisito", "RF-F011-02")]
-    public async Task SubmitProposal_TrabalhoPublicadoAberto_Devolve201ComPropostaPendenteESemObservacoes()
+    public async Task SubmitProposal_OpenPublicService_Returns201WithPendingProposalAndNoNotes()
     {
         var provider = await CreateProviderWithProfileAsync(_client);
         var (_, serviceId) = await CreatePublicServiceAsync(provider.ServiceCategoryId);
@@ -88,7 +88,7 @@ public class ProposalsEndpointsTests(LocalHubApiFactory factory)
     [InlineData("obs", "501")]
     [Trait("Requisito", "RF-F007-01")]
     [Trait("Requisito", "RF-F011-02")]
-    public async Task SubmitProposal_CampoInvalido_Devolve400NoCampoENaoCriaProposta(string field, string? value)
+    public async Task SubmitProposal_InvalidField_Returns400OnFieldAndCreatesNoProposal(string field, string? value)
     {
         var provider = await CreateProviderWithProfileAsync(_client);
         var (_, serviceId) = await CreatePublicServiceAsync(provider.ServiceCategoryId);
@@ -113,7 +113,7 @@ public class ProposalsEndpointsTests(LocalHubApiFactory factory)
 
     [Fact]
     [Trait("Requisito", "RF-F007-02")]
-    public async Task Decline_DestinatarioDeSolicitacaoPendente_Devolve200RecusadaEServicoContinuaAberto()
+    public async Task Decline_RecipientOfPendingDirectRequest_Returns200DeclinedAndServiceStaysOpen()
     {
         var provider = await CreateProviderWithProfileAsync(_client);
         var (_, _, requests) = await CreateDirectServiceAsync(provider.ServiceCategoryId, provider.ProfessionalProfileId);
@@ -138,7 +138,7 @@ public class ProposalsEndpointsTests(LocalHubApiFactory factory)
 
     [Fact]
     [Trait("Requisito", "RF-F007-02")]
-    public async Task Decline_SolicitacaoDeOutroPrestador_Devolve403()
+    public async Task Decline_OtherProviderDirectRequest_Returns403()
     {
         var recipient = await CreateProviderWithProfileAsync(_client);
         var other = await CreateProviderInCategoryAsync(recipient.ServiceCategoryId);
@@ -155,7 +155,7 @@ public class ProposalsEndpointsTests(LocalHubApiFactory factory)
 
     [Fact]
     [Trait("Requisito", "RF-F007-09")]
-    public async Task ListDirectRequests_SolicitacoesRecebidas_DevolveSoAsDoPrestadorComOResumoSemContactosDoCliente()
+    public async Task ListDirectRequests_ReceivedDirectRequests_ReturnsOnlyOwnWithSummaryWithoutClientContacts()
     {
         var provider = await CreateProviderWithProfileAsync(_client);
         var other = await CreateProviderInCategoryAsync(provider.ServiceCategoryId);

@@ -29,7 +29,7 @@ public class AdminSummaryEndpointsTests(LocalHubApiFactory factory)
     [Trait("Requisito", "RF-F002-01")]
     [Trait("Requisito", "RF-F002-02")]
     [Trait("Requisito", "RF-F003-03")]
-    public async Task Summary_DepoisDeRegistarDesativarECriarCategorias_AtualizaOsContadores()
+    public async Task Summary_AfterRegisteringDeactivatingAndCreatingCategories_UpdatesCounters()
     {
         string adminToken = await LoginAsAdminAsync(_client);
         var before = await GetSummaryAsync(adminToken);

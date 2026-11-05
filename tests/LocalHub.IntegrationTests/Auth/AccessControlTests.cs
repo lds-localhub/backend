@@ -106,7 +106,7 @@ public class AccessControlTests(LocalHubApiFactory factory)
     [MemberData(nameof(ProtectedEndpoints))]
     [Trait("Requisito", "RF-F001-03")]
     [Trait("Requisito", "RNF-03")]
-    public async Task EndpointProtegido_SemToken_Devolve401(string method, string url)
+    public async Task ProtectedEndpoint_WithoutToken_Returns401(string method, string url)
     {
         using var response = await SendWithTokenAsync(_client, new HttpMethod(method), url, token: null);
 
@@ -119,7 +119,7 @@ public class AccessControlTests(LocalHubApiFactory factory)
     [Trait("Requisito", "RF-F001-03")]
     [Trait("Requisito", "RF-F002-01")]
     [Trait("Requisito", "RNF-03")]
-    public async Task EndpointDeAdministrador_PapelNaoAutorizado_Devolve403(string method, string url, string role)
+    public async Task AdministratorEndpoint_UnauthorizedRole_Returns403(string method, string url, string role)
     {
         string token = await RegisterAndLoginAsync(_client, NewEmail(), role);
 
@@ -133,7 +133,7 @@ public class AccessControlTests(LocalHubApiFactory factory)
     [MemberData(nameof(RoleEndpoints))]
     [Trait("Requisito", "RF-F001-03")]
     [Trait("Requisito", "RNF-03")]
-    public async Task EndpointDeClienteOuPrestador_PapelNaoAutorizado_Devolve403(string method, string url, string role)
+    public async Task ClientOrProviderEndpoint_UnauthorizedRole_Returns403(string method, string url, string role)
     {
         string token = role == "ADMIN"
             ? await LoginAsAdminAsync(_client)

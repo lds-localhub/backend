@@ -32,7 +32,7 @@ public class ClientProposalsEndpointsTests(LocalHubApiFactory factory)
 
     [Fact]
     [Trait("Requisito", "RF-F007-03")]
-    public async Task AcceptProposal_TresPropostasPendentes_AtribuiOServicoRecusaAsOutrasEAnulaAsSolicitacoes()
+    public async Task AcceptProposal_ThreePendingProposals_AssignsServiceDeclinesOthersAndVoidsDirectRequests()
     {
         var scenario = await CreateDirectScenarioAsync(proposals: 3, silentProviders: 1);
         int accepted = scenario.ProposalIds[0];
@@ -66,7 +66,7 @@ public class ClientProposalsEndpointsTests(LocalHubApiFactory factory)
 
     [Fact]
     [Trait("Requisito", "RF-F008-02")]
-    public async Task AcceptProposal_TrabalhoPublicado_Devolve200EServicoFicaAtribuido()
+    public async Task AcceptProposal_PublicService_Returns200AndServiceIsAssigned()
     {
         var scenario = await CreatePublicScenarioAsync(proposals: 1);
 
@@ -91,7 +91,7 @@ public class ClientProposalsEndpointsTests(LocalHubApiFactory factory)
     [Fact]
     [Trait("Requisito", "RF-F007-04")]
     [Trait("Requisito", "RF-F008-03")]
-    public async Task DeclineProposal_PropostaPendente_Devolve200ERestoNaoMuda()
+    public async Task DeclineProposal_PendingProposal_Returns200AndNothingElseChanges()
     {
         var scenario = await CreateDirectScenarioAsync(proposals: 2, silentProviders: 1);
         int declined = scenario.ProposalIds[0];
@@ -122,7 +122,7 @@ public class ClientProposalsEndpointsTests(LocalHubApiFactory factory)
     [InlineData("decline")]
     [Trait("Requisito", "RF-F007-08")]
     [Trait("Requisito", "RNF-06")]
-    public async Task Decisao_ClienteQueNaoEAutor_Devolve403ENaoAlteraAProposta(string action)
+    public async Task Decision_ClientWhoIsNotAuthor_Returns403AndKeepsProposal(string action)
     {
         var scenario = await CreatePublicScenarioAsync(proposals: 1);
         var other = await RegisterClientAsync(_client);
@@ -140,7 +140,7 @@ public class ClientProposalsEndpointsTests(LocalHubApiFactory factory)
 
     [Fact]
     [Trait("Requisito", "RF-F008-01")]
-    public async Task ListMine_PropostaAceite_DevolveOPrestadorAtribuidoEOsContadores()
+    public async Task ListMine_AcceptedProposal_ReturnsAssignedProviderAndCounters()
     {
         var scenario = await CreateDirectScenarioAsync(proposals: 2, silentProviders: 1);
         using var accept = await PostAsync(scenario.Client.Token, AcceptUrl(scenario.ProposalIds[0]));
@@ -164,7 +164,7 @@ public class ClientProposalsEndpointsTests(LocalHubApiFactory factory)
     [Fact]
     [Trait("Requisito", "RF-F007-09")]
     [Trait("Requisito", "RF-F008-01")]
-    public async Task GetService_ClienteAutor_VeTodasAsSolicitacoesComOPrestadorEAProposta()
+    public async Task GetService_AuthorClient_SeesAllDirectRequestsWithProviderAndProposal()
     {
         var scenario = await CreateDirectScenarioAsync(proposals: 1, silentProviders: 1);
 
@@ -194,7 +194,7 @@ public class ClientProposalsEndpointsTests(LocalHubApiFactory factory)
 
     [Fact]
     [Trait("Requisito", "RNF-06")]
-    public async Task GetService_OutroCliente_Devolve403()
+    public async Task GetService_OtherClient_Returns403()
     {
         var scenario = await CreatePublicScenarioAsync(proposals: 1);
         var other = await RegisterClientAsync(_client);
