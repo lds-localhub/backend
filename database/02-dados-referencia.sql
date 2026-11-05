@@ -62,6 +62,11 @@ WHERE u."email" = 'hugo.henriques@localhub.test';
 
 INSERT INTO "ServiceArea" ("serviceCategoryId", "professionalProfileId")
 SELECT c."serviceCategoryId", pp."professionalProfileId"
-FROM "ProfessionalProfile" pp
-CROSS JOIN "ServiceCategory" c
+FROM (VALUES
+    ('hugo.henriques@localhub.test', 'Canalização'),
+    ('hugo.henriques@localhub.test', 'Eletricidade')
+) AS a (email, category)
+JOIN "User" u ON u."email" = a.email
+JOIN "ProfessionalProfile" pp ON pp."serviceProviderId" = u."userId"
+JOIN "ServiceCategory" c ON c."name" = a.category
 ORDER BY c."serviceCategoryId";
