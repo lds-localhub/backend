@@ -4,6 +4,7 @@ using LocalHub.Application.Accounts.Dtos;
 using LocalHub.Application.Common;
 using LocalHub.Application.Common.Exceptions;
 using LocalHub.Application.Profiles;
+using LocalHub.Application.Reviews;
 using LocalHub.Domain.Accounts;
 using LocalHub.Domain.Common;
 using LocalHub.Domain.Services;
@@ -165,17 +166,14 @@ public class AccountService
             .Select(g => new { UserId = g.Key, Count = g.Count() })
             .ToDictionaryAsync(x => x.UserId, x => x.Count, cancellationToken);
 
-        // Provider: average rating of the profile (RF-F012-02) and number of reviews received.
+        // Provider: average rating of the profile (RF-F012-02) and number of reviews received, counted by
+        // ReviewQueries.CountReviewsAsync (the same rule as E18 and E22).
         var ratings = await _db.ProfessionalProfiles.AsNoTracking()
             .Where(p => providerIds.Contains(p.ServiceProviderId) && p.AverageRating != null)
-            .Select(p => new
-            {
-                UserId = p.ServiceProviderId,
-                p.AverageRating,
-                ReviewCount = _db.Reviews.Count(r => r.Service.Proposals.Any(
-                    sp => sp.ProfessionalProfileId == p.ProfessionalProfileId && sp.Status == ProposalStatus.Accepted)),
-            })
+            .Select(p => new { UserId = p.ServiceProviderId, p.ProfessionalProfileId, p.AverageRating })
             .ToDictionaryAsync(x => x.UserId, cancellationToken);
+        var reviewCounts = await _db.CountReviewsAsync(
+            ratings.Values.Select(r => r.ProfessionalProfileId).ToList(), cancellationToken);
 
         var result = new Dictionary<int, List<AccountAlertResponse>>();
         foreach (var account in accounts)
@@ -189,7 +187,8 @@ public class AccountService
             };
             if (account.Role == UserRole.Provider && ratings.TryGetValue(account.UserId, out var rating))
             {
-                alerts.Add(AccountAlertResponse.ForLowAverageRating(rating.AverageRating, rating.ReviewCount));
+                alerts.Add(AccountAlertResponse.ForLowAverageRating(
+                    rating.AverageRating, reviewCounts.GetValueOrDefault(rating.ProfessionalProfileId)));
             }
 
             result[account.UserId] = alerts.OfType<AccountAlertResponse>().ToList();

@@ -224,7 +224,7 @@ public class AccountAlertsTests(LocalHubApiFactory factory)
         return new ProviderWithProfile(token, userId, email, profile.GetProperty("professionalProfileId").GetInt32(), categoryId);
     }
 
-    // A published job of the client with the proposal of the provider accepted (ASSIGNED).
+    // A PUBLIC service of the client with the proposal of the provider accepted (ASSIGNED).
     private async Task<int> CreateContractedAsync(TestClient client, ProviderWithProfile provider)
     {
         using var created = await SendJsonAsync(
@@ -237,7 +237,7 @@ public class AccountAlertsTests(LocalHubApiFactory factory)
         Assert.Equal(HttpStatusCode.Created, submitted.StatusCode);
         int proposalId = (await submitted.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("proposalId").GetInt32();
 
-        await PostOkAsync(client.Token, $"{ServicesUrl}/{serviceId}/proposals/{proposalId}/accept");
+        await PostOkAsync(client.Token, $"/api/proposals/{proposalId}/accept");
         return serviceId;
     }
 
