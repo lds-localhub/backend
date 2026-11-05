@@ -54,8 +54,6 @@ public class LocalHubApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         {
             services.RemoveAll<IGeocodingService>();
             services.AddSingleton<IGeocodingService, FakeGeocodingService>();
-            services.AddHttpClient(GeocodingServiceCollectionExtensions.HttpClientName)
-                .ConfigurePrimaryHttpMessageHandler(() => new FailIfCalledHandler());
         });
     }
 

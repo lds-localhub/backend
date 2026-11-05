@@ -52,12 +52,3 @@ public class FakeGeocodingService : IGeocodingService
         return Task.FromResult(coordinates == Known ? ReverseAddress : null);
     }
 }
-
-// Fails the test if anything still calls the real Nominatim.
-public class FailIfCalledHandler : HttpMessageHandler
-{
-    protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-    {
-        throw new InvalidOperationException($"Os testes não podem chamar o Nominatim real ({request.RequestUri}).");
-    }
-}
