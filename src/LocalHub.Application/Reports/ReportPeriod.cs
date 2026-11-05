@@ -4,9 +4,6 @@ using LocalHub.Application.Common.Exceptions;
 
 namespace LocalHub.Application.Reports;
 
-// Period of the reports (RF-F013-02, RF-F014-02): optional and independent dates, both included, compared with the
-// creation date of the service in UTC (API documentation v04, section 4.3). Without dates, the report covers all the
-// activity.
 public record ReportPeriod(DateOnly? StartDate, DateOnly? EndDate)
 {
     public const string StartDateField = "startDate";
@@ -16,8 +13,6 @@ public record ReportPeriod(DateOnly? StartDate, DateOnly? EndDate)
 
     private const string DateFormat = "yyyy-MM-dd";
 
-    // The values of the query string. A date in an invalid format is an error of its parameter, in "errors" (section
-    // 4.6); a start date after the end date is a global error of the operation, only in "detail" (E33, E34).
     public static ReportPeriod Parse(string? startDate, string? endDate)
     {
         var errors = new Dictionary<string, string[]>();
@@ -36,11 +31,9 @@ public record ReportPeriod(DateOnly? StartDate, DateOnly? EndDate)
         return new ReportPeriod(start, end);
     }
 
-    // First instant of the start date in UTC; null without start date.
     public DateTimeOffset? From => StartDate == null ? null : StartOfDay(StartDate.Value);
 
-    // First instant of the day after the end date in UTC (exclusive limit); null without end date. The last day that
-    // DateOnly represents (9999-12-31) has no day after it, so it does not limit the period either.
+    // Exclusive limit (the day after the end date); DateOnly.MaxValue has no next day.
     public DateTimeOffset? Until => EndDate == null || EndDate.Value == DateOnly.MaxValue
         ? null
         : StartOfDay(EndDate.Value.AddDays(1));
@@ -61,7 +54,7 @@ public record ReportPeriod(DateOnly? StartDate, DateOnly? EndDate)
         return date;
     }
 
-    // PostgreSQL only accepts instants in UTC for timestamptz, so the offset is 0.
+    // PostgreSQL only accepts UTC for timestamptz.
     private static DateTimeOffset StartOfDay(DateOnly date)
     {
         return new DateTimeOffset(date.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);

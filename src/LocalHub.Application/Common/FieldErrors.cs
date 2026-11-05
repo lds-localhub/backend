@@ -2,7 +2,6 @@ using LocalHub.Application.Common.Exceptions;
 
 namespace LocalHub.Application.Common;
 
-// Collects the errors of several fields, so that a single 400 response reports all of them (RNF-08).
 public sealed class FieldErrors
 {
     private readonly Dictionary<string, string[]> _errors = new();

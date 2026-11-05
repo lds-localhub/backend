@@ -8,8 +8,6 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace LocalHub.Api.Controllers;
 
-// F003: the management of categories is reserved to the administrator; other roles get 403 (RF-F003-01 to RF-F003-03).
-// The list of active categories is public (RF-F003-04; RF-F001-03, rule 3).
 [ApiController]
 [Route("api/categories")]
 [Authorize(Roles = "ADMIN")]
@@ -24,8 +22,7 @@ public class CategoriesController : ControllerBase
         _currentUser = currentUser;
     }
 
-    // E08: without includeInactive, anyone gets the active categories. With includeInactive=true, a request
-    // without a session gets 401 and a request of another role gets 403 (API documentation, E08).
+    // includeInactive=true is reserved to the administrator.
     [HttpGet]
     [AllowAnonymous]
     public async Task<ActionResult<ListResult<CategoryResponse>>> List(
@@ -48,8 +45,6 @@ public class CategoriesController : ControllerBase
         return Ok(await _categoryService.ListAsync(includeInactive, cancellationToken));
     }
 
-    // E09: 201 without Location (API documentation, section 4.5): there is no endpoint to consult one category; the
-    // categories are listed in E08.
     [HttpPost]
     public async Task<ActionResult<CategoryResponse>> Create(CategoryRequest request, CancellationToken cancellationToken)
     {
@@ -57,7 +52,6 @@ public class CategoriesController : ControllerBase
         return StatusCode(StatusCodes.Status201Created, category);
     }
 
-    // E10
     [HttpPut("{serviceCategoryId:int}")]
     public async Task<ActionResult<CategoryResponse>> Rename(
         int serviceCategoryId, CategoryRequest request, CancellationToken cancellationToken)
@@ -65,7 +59,6 @@ public class CategoriesController : ControllerBase
         return Ok(await _categoryService.RenameAsync(serviceCategoryId, request, cancellationToken));
     }
 
-    // E11
     [HttpPost("{serviceCategoryId:int}/deactivate")]
     public async Task<ActionResult<CategoryResponse>> Deactivate(int serviceCategoryId, CancellationToken cancellationToken)
     {

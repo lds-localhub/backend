@@ -2,7 +2,7 @@ using LocalHub.Domain.Accounts;
 
 namespace LocalHub.UnitTests;
 
-// Creates users for the unit tests with a fixed hash, so the tests do not depend on IPasswordHasher.
+// Fixed hash, so the tests do not depend on IPasswordHasher.
 internal static class TestUsers
 {
     public const string Password = "casa2026";

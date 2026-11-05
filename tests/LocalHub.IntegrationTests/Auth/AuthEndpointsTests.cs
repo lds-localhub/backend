@@ -13,7 +13,6 @@ using static LocalHub.IntegrationTests.Fixtures.AuthRequests;
 
 namespace LocalHub.IntegrationTests.Auth;
 
-// F001: E01 (register), E02 (login), E03 (logout), E04 (current user) and E40 (change password).
 [Collection(ApiTestGroup.Name)]
 [Trait("Category", "Integration")]
 public class AuthEndpointsTests(LocalHubApiFactory factory)
@@ -83,7 +82,7 @@ public class AuthEndpointsTests(LocalHubApiFactory factory)
         Assert.False(string.IsNullOrEmpty(body.GetProperty("token").GetString()));
         Assert.Equal("ADMIN", body.GetProperty("user").GetProperty("role").GetString());
 
-        // The expiry is not in the response (API documentation, E02): it is read from the session just created.
+        // The expiry is not in the response, so it is read from the session.
         var expiresAt = await GetLastSessionExpiryAsync(AdminEmail);
         Assert.InRange(expiresAt - DateTimeOffset.UtcNow, TimeSpan.FromHours(7.9), TimeSpan.FromHours(8));
     }
@@ -158,7 +157,7 @@ public class AuthEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal(HttpStatusCode.OK, meA.StatusCode);
     }
 
-    // E40 with a body; SendWithTokenAsync only sends requests without a body.
+    // SendWithTokenAsync only sends requests without a body.
     private async Task<HttpResponseMessage> ChangePasswordAsync(string token, string currentPassword, string newPassword)
     {
         using var request = new HttpRequestMessage(HttpMethod.Put, PasswordUrl);

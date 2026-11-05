@@ -3,8 +3,7 @@ using LocalHub.Application.Common;
 
 namespace LocalHub.Api.Middleware;
 
-// Rejects with 401 the requests whose session is revoked or expired, or whose account is inactive (RNF-02).
-// Runs after the JWT authentication, so it only checks requests that carry a valid token.
+// Rejects with 401 the requests whose session was revoked or expired, or whose account is inactive.
 public class SessionValidationMiddleware : IMiddleware
 {
     private readonly AuthService _authService;

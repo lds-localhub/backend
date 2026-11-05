@@ -31,13 +31,9 @@ public class SearchService
         _currentUser = currentUser;
     }
 
-    // E18 (RF-F005-01, RF-F005-02, RF-F009-02): the providers of an active category, ordered by the distance to the
-    // reference location. The service radius does not limit the results; each result tells whether the reference
-    // location is inside it. The search is public and never changes the registered location.
     public async Task<PagedResult<ProviderSearchResult>> SearchProvidersAsync(
         ProviderSearchRequest request, PageRequest page, CancellationToken cancellationToken)
     {
-        // The category is required (checked by the controller, rule R17).
         var errors = new Dictionary<string, string[]>();
         page.Validate(errors);
         if (errors.Count > 0)
@@ -48,12 +44,10 @@ public class SearchService
         int serviceCategoryId = request.ServiceCategoryId!.Value;
         await EnsureCategoryIsActiveAsync(serviceCategoryId, cancellationToken);
 
-        // Last, because an address is sent to the Nominatim: not found → 400, Nominatim down → 503.
+        // Last, because it calls the Nominatim.
         Coordinates reference = await _locationResolver.ResolveReferenceAsync(
             request.Address, await FindClientLocationAsync(cancellationToken), cancellationToken);
 
-        // Only providers with an active account, a profile with the category and a location (the radius is always
-        // defined in the profile) — RF-F005-01, rule 3; RF-F015-05.
         var profiles = _db.ProfessionalProfiles.AsNoTracking()
             .Where(p => p.ServiceProvider.Status == ActivationStatus.Active
                         && p.ServiceProvider.Latitude != null
@@ -62,8 +56,7 @@ public class SearchService
 
         if (!string.IsNullOrWhiteSpace(request.Name))
         {
-            // Part of the name, ignoring upper and lower case (RF-F009-02, rule 2). As in CategoryService, ToLower() is
-            // translated to lower() in SQL, so the culture and StringComparison asked by the analyzers do not apply.
+            // ToLower() is translated to lower() in SQL.
             string name = request.Name.Trim().ToLowerInvariant();
 #pragma warning disable CA1304, CA1311, CA1862
             profiles = profiles.Where(p => p.ServiceProvider.Name.ToLower().Contains(name));
@@ -86,7 +79,7 @@ public class SearchService
             })
             .ToListAsync(cancellationToken);
 
-        // Calculated in memory (DEC-06), so the page is chosen after ordering by the distance.
+        // Distance calculated in memory, so the page is taken after sorting.
         var rows = providers
             .Select(p => new
             {
@@ -99,7 +92,6 @@ public class SearchService
             .Take(page.PageSize)
             .ToList();
 
-        // Only for the providers of the page, in a single query.
         var reviewCounts = await _db.CountReviewsAsync(
             rows.Select(r => r.Provider.ProfessionalProfileId).ToList(), cancellationToken);
 
@@ -119,10 +111,6 @@ public class SearchService
         return new PagedResult<ProviderSearchResult>(page.Page, page.PageSize, total, items);
     }
 
-    // E19 (RF-F006-01): the PUBLIC services that are OPEN and whose Client is ACTIVE, ordered by the distance to the
-    // registered location of the provider (no other location can be indicated). Without withinServiceRadius the
-    // service radius does not limit the results; with it, only the services at a distance equal to or less than the
-    // radius are returned. The data of the Client is never returned.
     public async Task<PagedResult<OpenServiceSearchResult>> SearchOpenServicesAsync(
         int? serviceCategoryId, bool withinServiceRadius, PageRequest page, CancellationToken cancellationToken)
     {
@@ -139,7 +127,6 @@ public class SearchService
             await EnsureCategoryIsActiveAsync(serviceCategoryId.Value, cancellationToken);
         }
 
-        // The profile always has a location (E12 and E14 require the address); without it there is no distance.
         if (provider.Location == null)
         {
             var locationErrors = new FieldErrors();
@@ -150,7 +137,6 @@ public class SearchService
         // ThrowIfAny above always throws without a location.
         Coordinates reference = provider.Location!;
 
-        // RF-F006-01: the PUBLIC services that are OPEN and whose Client is ACTIVE.
         var services = _db.Services.AsNoTracking()
             .Where(s => s.ProposalModel == ProposalModel.Public
                         && s.Status == ServiceStatus.Open
@@ -177,7 +163,7 @@ public class SearchService
             })
             .ToListAsync(cancellationToken);
 
-        // Calculated in memory (DEC-06), so the radius filter, the total and the page are applied after the distance.
+        // Distance calculated in memory, so the radius filter and the page are applied after it.
         var withDistance = candidates
             .Select(s => new
             {
@@ -187,7 +173,7 @@ public class SearchService
             .ToList();
         if (withinServiceRadius)
         {
-            // The exact distance, not the rounded one, as in withinServiceRadius.
+            // The exact distance, not the rounded one.
             withDistance = withDistance.Where(r => r.DistanceKm <= provider.ServiceRadiusKm).ToList();
         }
 
@@ -216,9 +202,6 @@ public class SearchService
         return new PagedResult<OpenServiceSearchResult>(page.Page, page.PageSize, total, items);
     }
 
-    // E38 (RF-F011-01): the detail of a PUBLIC service, for the provider to decide whether to present a proposal (E25).
-    // A service that does not exist, has direct requests, is no longer OPEN or whose Client is INACTIVE is not found
-    // (404).
     public async Task<OpenServiceResponse> GetOpenServiceAsync(int serviceId, CancellationToken cancellationToken)
     {
         var provider = await FindProviderAsync(cancellationToken);
@@ -241,7 +224,7 @@ public class SearchService
                 s.RequestedStartDate,
                 s.RequestedEndDate,
                 s.CreationDate,
-                // Only the own proposal: never those of other providers (RNF-06).
+                // Only the provider's own proposal.
                 MyProposalId = s.Proposals
                     .Where(p => p.ProfessionalProfileId == provider.ProfessionalProfileId)
                     .Select(p => (int?)p.ProposalId)
@@ -275,8 +258,6 @@ public class SearchService
             service.MyProposalId);
     }
 
-    // The profile of the provider that searches, with its service radius and location. The RequireProfessionalProfileFilter
-    // already refuses a provider without a profile; this is the same rule in the application.
     private async Task<ProviderReference> FindProviderAsync(CancellationToken cancellationToken)
     {
         var profile = await _db.ProfessionalProfiles.AsNoTracking()
@@ -296,7 +277,6 @@ public class SearchService
 
     private sealed record ProviderReference(int ProfessionalProfileId, short ServiceRadiusKm, Coordinates? Location);
 
-    // RF-F005-01, rule 2: only active categories can be searched.
     private async Task EnsureCategoryIsActiveAsync(int serviceCategoryId, CancellationToken cancellationToken)
     {
         bool isActive = await _db.ServiceCategories.AnyAsync(
@@ -309,8 +289,6 @@ public class SearchService
         }
     }
 
-    // RF-F005-02, rule 1: the registered location of a client is used when the search has no other location.
-    // Visitors and the other roles always indicate it.
     private async Task<Coordinates?> FindClientLocationAsync(CancellationToken cancellationToken)
     {
         if (!_currentUser.IsAuthenticated || _currentUser.Role != UserRole.Client)

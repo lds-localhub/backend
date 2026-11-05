@@ -10,8 +10,6 @@ using static LocalHub.IntegrationTests.Fixtures.ServiceRequests;
 
 namespace LocalHub.IntegrationTests.Accounts;
 
-// F002: conduct alerts of the accounts in E05 (RF-F002-01, rules 5 to 7). Each test uses new clients and providers, so
-// the alerts only depend on its data.
 [Collection(ApiTestGroup.Name)]
 [Trait("Category", "Integration")]
 public class AccountAlertsTests(LocalHubApiFactory factory)
@@ -20,9 +18,6 @@ public class AccountAlertsTests(LocalHubApiFactory factory)
 
     private readonly HttpClient _client = factory.CreateClient();
 
-    // ---------- Criteria 2 and 5 ----------
-
-    // The provider cancels 4 of 5 assigned services: the cancellations count only for the provider.
     [Fact]
     [Trait("Requisito", "RF-F002-01")]
     public async Task List_ProviderCancelsFourOfFive_ReturnsAlertOnlyForProvider()
@@ -50,9 +45,7 @@ public class AccountAlertsTests(LocalHubApiFactory factory)
         Assert.Empty(clientAccount.GetProperty("alerts").EnumerateArray());
     }
 
-    // ---------- Criterion 7 ----------
-
-    // Reads the pages of E05 with the role filter, because the test database keeps the accounts of the other tests.
+    // The test database keeps the accounts of the other tests, so every page is read.
     private async Task<JsonElement> FindAccountAsync(int userId, string role, string filters = "")
     {
         string adminToken = await LoginAsAdminAsync(_client);
@@ -88,7 +81,6 @@ public class AccountAlertsTests(LocalHubApiFactory factory)
         return new ProviderWithProfile(token, userId, email, profile.GetProperty("professionalProfileId").GetInt32(), categoryId);
     }
 
-    // A PUBLIC service of the client with the proposal of the provider accepted (ASSIGNED).
     private async Task<int> CreateContractedAsync(TestClient client, ProviderWithProfile provider)
     {
         using var created = await SendJsonAsync(
@@ -105,7 +97,6 @@ public class AccountAlertsTests(LocalHubApiFactory factory)
         return serviceId;
     }
 
-    // A contracted service, completed and reviewed by the client.
     private async Task CreateReviewedAsync(TestClient client, ProviderWithProfile provider, int rating)
     {
         int serviceId = await CreateContractedAsync(client, provider);

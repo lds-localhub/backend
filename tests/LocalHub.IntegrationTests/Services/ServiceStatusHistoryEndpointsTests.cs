@@ -11,8 +11,6 @@ using static LocalHub.IntegrationTests.Fixtures.ServiceRequests;
 
 namespace LocalHub.IntegrationTests.Services;
 
-// RF-F007-09 and RF-F008-01: the history of states of the service (ServiceStatusHistory) in the field history of E22
-// and E36, filled by E28, E30 and E31.
 [Collection(ApiTestGroup.Name)]
 [Trait("Category", "Integration")]
 public class ServiceStatusHistoryEndpointsTests(LocalHubApiFactory factory)
@@ -20,9 +18,7 @@ public class ServiceStatusHistoryEndpointsTests(LocalHubApiFactory factory)
 
     private readonly HttpClient _client = factory.CreateClient();
 
-    // ---------- E36: provider ----------
-
-    // API documentation, E36: only the role of the author, so the hired provider is not identified (RNF-06).
+    // Only the author's role, so the hired provider is not identified.
     [Fact]
     [Trait("Requisito", "RF-F007-09")]
     public async Task GetDirectRequest_StatusHistory_ShowsOnlyAuthorRole()
@@ -52,9 +48,7 @@ public class ServiceStatusHistoryEndpointsTests(LocalHubApiFactory factory)
         AssertAnonymousChange(history[1], "ASSIGNED", "CANCELLED", "PROVIDER");
     }
 
-    // ---------- Helpers ----------
-
-    // A service of a client and the providers in its category; the first "proposals" providers submitted a proposal.
+    // The first "proposals" providers submitted a proposal.
     private sealed record Scenario(TestClient Client, int ServiceId, List<ProviderWithProfile> Providers, List<int> ProposalIds);
 
     private static string CancelUrl(int serviceId) => $"{ServicesUrl}/{serviceId}/cancel";
@@ -65,7 +59,6 @@ public class ServiceStatusHistoryEndpointsTests(LocalHubApiFactory factory)
 
     private static string DeclineUrl(int proposalId) => $"/api/proposals/{proposalId}/decline";
 
-    // changedAt is in UTC (API documentation, conventions).
     private static DateTimeOffset ChangedAt(JsonElement change)
     {
         string value = change.GetProperty("changedAt").GetString()!;
@@ -124,7 +117,6 @@ public class ServiceStatusHistoryEndpointsTests(LocalHubApiFactory factory)
         return new Scenario(client, serviceId, providers, await SubmitAllAsync(serviceId, providers.Take(proposals)));
     }
 
-    // The first provider creates its own category; the others are created in that category.
     private async Task<List<ProviderWithProfile>> CreateProvidersAsync(int count)
     {
         var first = await CreateProviderWithProfileAsync(_client);

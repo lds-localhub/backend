@@ -2,9 +2,6 @@ using LocalHub.Application.Services.Dtos;
 
 namespace LocalHub.Application.Search.Dtos;
 
-// One result of E19 (RF-F006-01): the PUBLIC service without any data of the Client. distanceKm is calculated from
-// the location of the provider and has one decimal place; withinServiceRadius tells whether the service is inside the
-// service radius of the profile.
 public record OpenServiceSearchResult(
     int ServiceId,
     ServiceCategorySummary ServiceCategory,
@@ -17,8 +14,6 @@ public record OpenServiceSearchResult(
     DateOnly? RequestedEndDate,
     DateTimeOffset CreationDate);
 
-// E38 (RF-F011-01): the detail of a PUBLIC service, with the proposal that the provider already presented, if any
-// (consulted in E37). It has no data of the Client nor the proposals of other providers.
 public record OpenServiceResponse(
     int ServiceId,
     ServiceCategorySummary ServiceCategory,

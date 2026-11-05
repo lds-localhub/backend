@@ -11,8 +11,6 @@ using static LocalHub.IntegrationTests.Fixtures.ServiceRequests;
 
 namespace LocalHub.IntegrationTests.Services;
 
-// F007 and F008, provider side: E36 (a direct request) and E37 (a proposal). The provider is at KnownAddress and the
-// services at AddressAt10Km. The 401 cases are in AccessControlTests.
 [Collection(ApiTestGroup.Name)]
 [Trait("Category", "Integration")]
 public class ProviderDetailEndpointsTests(LocalHubApiFactory factory)
@@ -24,8 +22,6 @@ public class ProviderDetailEndpointsTests(LocalHubApiFactory factory)
     private const string MissingProfileType = "https://localhub.local/erros/perfil-em-falta";
 
     private readonly HttpClient _client = factory.CreateClient();
-
-    // ---------- E36 ----------
 
     [Fact]
     [Trait("Requisito", "RF-F007-09")]
@@ -63,7 +59,7 @@ public class ProviderDetailEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal("Cliente Teste", service.GetProperty("clientName").GetString());
         Assert.Empty(service.GetProperty("history").EnumerateArray());
         AssertHasNoClientContacts(service);
-        // Neither the requests nor the proposals of other providers (RNF-06).
+        // No requests or proposals of other providers.
         Assert.False(service.TryGetProperty("directRequests", out _));
         Assert.False(service.TryGetProperty("proposals", out _));
     }
@@ -84,8 +80,6 @@ public class ProviderDetailEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         await AssertProblemAsync(response, ForbiddenType, url);
     }
-
-    // ---------- E37 ----------
 
     [Fact]
     [Trait("Requisito", "RF-F008-07")]
@@ -138,13 +132,9 @@ public class ProviderDetailEndpointsTests(LocalHubApiFactory factory)
         await AssertProblemAsync(response, ForbiddenType, url);
     }
 
-    // ---------- Helpers ----------
-
     private Task<HttpResponseMessage> GetAsync(string token, string url) =>
         SendWithTokenAsync(_client, HttpMethod.Get, url, token);
 
-    // A service with direct requests to the given profiles (E20), at AddressAt10Km. Returns the client, the serviceId
-    // and the directRequestId of each profile.
     private async Task<(TestClient Client, int ServiceId, Dictionary<int, int> Requests)> CreateDirectServiceAsync(
         int serviceCategoryId, params int[] professionalProfileIds)
     {
@@ -160,7 +150,6 @@ public class ProviderDetailEndpointsTests(LocalHubApiFactory factory)
         return (client, service.GetProperty("serviceId").GetInt32(), requests);
     }
 
-    // A second provider with a profile in the category.
     private async Task<ProviderWithProfile> CreateProviderInCategoryAsync(int serviceCategoryId)
     {
         var (token, userId, email) = await RegisterProviderAsync(_client);
@@ -186,7 +175,6 @@ public class ProviderDetailEndpointsTests(LocalHubApiFactory factory)
         return await response.Content.ReadFromJsonAsync<JsonElement>();
     }
 
-    // RNF-06: only the name of the Client.
     private static void AssertHasNoClientContacts(JsonElement service)
     {
         foreach (string field in new[] { "clientId", "client", "email", "contactDetails", "address" })

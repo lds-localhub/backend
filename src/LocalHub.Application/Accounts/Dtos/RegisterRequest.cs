@@ -4,7 +4,6 @@ using LocalHub.Domain.Accounts;
 
 namespace LocalHub.Application.Accounts.Dtos;
 
-// Body of E01. The fields are validated by [ApiController] before the controller is called (rule R17).
 public record RegisterRequest(
     [Required(ErrorMessage = "Indique o nome.")]
     [StringLength(User.NameMaxLength, ErrorMessage = "O nome é demasiado longo.")]

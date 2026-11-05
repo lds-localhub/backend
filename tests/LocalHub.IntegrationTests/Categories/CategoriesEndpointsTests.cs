@@ -11,8 +11,6 @@ using static LocalHub.IntegrationTests.Fixtures.ServiceRequests;
 
 namespace LocalHub.IntegrationTests.Categories;
 
-// F003: E08 (list categories), E09 (create), E10 (rename) and E11 (deactivate).
-// The 401 and 403 cases of E09 to E11 are in AccessControlTests.
 [Collection(ApiTestGroup.Name)]
 [Trait("Category", "Integration")]
 public class CategoriesEndpointsTests(LocalHubApiFactory factory)
@@ -25,15 +23,13 @@ public class CategoriesEndpointsTests(LocalHubApiFactory factory)
 
     private readonly HttpClient _client = factory.CreateClient();
 
-    // ---------- E08 ----------
-
     [Fact]
     [Trait("Requisito", "RF-F003-04")]
     public async Task List_WithoutSession_ReturnsOnlyActiveCategoriesSortedByName()
     {
         string adminToken = await LoginAsAdminAsync(_client);
         string tag = NewTag();
-        // Created in reverse order, so that the order of the list comes from the name.
+        // Created in reverse order, so the order of the list comes from the name.
         var second = await CreateAsync(adminToken, $"Teste Lista B {tag}");
         var first = await CreateAsync(adminToken, $"Teste Lista A {tag}");
         var inactive = await CreateAsync(adminToken, $"Teste Lista C {tag}");
@@ -48,8 +44,6 @@ public class CategoriesEndpointsTests(LocalHubApiFactory factory)
         Assert.DoesNotContain(inactive.Id, ids);
         Assert.True(ids.IndexOf(first.Id) < ids.IndexOf(second.Id));
     }
-
-    // ---------- E09 ----------
 
     [Fact]
     [Trait("Requisito", "RF-F003-01")]
@@ -85,8 +79,6 @@ public class CategoriesEndpointsTests(LocalHubApiFactory factory)
         Assert.True(body.GetProperty("errors").TryGetProperty("name", out _));
     }
 
-    // ---------- E10 ----------
-
     [Fact]
     [Trait("Requisito", "RF-F003-02")]
     public async Task Rename_ValidUnusedName_Returns200AndNewNameInList()
@@ -108,8 +100,6 @@ public class CategoriesEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal(newName, listed.GetProperty("name").GetString());
     }
 
-    // ---------- E11 ----------
-
     [Fact]
     [Trait("Requisito", "RF-F003-03")]
     [Trait("Requisito", "RF-F003-04")]
@@ -130,7 +120,6 @@ public class CategoriesEndpointsTests(LocalHubApiFactory factory)
         Assert.DoesNotContain(category.Id, publicIds);
     }
 
-    // A category in the profile of an active provider and in an OPEN service, both created through the API.
     [Fact]
     [Trait("Requisito", "RF-F003-03")]
     public async Task Deactivate_CategoryWithActiveProvidersOrOngoingServices_Returns409WithReasonAndStaysActive()
@@ -154,8 +143,6 @@ public class CategoriesEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal("ACTIVE", StatusOf(await ListAsync(adminToken, includeInactive: true), provider.ServiceCategoryId));
     }
 
-    // ---------- helpers ----------
-
     private static string NewTag() => Guid.NewGuid().ToString("N");
 
     private async Task<(int Id, string Name)> CreateAsync(string adminToken, string name)
@@ -178,7 +165,6 @@ public class CategoriesEndpointsTests(LocalHubApiFactory factory)
         string url = includeInactive ? $"{CategoriesUrl}?includeInactive=true" : CategoriesUrl;
         using var response = await SendWithTokenAsync(_client, HttpMethod.Get, url, token);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        // A list without pages: { "total", "items" } (API documentation, section 4.4).
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         Assert.False(body.TryGetProperty("page", out _));
         var items = body.GetProperty("items").EnumerateArray().Select(c => c.Clone()).ToList();

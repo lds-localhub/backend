@@ -1,6 +1,5 @@
 namespace LocalHub.Application.Common.Exceptions;
 
-// LocalHub's own error types (API documentation, section 4.6). The API adds the prefix https://localhub.local/erros/.
 public static class ErrorTypes
 {
     public const string InvalidCredentials = "credenciais-invalidas";

@@ -12,9 +12,6 @@ using static LocalHub.IntegrationTests.Fixtures.AuthRequests;
 
 namespace LocalHub.IntegrationTests.Accounts;
 
-// F002: E05 (list accounts), E06 (deactivate account), E07 (activate account) and E41 (reset password), reserved to
-// the administrator.
-// The 401 and 403 cases of these endpoints are in AccessControlTests.
 [Collection(ApiTestGroup.Name)]
 [Trait("Category", "Integration")]
 public class AccountsEndpointsTests(LocalHubApiFactory factory)
@@ -32,7 +29,7 @@ public class AccountsEndpointsTests(LocalHubApiFactory factory)
     public async Task List_NoFilters_ReturnsOnlyClientsAndProvidersSortedByName()
     {
         string tag = Guid.NewGuid().ToString("N");
-        // Registered in reverse order, so that the order of the list comes from the name.
+        // Registered in reverse order, so the order of the list comes from the name.
         var provider = await RegisterAccountAsync("PROVIDER", $"Teste Lista B {tag}");
         var client = await RegisterAccountAsync("CLIENT", $"Teste Lista A {tag}");
         string adminToken = await LoginAsAdminAsync(_client);
@@ -180,7 +177,7 @@ public class AccountsEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
-    // Reads every page of E05, because the test database keeps the accounts created by the other tests.
+    // The test database keeps the accounts of the other tests, so every page is read.
     private async Task<List<JsonElement>> ListAllAsync(string adminToken, string filters)
     {
         var accounts = new List<JsonElement>();

@@ -15,8 +15,6 @@ using static LocalHub.IntegrationTests.Fixtures.ServiceRequests;
 
 namespace LocalHub.IntegrationTests.Services;
 
-// F007 and F011, provider side: E25 (submit a proposal), E24 (decline a direct request), E27 (my proposals), E23 (my
-// direct requests) and E22 (a service as the provider sees it). The 401 cases are in AccessControlTests.
 [Collection(ApiTestGroup.Name)]
 [Trait("Category", "Integration")]
 public class ProposalsEndpointsTests(LocalHubApiFactory factory)
@@ -29,8 +27,6 @@ public class ProposalsEndpointsTests(LocalHubApiFactory factory)
     private const string InvalidTransitionType = "https://localhub.local/erros/transicao-invalida";
 
     private readonly HttpClient _client = factory.CreateClient();
-
-    // ---------- E25: criteria 1 and 2 ----------
 
     [Fact]
     [Trait("Requisito", "RF-F007-01")]
@@ -45,7 +41,6 @@ public class ProposalsEndpointsTests(LocalHubApiFactory factory)
         var proposal = await response.Content.ReadFromJsonAsync<JsonElement>();
         int proposalId = proposal.GetProperty("proposalId").GetInt32();
         Assert.Equal($"/api/proposals/{proposalId}", response.Headers.Location?.OriginalString);
-        // Only the fields of the proposal (API documentation, E25): the service and the profile are those of the request.
         Assert.False(proposal.TryGetProperty("serviceId", out _));
         Assert.False(proposal.TryGetProperty("professionalProfileId", out _));
         Assert.Equal(80.00m, proposal.GetProperty("amount").GetDecimal());
@@ -55,7 +50,6 @@ public class ProposalsEndpointsTests(LocalHubApiFactory factory)
         Assert.EndsWith("Z", proposal.GetProperty("creationDate").GetString(), StringComparison.Ordinal);
         Assert.Equal(JsonValueKind.Null, proposal.GetProperty("decisionDate").ValueKind);
 
-        // The request was answered with this proposal (E36).
         using var detail = await GetAsync(provider.Token, $"/api/direct-requests/{requests[provider.ProfessionalProfileId]}");
         var request = await detail.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal("PROPOSAL_SUBMITTED", request.GetProperty("status").GetString());
@@ -77,8 +71,6 @@ public class ProposalsEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal("PENDING", proposal.GetProperty("status").GetString());
         Assert.Equal(JsonValueKind.Null, proposal.GetProperty("obs").ValueKind);
     }
-
-    // ---------- E25: criterion 3 (validation) ----------
 
     [Theory]
     [InlineData("amount", "0")]
@@ -109,8 +101,6 @@ public class ProposalsEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal(0, await CountProposalsAsync(serviceId));
     }
 
-    // ---------- E24 ----------
-
     [Fact]
     [Trait("Requisito", "RF-F007-02")]
     public async Task Decline_RecipientOfPendingDirectRequest_Returns200DeclinedAndServiceStaysOpen()
@@ -126,10 +116,8 @@ public class ProposalsEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal(requestId, body.GetProperty("directRequestId").GetInt32());
         Assert.Equal("DECLINED", body.GetProperty("status").GetString());
         Assert.NotEqual(JsonValueKind.Null, body.GetProperty("responseDate").ValueKind);
-        // Only what changed in the request (API documentation, E24).
         Assert.Equal(3, body.EnumerateObject().Count());
 
-        // The provider sees the declined request and the service still OPEN in E36.
         using var detail = await GetAsync(provider.Token, $"/api/direct-requests/{requestId}");
         var seen = await detail.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal("DECLINED", seen.GetProperty("status").GetString());
@@ -150,8 +138,6 @@ public class ProposalsEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         await AssertProblemAsync(response, ForbiddenType, url);
     }
-
-    // ---------- E23 (criterion 7) ----------
 
     [Fact]
     [Trait("Requisito", "RF-F007-09")]
@@ -179,7 +165,6 @@ public class ProposalsEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal("PROPOSAL_SUBMITTED", items[1].GetProperty("status").GetString());
         Assert.Equal(proposalId, items[1].GetProperty("proposalId").GetInt32());
 
-        // Only the summary of the lists (API documentation, E23): the detail is consulted in E36.
         var service = items[0].GetProperty("service");
         Assert.Equal(provider.ServiceCategoryId, service.GetProperty("serviceCategory").GetProperty("serviceCategoryId").GetInt32());
         Assert.Equal("Cliente Teste", service.GetProperty("clientName").GetString());
@@ -187,8 +172,6 @@ public class ProposalsEndpointsTests(LocalHubApiFactory factory)
         Assert.False(items[0].TryGetProperty("creationDate", out _));
         Assert.DoesNotContain("clientId", await response.Content.ReadAsStringAsync(), StringComparison.Ordinal);
     }
-
-    // ---------- Helpers ----------
 
     private static Dictionary<string, object?> ValidProposal() => new()
     {
@@ -206,8 +189,6 @@ public class ProposalsEndpointsTests(LocalHubApiFactory factory)
     private Task<HttpResponseMessage> PostAsync(string token, string url) =>
         SendWithTokenAsync(_client, HttpMethod.Post, url, token);
 
-    // A service with direct requests to the given profiles (E20). Returns the client, the serviceId and the
-    // directRequestId of each profile.
     private async Task<(TestClient Client, int ServiceId, Dictionary<int, int> Requests)> CreateDirectServiceAsync(
         int serviceCategoryId, params int[] professionalProfileIds)
     {
@@ -232,7 +213,6 @@ public class ProposalsEndpointsTests(LocalHubApiFactory factory)
         return (client, service.GetProperty("serviceId").GetInt32());
     }
 
-    // A second provider with a profile in the category.
     private async Task<ProviderWithProfile> CreateProviderInCategoryAsync(int serviceCategoryId)
     {
         var (token, userId, email) = await RegisterProviderAsync(_client);
@@ -251,7 +231,6 @@ public class ProposalsEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
-    // The endpoints that cancel or assign a service are later issues, so the state is changed in the database.
     private async Task CancelServiceAsync(int serviceId)
     {
         using var scope = factory.Services.CreateScope();

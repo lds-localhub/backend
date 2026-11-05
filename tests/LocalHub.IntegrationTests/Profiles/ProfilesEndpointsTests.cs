@@ -10,9 +10,6 @@ using static LocalHub.IntegrationTests.Fixtures.UserLocations;
 
 namespace LocalHub.IntegrationTests.Profiles;
 
-// F004: E12 (create), E13 (get) and E14 (update), with the address and the radius of F015. Also the rule "provider
-// without a profile" (API documentation, section 7) and the use of the categories by the profiles in E11.
-// The 401 cases are in AccessControlTests.
 [Collection(ApiTestGroup.Name)]
 [Trait("Category", "Integration")]
 public class ProfilesEndpointsTests(LocalHubApiFactory factory)
@@ -25,8 +22,6 @@ public class ProfilesEndpointsTests(LocalHubApiFactory factory)
     private const string MissingProfileType = "https://localhub.local/erros/perfil-em-falta";
 
     private readonly HttpClient _client = factory.CreateClient();
-
-    // ---------- E12 ----------
 
     [Fact]
     [Trait("Requisito", "RF-F004-01")]
@@ -56,7 +51,6 @@ public class ProfilesEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal(15, profile.GetProperty("serviceRadiusKm").GetInt32());
         Assert.Equal(JsonValueKind.Null, profile.GetProperty("averageRating").ValueKind);
 
-        // The address is saved in User with its coordinates, and E04 and E02 return the professionalProfileId.
         var me = await GetJsonAsync("/api/auth/me", token);
         Assert.Equal(profileId, me.GetProperty("professionalProfileId").GetInt32());
         Assert.Equal((FakeGeocodingService.KnownLatitude, FakeGeocodingService.KnownLongitude),
@@ -86,8 +80,6 @@ public class ProfilesEndpointsTests(LocalHubApiFactory factory)
         Assert.True(errors.TryGetProperty("serviceCategoryIds", out _));
         await AssertHasNoProfileAsync(token);
     }
-
-    // ---------- E13 ----------
 
     [Fact]
     [Trait("Requisito", "RF-F004-03")]
@@ -125,8 +117,6 @@ public class ProfilesEndpointsTests(LocalHubApiFactory factory)
         await AssertProblemAsync(response, ForbiddenType, url);
     }
 
-    // ---------- E14 ----------
-
     [Fact]
     [Trait("Requisito", "RF-F004-02")]
     [Trait("Requisito", "RF-F004-04")]
@@ -150,8 +140,6 @@ public class ProfilesEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal(15, profile.GetProperty("serviceRadiusKm").GetInt32());
     }
 
-    // ---------- Provider without a profile (API documentation, section 7) ----------
-
     [Theory]
     [InlineData("GET", "/api/profiles/1")]
     [InlineData("PUT", MeUrl)]
@@ -159,8 +147,7 @@ public class ProfilesEndpointsTests(LocalHubApiFactory factory)
     public async Task ProviderEndpoint_ProviderWithoutProfile_Returns403MissingProfile(string method, string url)
     {
         var (token, _, _) = await RegisterProviderAsync(_client);
-        // A valid body of E14: the profile filter is an action filter, so it runs after the validation of the body
-        // (rule R11 of the Class Model).
+        // A valid body: the profile filter runs after the body validation.
         object body = method == "PUT" ? UpdateBody(1) : new { };
 
         using var response = await SendJsonAsync(_client, new HttpMethod(method), url, token, body);
@@ -168,8 +155,6 @@ public class ProfilesEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         await AssertProblemAsync(response, MissingProfileType, url);
     }
-
-    // ---------- E11: categories used by profiles ----------
 
     private static string ProfileUrl(int professionalProfileId) => $"{ProfilesUrl}/{professionalProfileId}";
 
@@ -201,7 +186,6 @@ public class ProfilesEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal(JsonValueKind.Null, me.GetProperty("professionalProfileId").ValueKind);
     }
 
-    // action: "deactivate" (E06) or "activate" (E07).
     private async Task SetAccountStatusAsync(string adminToken, int userId, string action)
     {
         using var response = await SendWithTokenAsync(

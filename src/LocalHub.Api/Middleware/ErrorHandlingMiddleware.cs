@@ -4,7 +4,6 @@ using LocalHub.Infrastructure.Geocoding;
 
 namespace LocalHub.Api.Middleware;
 
-// Converts the exceptions thrown by the application and domain layers into Problem Details responses.
 public class ErrorHandlingMiddleware : IMiddleware
 {
     private readonly ILogger<ErrorHandlingMiddleware> _logger;
@@ -22,7 +21,7 @@ public class ErrorHandlingMiddleware : IMiddleware
         }
         catch (Exception ex)
         {
-            // If part of the response was already sent, it can no longer be replaced by an error response.
+            // Too late to replace the response with an error.
             if (context.Response.HasStarted)
             {
                 throw;
@@ -77,7 +76,7 @@ public class ErrorHandlingMiddleware : IMiddleware
             case DomainException domain:
                 return HandleDomainAsync(context, domain);
 
-            // The message of the exception explains the technical cause, so it is not sent to the user.
+            // Technical message, not shown to the user.
             case GeocodingUnavailableException:
                 return ProblemResponses.WriteAsync(
                     context,

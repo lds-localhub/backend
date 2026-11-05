@@ -10,7 +10,6 @@ using Microsoft.EntityFrameworkCore;
 
 namespace LocalHub.Application.Services;
 
-// Direct requests seen and answered by the provider that received them (F007).
 public class DirectRequestService
 {
     private readonly LocalHubDbContext _db;
@@ -24,9 +23,6 @@ public class DirectRequestService
         _timeProvider = timeProvider;
     }
 
-    // E23 (RF-F007-09), provider side: only the requests sent to the profile of the provider, newest first, with the
-    // summary that the lists show. The proposal of the provider is the one for the same service. Of the Client, only
-    // the name is returned, without any contacts.
     public async Task<PagedResult<DirectRequestListItem>> ListAsync(
         string? status, PageRequest page, CancellationToken cancellationToken)
     {
@@ -71,9 +67,6 @@ public class DirectRequestService
         return new PagedResult<DirectRequestListItem>(page.Page, page.PageSize, total, items);
     }
 
-    // E36 (RF-F007-09): one direct request, only for the provider that received it (another provider gets 403). The
-    // history of states of the service is in chronological order, only with the role of the author of each change, so
-    // the hired provider is not identified (RNF-06).
     public async Task<ProviderDirectRequestResponse> GetAsync(int directRequestId, CancellationToken cancellationToken)
     {
         int profileId = await GetMyProfileIdAsync(cancellationToken);
@@ -148,7 +141,6 @@ public class DirectRequestService
             row.ProposalId);
     }
 
-    // E24 (RF-F007-02). The rules (recipient, OPEN service, PENDING request) are in Service.DeclineDirectRequest.
     public async Task<DirectRequestStatusResponse> DeclineAsync(int directRequestId, CancellationToken cancellationToken)
     {
         int profileId = await GetMyProfileIdAsync(cancellationToken);

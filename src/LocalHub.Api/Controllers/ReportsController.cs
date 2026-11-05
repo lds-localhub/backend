@@ -7,7 +7,6 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace LocalHub.Api.Controllers;
 
-// Activity reports: F013 (E33) and F014 (E34).
 [ApiController]
 [Route("api/reports")]
 public class ReportsController : ControllerBase
@@ -19,9 +18,7 @@ public class ReportsController : ControllerBase
         _reportService = reportService;
     }
 
-    // E33: only clients, with their own data (providers and administrators get 403). The dates are read as text and
-    // validated by ReportPeriod, so that an invalid date gets the message of the API in "errors", under the name of the
-    // parameter (API documentation v04, section 4.6).
+    // The dates are read as text so that an invalid date gets the API's own message.
     [HttpGet("client")]
     [Authorize(Roles = "CLIENT")]
     public async Task<ActionResult<ClientReportResponse>> GetClientReport(
@@ -32,8 +29,6 @@ public class ReportsController : ControllerBase
         return Ok(await _reportService.GetClientReportAsync(startDate, endDate, cancellationToken));
     }
 
-    // E34: only providers, with their own data (clients and administrators get 403); a provider without a profile gets
-    // 403 perfil-em-falta. The dates are read as in E33.
     [HttpGet("provider")]
     [Authorize(Roles = "PROVIDER")]
     [ServiceFilter(typeof(RequireProfessionalProfileFilter))]

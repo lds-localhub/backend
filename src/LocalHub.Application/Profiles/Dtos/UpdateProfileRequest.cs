@@ -6,9 +6,6 @@ using LocalHub.Domain.Profiles;
 
 namespace LocalHub.Application.Profiles.Dtos;
 
-// Body of E14, with the address and the radius of the provider (RF-F015-01, rule 3): the address is converted into
-// coordinates and saved in User. Fields that are not listed here, such as averageRating or coordinates, are rejected
-// with 400 (API documentation, E14; RF-F004-02, rule 3; rule R3).
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public record UpdateProfileRequest(
     [Required(ErrorMessage = "Indique a apresentação.")]

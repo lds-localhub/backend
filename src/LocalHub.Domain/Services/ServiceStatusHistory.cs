@@ -3,8 +3,7 @@ using LocalHub.Domain.Accounts;
 namespace LocalHub.Domain.Services;
 
 /// <summary>
-/// Represents a change of state of a service, with the date and the user that made it (Requirements Specification
-/// v04, sections 10.1 and 10.2).
+/// A change of state of a service, with the date and the user that made it.
 /// </summary>
 public class ServiceStatusHistory
 {
@@ -15,15 +14,13 @@ public class ServiceStatusHistory
     public DateTimeOffset ChangedAt { get; private set; }
     public int ChangedByUserId { get; private set; }
 
-    // Navigations (they are not columns). "= null!": always set by the Service or loaded by Entity Framework with
-    // Include. The name ChangedBy lets Entity Framework find the foreign key ChangedByUserId by convention.
+    // Navigations: set by the Service or loaded by Entity Framework with Include.
     public Service Service { get; private set; } = null!;
     public User ChangedBy { get; private set; } = null!;
 
-    // Private: Entity Framework uses this constructor when it reads a change of state.
+    // Used by Entity Framework; a change of state is recorded by the Service.
     private ServiceStatusHistory() { }
 
-    // Only the Service records its changes of state, so the transitions of section 10 are always applied.
     internal ServiceStatusHistory(
         ServiceStatus previousStatus, ServiceStatus newStatus, User changedBy, DateTimeOffset now)
     {

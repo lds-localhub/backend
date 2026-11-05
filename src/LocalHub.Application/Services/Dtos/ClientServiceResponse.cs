@@ -3,9 +3,6 @@ using LocalHub.Domain.Services;
 
 namespace LocalHub.Application.Services.Dtos;
 
-// Service as the client that created it sees it in E22 (and in the response of E20): all the direct requests, each with
-// its proposal, and, in PUBLIC, all the proposals received (API documentation, E22). The list of the other model is
-// empty.
 public record ClientServiceResponse(
     int ServiceId,
     string Title,
@@ -24,10 +21,8 @@ public record ClientServiceResponse(
     IReadOnlyList<ClientDirectRequestResponse> DirectRequests,
     IReadOnlyList<ClientProposalResponse> Proposals)
 {
-    // The service must be loaded with its client, its category, its direct requests and its proposals, each with the
-    // profile and the provider, its review (reviewed) and the history of states, each change with the user that made
-    // it. reviewCounts has the number of reviews of each provider (a provider without reviews is not there). The
-    // history is in chronological order; the proposals of PUBLIC, newest first.
+    // The service must be loaded with its client, category, direct requests, proposals (with profile and provider),
+    // review and history (with the user of each change).
     public static ClientServiceResponse From(Service service, IReadOnlyDictionary<int, int> reviewCounts)
     {
         var directRequests = new List<ClientDirectRequestResponse>();
@@ -72,7 +67,6 @@ public record ClientServiceResponse(
     }
 }
 
-// Summary of the provider shown to the client in E22.
 public record ProviderSummary(int ProfessionalProfileId, string Name, decimal? AverageRating, int ReviewCount)
 {
     // The profile must be loaded with its provider.
@@ -84,7 +78,6 @@ public record ProviderSummary(int ProfessionalProfileId, string Name, decimal? A
     }
 }
 
-// Direct request of E22 for the client: the provider and the proposal it submitted, or null.
 public record ClientDirectRequestResponse(
     int DirectRequestId,
     DirectRequestStatus Status,
@@ -93,7 +86,6 @@ public record ClientDirectRequestResponse(
     ProviderSummary ProfessionalProfile,
     ProposalResponse? Proposal)
 {
-    // proposals are the proposals of the service; the one of the request is the one of the same profile.
     public static ClientDirectRequestResponse From(
         DirectRequest request, IEnumerable<Proposal> proposals, IReadOnlyDictionary<int, int> reviewCounts)
     {
@@ -108,7 +100,6 @@ public record ClientDirectRequestResponse(
     }
 }
 
-// Proposal of PUBLIC as the client sees it in E22: the proposal with the summary of the provider.
 public record ClientProposalResponse(
     int ProposalId,
     ProviderSummary ProfessionalProfile,
@@ -133,8 +124,6 @@ public record ClientProposalResponse(
     }
 }
 
-// Item of the list of E21: the summary of the service that the lists of the client show (API documentation, E21).
-// directRequestsCount and proposalsCount count the direct requests and the proposals in any state.
 public record ServiceListItem(
     int ServiceId,
     string Title,
@@ -148,5 +137,4 @@ public record ServiceListItem(
     AssignedProvider? AssignedProvider,
     bool Reviewed);
 
-// The provider of the accepted proposal, in E21; null while no proposal was accepted.
 public record AssignedProvider(int ProfessionalProfileId, string Name);

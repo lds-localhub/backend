@@ -12,8 +12,6 @@ using static LocalHub.IntegrationTests.Fixtures.AuthRequests;
 
 namespace LocalHub.IntegrationTests.Auth;
 
-// Cross-cutting session tests (test plan, section 5.3): a token stops working after 8 hours,
-// after logout and after the account is deactivated.
 [Collection(ApiTestGroup.Name)]
 [Trait("Category", "Integration")]
 public class SessionTests(LocalHubApiFactory factory)
@@ -26,8 +24,7 @@ public class SessionTests(LocalHubApiFactory factory)
     [Trait("Requisito", "RNF-02")]
     public async Task ProtectedRequest_AfterEightHours_Returns401()
     {
-        // A separate API with its own clock, so that moving the time does not affect the other tests.
-        // The clock starts at the real time, so the JWT stays valid and only the session check can reject it.
+        // Separate API with its own clock, so moving the time does not affect the other tests.
         var clock = new FakeTimeProvider(DateTimeOffset.UtcNow);
         using var api = factory.WithWebHostBuilder(builder =>
             builder.ConfigureTestServices(services => services.AddSingleton<TimeProvider>(clock)));
@@ -65,9 +62,7 @@ public class SessionTests(LocalHubApiFactory factory)
         string email = NewEmail();
         string token = await RegisterAndLoginAsync(_client, email);
 
-        // Deactivated directly in the database, without revoking the session, so that the 401 comes from the check
-        // of the account status (API documentation, section 4.2). The deactivation through E06, which also revokes
-        // the sessions, is tested in AccountsEndpointsTests.
+        // Deactivated in the database without revoking the session, so the 401 comes from the account status check.
         await DeactivateAsync(email);
         using var response = await SendWithTokenAsync(_client, HttpMethod.Get, MeUrl, token);
 

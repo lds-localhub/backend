@@ -24,8 +24,6 @@ public class CategoryService
         _db = db;
     }
 
-    // E08: only the active categories, unless the administrator asks for all of them (RF-F003-04).
-    // The controller checks that includeInactive is only used by the administrator.
     public async Task<ListResult<CategoryResponse>> ListAsync(bool includeInactive, CancellationToken cancellationToken)
     {
         var query = _db.ServiceCategories.AsNoTracking();
@@ -42,8 +40,6 @@ public class CategoryService
         return new ListResult<CategoryResponse>(items.Count, items);
     }
 
-    // E09: the new category is active and its name is unique, ignoring upper and lower case (RF-F003-01).
-    // The name was validated by the DTO (rule R17).
     public async Task<CategoryResponse> CreateAsync(CategoryRequest request, CancellationToken cancellationToken)
     {
         var category = ServiceCategory.Create(request.Name!);
@@ -55,7 +51,6 @@ public class CategoryService
         return CategoryResponse.From(category);
     }
 
-    // E10: only the name changes; the associations to profiles and services are kept (RF-F003-02).
     public async Task<CategoryResponse> RenameAsync(
         int serviceCategoryId, CategoryRequest request, CancellationToken cancellationToken)
     {
@@ -68,12 +63,11 @@ public class CategoryService
         return CategoryResponse.From(category);
     }
 
-    // E11: the category becomes INACTIVE, unless it is used by active providers or services in progress (RF-F003-03).
     public async Task<CategoryResponse> DeactivateAsync(int serviceCategoryId, CancellationToken cancellationToken)
     {
         var category = await FindAsync(serviceCategoryId, cancellationToken);
 
-        // An inactive category gets the "already inactive" error, whatever its use.
+        // An inactive category is "already inactive", whatever its use.
         if (category.Status == ActivationStatus.Active)
         {
             var usage = await CountUsageAsync(serviceCategoryId, cancellationToken);
@@ -89,7 +83,6 @@ public class CategoryService
         return CategoryResponse.From(category);
     }
 
-    // For example: "A categoria está associada a 3 Prestadores ativos e a 1 serviço em curso." (API documentation, E11).
     public static string DescribeUsage(CategoryUsageCount usage)
     {
         var parts = new List<string>();
@@ -110,8 +103,6 @@ public class CategoryService
         return $"A categoria está associada {string.Join(" e ", parts)}.";
     }
 
-    // ActiveProviders counts the profiles of the category whose provider has an ACTIVE account (F004).
-    // ServicesInProgress counts the services of the category in the state OPEN or ASSIGNED (RF-F003-03, rule 1).
     private async Task<CategoryUsageCount> CountUsageAsync(int serviceCategoryId, CancellationToken cancellationToken)
     {
         int activeProviders = await _db.ProfessionalProfiles
@@ -139,15 +130,11 @@ public class CategoryService
         return category;
     }
 
-    // The names keep their upper case letters ("Canalização"), so the comparison ignoring upper and lower case is done
-    // here, in the database: ToLower() is translated to lower(). The index UX_ServiceCategory_name only rejects equal
-    // names, when two requests arrive at the same time.
+    // Case-insensitive comparison done in the database: ToLower() is translated to lower().
     private async Task EnsureNameIsFreeAsync(string name, int? exceptCategoryId, CancellationToken cancellationToken)
     {
         string lowerName = name.ToLowerInvariant();
-        // The analyzers ask for a culture or for string.Equals(..., StringComparison), but this expression is not run
-        // in C#: Entity Framework translates it to SQL, and only ToLower() can be translated (ToLowerInvariant and
-        // string.Equals with a StringComparison cannot).
+        // EF translates ToLower() to SQL; the culture-aware overloads cannot be translated.
 #pragma warning disable CA1304, CA1311, CA1862
         bool exists = await _db.ServiceCategories.AnyAsync(
             c => c.Name.ToLower() == lowerName && c.ServiceCategoryId != exceptCategoryId,
@@ -176,7 +163,6 @@ public class CategoryService
                 throw new DomainException(DomainErrorKind.Conflict, DuplicateNameMessage, "name");
             }
 
-            // Any other error of the database is not expected: the request gets 500.
             throw;
         }
     }

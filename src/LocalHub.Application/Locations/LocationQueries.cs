@@ -8,7 +8,6 @@ namespace LocalHub.Application.Locations;
 
 public static class LocationQueries
 {
-    // The registered location of a user, or null while it has none.
     public static async Task<Coordinates?> FindLocationAsync(
         this LocalHubDbContext db, int userId, CancellationToken cancellationToken)
     {
@@ -20,8 +19,6 @@ public static class LocationQueries
         return location == null ? null : Coordinates.Rounded(location.Latitude, location.Longitude);
     }
 
-    // The distanceKm of a service seen by a provider (E36 to E38): from the provider's location to the service, with one
-    // decimal place, or null while the provider has no location.
     public static decimal? DistanceKm(Coordinates? from, decimal latitude, decimal longitude)
     {
         if (from == null)

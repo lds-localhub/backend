@@ -15,9 +15,6 @@ using static LocalHub.IntegrationTests.Fixtures.ServiceRequests;
 
 namespace LocalHub.IntegrationTests.Search;
 
-// F006: E19 GET /api/search/services and E38 GET /api/search/services/{serviceId}, with the geocoding replaced by
-// FakeGeocodingService. The provider is at KnownAddress and the services at 2, 10 and 30 km to the north of it. Each
-// test uses its own category, so it only finds the services that it creates. The 401 cases are in AccessControlTests.
 [Collection(ApiTestGroup.Name)]
 [Trait("Category", "Integration")]
 public class OpenServicesEndpointsTests(LocalHubApiFactory factory)
@@ -29,8 +26,6 @@ public class OpenServicesEndpointsTests(LocalHubApiFactory factory)
     private const string MissingProfileType = "https://localhub.local/erros/perfil-em-falta";
 
     private readonly HttpClient _client = factory.CreateClient();
-
-    // ---------- E19: which services are returned (criteria 2 and 6) ----------
 
     [Fact]
     [Trait("Requisito", "RF-F006-01")]
@@ -59,14 +54,13 @@ public class OpenServicesEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal(eligible, item.GetProperty("serviceId").GetInt32());
     }
 
-    // Criterion 3 and RNF-06: on a meridian the distances are the known values R · Δφ; no data of the Client.
     [Fact]
     [Trait("Requisito", "RF-F006-01")]
     [Trait("Requisito", "RNF-06")]
     public async Task SearchServices_ServicesAt2_10And30Km_ReturnsSortedByDistanceWithoutClientData()
     {
         var provider = await CreateProviderAsync(15);
-        // Created out of order, so the order of the results can only come from the distance.
+        // Created out of order, so the order can only come from the distance.
         int at30 = await CreatePublicServiceAsync(provider.ServiceCategoryId, FakeGeocodingService.AddressAt30Km);
         int at2 = await CreatePublicServiceAsync(provider.ServiceCategoryId, FakeGeocodingService.AddressAt2Km);
         int at10 = await CreatePublicServiceAsync(provider.ServiceCategoryId, FakeGeocodingService.AddressAt10Km);
@@ -95,8 +89,6 @@ public class OpenServicesEndpointsTests(LocalHubApiFactory factory)
         AssertHasNoClientData(first);
     }
 
-    // ---------- E38: consult a PUBLIC service (criterion 7) ----------
-
     [Fact]
     [Trait("Requisito", "RF-F011-01")]
     [Trait("Requisito", "RNF-06")]
@@ -124,12 +116,9 @@ public class OpenServicesEndpointsTests(LocalHubApiFactory factory)
         Assert.False(service.TryGetProperty("proposals", out _));
     }
 
-    // ---------- Helpers ----------
-
     private Task<HttpResponseMessage> GetAsync(string token, string url) =>
         SendWithTokenAsync(_client, HttpMethod.Get, url, token);
 
-    // A provider at KnownAddress with the radius given, in a new category or in the one given.
     private async Task<ProviderWithProfile> CreateProviderAsync(int serviceRadiusKm, int? serviceCategoryId = null)
     {
         int categoryId = serviceCategoryId ?? await CreateCategoryAsync(_client, await LoginAsAdminAsync(_client));
@@ -142,7 +131,6 @@ public class OpenServicesEndpointsTests(LocalHubApiFactory factory)
         return new ProviderWithProfile(token, userId, email, profile.GetProperty("professionalProfileId").GetInt32(), categoryId);
     }
 
-    // A PUBLIC service (E20) at the address given, by a new client.
     private async Task<int> CreatePublicServiceAsync(int serviceCategoryId, string address) =>
         await CreatePublicServiceAsync(await RegisterClientAsync(_client), serviceCategoryId, address);
 
@@ -171,8 +159,6 @@ public class OpenServicesEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
-    // The endpoints that assign, complete or cancel a service are later issues, so the state is changed in the database.
-    // A COMPLETED service must have the actual completion date (CK_Service_actualCompletionDate).
     private async Task SetServiceStatusAsync(int serviceId, string status)
     {
         using var scope = factory.Services.CreateScope();
@@ -195,7 +181,6 @@ public class OpenServicesEndpointsTests(LocalHubApiFactory factory)
     private static List<int> ServiceIds(List<JsonElement> items) =>
         items.Select(i => i.GetProperty("serviceId").GetInt32()).ToList();
 
-    // RF-F006-01 and RF-F011-01: neither the Client nor its contacts.
     private static void AssertHasNoClientData(JsonElement service)
     {
         foreach (string field in new[] { "clientId", "client", "clientName", "email", "contactDetails" })

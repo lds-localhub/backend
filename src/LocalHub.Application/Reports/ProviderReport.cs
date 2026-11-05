@@ -6,19 +6,14 @@ using LocalHub.Domain.Services;
 
 namespace LocalHub.Application.Reports;
 
-// A service in which the proposal of the provider was accepted, with the data of the report.
 public record ProviderContractedService(
     int ServiceCategoryId,
     string CategoryName,
     ServiceStatus Status,
     decimal AcceptedAmount) : IContractedService;
 
-// A review received by the provider.
 public record ReceivedReview(DateTimeOffset CreationDate, short Rating);
 
-// The indicators of E34 (RF-F014-01; API documentation v04). The services, the direct requests and the declined
-// proposals arrive already filtered by provider and period; the reviews are all those of the provider, because the
-// evolution depends on the month of the review and not on the creation date of the service.
 public static class ProviderReport
 {
     private const string MonthFormat = "yyyy-MM";
@@ -36,14 +31,12 @@ public static class ProviderReport
             ContractedIndicators.ByCategory(services),
             ContractedIndicators.ByStatus(services),
             directRequestsReceived,
-            // A service has at most one ACCEPTED proposal, so each contracted service is one accepted proposal.
             new ProposalCounts(services.Count, declinedProposals),
             ContractedIndicators.TotalAcceptedAmount(services),
             BuildRatingEvolution(reviews, period, today));
     }
 
-    // Rule 5: from the month of the first review to the current month, in UTC, limited to the months of the period when
-    // there is one (RF-F014-02, rule 3). The limits also keep the list short with very distant dates in the period.
+    // From the month of the first review to the current month, limited to the period.
     private static IReadOnlyList<MonthlyRating> BuildRatingEvolution(
         IReadOnlyCollection<ReceivedReview> reviews, ReportPeriod period, DateOnly today)
     {

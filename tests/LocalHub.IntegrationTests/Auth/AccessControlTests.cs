@@ -6,8 +6,7 @@ using static LocalHub.IntegrationTests.Fixtures.AuthRequests;
 
 namespace LocalHub.IntegrationTests.Auth;
 
-// Cross-cutting access tests (test plan, section 5.3): every protected endpoint rejects requests without a valid session
-// with 401, and requests of a role that is not authorized with 403.
+// Every protected endpoint: 401 without a session and 403 with a role that is not authorized.
 [Collection(ApiTestGroup.Name)]
 [Trait("Category", "Integration")]
 public class AccessControlTests(LocalHubApiFactory factory)

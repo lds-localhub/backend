@@ -18,8 +18,6 @@ using static LocalHub.IntegrationTests.Fixtures.UserLocations;
 
 namespace LocalHub.IntegrationTests.Services;
 
-// F009 and F010: E20 (create a service with direct requests or a PUBLIC service), and the use of the categories by
-// the services in E11. The 401 cases are in AccessControlTests.
 [Collection(ApiTestGroup.Name)]
 [Trait("Category", "Integration")]
 public class ServicesEndpointsTests(LocalHubApiFactory factory)
@@ -30,8 +28,6 @@ public class ServicesEndpointsTests(LocalHubApiFactory factory)
     private const string UnavailableType = "https://tools.ietf.org/html/rfc9110#section-15.6.4";
 
     private readonly HttpClient _client = factory.CreateClient();
-
-    // ---------- Criteria 1 and 2: the two modalities ----------
 
     [Fact]
     [Trait("Requisito", "RF-F009-01")]
@@ -65,7 +61,6 @@ public class ServicesEndpointsTests(LocalHubApiFactory factory)
         Assert.Empty(service.GetProperty("history").EnumerateArray());
         Assert.Empty(service.GetProperty("proposals").EnumerateArray());
 
-        // The structure of E22: each direct request with the provider and without a proposal yet.
         var requests = service.GetProperty("directRequests").EnumerateArray().ToList();
         Assert.Equal(
             new[] { first.ProfessionalProfileId, second }.Order(),
@@ -79,8 +74,7 @@ public class ServicesEndpointsTests(LocalHubApiFactory factory)
         });
         Assert.Equal((1, 2), await CountSavedAsync(client.UserId));
 
-        // The instants are returned to the second (API documentation, section 4.3): the creationDate returned is the one
-        // saved, and E22 returns the same one.
+        // Instants are returned to the second, so the returned date matches the stored one.
         string returned = service.GetProperty("creationDate").GetString()!;
         var saved = await ReadCreationDateAsync(serviceId);
         Assert.Equal(saved.AddTicks(-(saved.Ticks % TimeSpan.TicksPerSecond)),
@@ -108,8 +102,6 @@ public class ServicesEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal((1, 0), await CountSavedAsync(client.UserId));
     }
 
-    // ---------- Criterion 3: fields and dates ----------
-
     [Fact]
     [Trait("Requisito", "RF-F010-01")]
     public async Task Create_SeveralInvalidFields_Returns400WithErrorPerField()
@@ -125,8 +117,6 @@ public class ServicesEndpointsTests(LocalHubApiFactory factory)
         Assert.True(errors.TryGetProperty("description", out _));
         Assert.True(errors.TryGetProperty("requestedStartDate", out _));
     }
-
-    // ---------- Criterion 7: nothing is created when the Nominatim is down ----------
 
     [Fact]
     [Trait("Requisito", "RF-F009-01")]
@@ -146,14 +136,10 @@ public class ServicesEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal(0, await CountDirectRequestsAsync(provider.ProfessionalProfileId));
     }
 
-    // ---------- E11: categories used by services in progress ----------
-
     private static string Iso(DateOnly date) => date.ToString(IsoDate, CultureInfo.InvariantCulture);
 
     private async Task<int> NewCategoryAsync() => await CreateCategoryAsync(_client, await LoginAsAdminAsync(_client));
 
-    // A second provider with a profile in the given category; optionally with the account deactivated by the
-    // administrator (E06). Returns the professionalProfileId.
     private async Task<int> CreateProviderInCategoryAsync(int serviceCategoryId, bool deactivate = false)
     {
         var (token, userId, _) = await RegisterProviderAsync(_client);
@@ -180,7 +166,6 @@ public class ServicesEndpointsTests(LocalHubApiFactory factory)
         return await response.Content.ReadFromJsonAsync<JsonElement>();
     }
 
-    // Returns the messages of the field, after checking that the response is a 400 with that field in errors.
     private static async Task<List<string>> AssertFieldErrorAsync(HttpResponseMessage response, string field)
     {
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);

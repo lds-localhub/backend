@@ -17,7 +17,7 @@ namespace LocalHub.Application.Accounts;
 
 public class AccountService
 {
-    // Filters accepted by E05: the list never includes administrators (RF-F002-01).
+    // Administrators are never listed.
     private static readonly Dictionary<string, UserRole> RoleFilters = new(StringComparer.OrdinalIgnoreCase)
     {
         ["CLIENT"] = UserRole.Client,
@@ -30,8 +30,7 @@ public class AccountService
         ["INACTIVE"] = ActivationStatus.Inactive,
     };
 
-    // Characters of the temporary password (E41). Characters that are easy to confuse (0/O, 1/l/I) are left out,
-    // because the administrator gives the password to the user outside the system.
+    // Without characters that are easy to confuse (0/O, 1/l/I): the administrator gives this password to the user.
     private const string PasswordLetters = "abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ";
     private const string PasswordDigits = "23456789";
     private const int TemporaryPasswordLength = 10;
@@ -65,7 +64,6 @@ public class AccountService
         return UserResponse.From(user, await _db.FindProfileIdAsync(user.UserId, cancellationToken));
     }
 
-    // E05: accounts of clients and providers, optionally filtered by role and status, ordered by name.
     public async Task<PagedResult<AccountListItemResponse>> ListAsync(
         string? role, string? status, PageRequest page, CancellationToken cancellationToken)
     {
@@ -132,8 +130,7 @@ public class AccountService
         return new PagedResult<AccountListItemResponse>(page.Page, page.PageSize, total, items);
     }
 
-    // Conduct alerts of the accounts of one page of E05 (RF-F002-01). Calculated in each request from the existing
-    // data and never stored; they only inform the administrator and never change the status of the account.
+    // Calculated on each request and never stored.
     private async Task<Dictionary<int, List<AccountAlertResponse>>> GetAlertsAsync(
         IReadOnlyCollection<AccountResponse> accounts, CancellationToken cancellationToken)
     {
@@ -141,7 +138,7 @@ public class AccountService
         var providerIds = accounts.Where(a => a.Role == UserRole.Provider).Select(a => a.UserId).ToList();
         var clientIds = accounts.Where(a => a.Role == UserRole.Client).Select(a => a.UserId).ToList();
 
-        // Services cancelled in the ASSIGNED state by the user (the author of the transition), for both roles.
+        // Services cancelled while ASSIGNED, counted for the user who cancelled them.
         var cancelled = await _db.ServiceStatusHistories.AsNoTracking()
             .Where(h => h.PreviousStatus == ServiceStatus.Assigned
                 && h.NewStatus == ServiceStatus.Cancelled
@@ -150,7 +147,6 @@ public class AccountService
             .Select(g => new { UserId = g.Key, Count = g.Select(h => h.ServiceId).Distinct().Count() })
             .ToDictionaryAsync(x => x.UserId, x => x.Count, cancellationToken);
 
-        // Provider: services in which a proposal of the provider was accepted.
         var providerAssigned = await _db.Proposals.AsNoTracking()
             .Where(p => p.Status == ProposalStatus.Accepted
                 && providerIds.Contains(p.ProfessionalProfile.ServiceProviderId))
@@ -158,7 +154,6 @@ public class AccountService
             .Select(g => new { UserId = g.Key, Count = g.Select(p => p.ServiceId).Distinct().Count() })
             .ToDictionaryAsync(x => x.UserId, x => x.Count, cancellationToken);
 
-        // Client: services of the client with a transition to ASSIGNED.
         var clientAssigned = await _db.Services.AsNoTracking()
             .Where(s => clientIds.Contains(s.ClientId)
                 && s.StatusHistory.Any(h => h.NewStatus == ServiceStatus.Assigned))
@@ -166,8 +161,6 @@ public class AccountService
             .Select(g => new { UserId = g.Key, Count = g.Count() })
             .ToDictionaryAsync(x => x.UserId, x => x.Count, cancellationToken);
 
-        // Provider: average rating of the profile (RF-F012-02) and number of reviews received, counted by
-        // ReviewQueries.CountReviewsAsync (the same rule as E18 and E22).
         var ratings = await _db.ProfessionalProfiles.AsNoTracking()
             .Where(p => providerIds.Contains(p.ServiceProviderId) && p.AverageRating != null)
             .Select(p => new { UserId = p.ServiceProviderId, p.ProfessionalProfileId, p.AverageRating })
@@ -197,7 +190,6 @@ public class AccountService
         return result;
     }
 
-    // E39: the counters of the administrator's home page (W50), without the administrator accounts (as in E05).
     public async Task<AdminSummaryResponse> GetAdminSummaryAsync(CancellationToken cancellationToken)
     {
         var accounts = _db.Users.AsNoTracking().Where(u => u.Role != UserRole.Admin);
@@ -210,10 +202,8 @@ public class AccountService
         return new AdminSummaryResponse(activeAccounts, inactiveAccounts, activeCategories);
     }
 
-    // E06: the account becomes INACTIVE and its sessions are revoked (RF-F002-02).
     public async Task<AccountResponse> DeactivateAsync(int userId, CancellationToken cancellationToken)
     {
-        // Only the sessions that are still open need to be loaded and revoked.
         var user = await _db.Users
             .Include(u => u.Sessions.Where(s => s.RevokedAt == null))
             .SingleOrDefaultAsync(u => u.UserId == userId, cancellationToken);
@@ -228,7 +218,6 @@ public class AccountService
         return AccountResponse.From(user);
     }
 
-    // E07: the account becomes ACTIVE and the user can log in again (RF-F002-03).
     public async Task<AccountResponse> ActivateAsync(int userId, CancellationToken cancellationToken)
     {
         var user = await _db.Users.SingleOrDefaultAsync(u => u.UserId == userId, cancellationToken);
@@ -243,11 +232,9 @@ public class AccountService
         return AccountResponse.From(user);
     }
 
-    // E41: a new temporary password for a client or provider account, and all its sessions are revoked
-    // (RF-F002-05, rule R18). The state of the account does not change, so an inactive account can be reset too.
+    // The account status does not change, so an inactive account can be reset too.
     public async Task<ResetPasswordResponse> ResetPasswordAsync(int userId, CancellationToken cancellationToken)
     {
-        // Only the sessions that are still open need to be loaded and revoked.
         var user = await _db.Users
             .Include(u => u.Sessions.Where(s => s.RevokedAt == null))
             .SingleOrDefaultAsync(u => u.UserId == userId, cancellationToken);
@@ -256,7 +243,6 @@ public class AccountService
             throw new NotFoundException("Conta não encontrada.");
         }
 
-        // Same rule as the deactivation (RF-F002-02, rule 1).
         if (user.Role == UserRole.Admin)
         {
             throw new DomainException(
@@ -273,11 +259,10 @@ public class AccountService
 
         await _db.SaveChangesAsync(cancellationToken);
 
-        // Returned only here: only the hash is stored (RNF-01).
+        // Only returned here: just the hash is stored.
         return new ResetPasswordResponse(temporaryPassword);
     }
 
-    // Random password with the rules of the registration (RF-F001-01, rule 3): at least one letter and one digit.
     private static string GenerateTemporaryPassword()
     {
         string password;

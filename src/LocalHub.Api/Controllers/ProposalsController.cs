@@ -8,7 +8,6 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace LocalHub.Api.Controllers;
 
-// F007 and F008: the proposals presented by the provider and the decisions of the client on them.
 [ApiController]
 [Route("api/proposals")]
 public class ProposalsController : ControllerBase
@@ -20,7 +19,6 @@ public class ProposalsController : ControllerBase
         _serviceWorkflowService = serviceWorkflowService;
     }
 
-    // E27: only providers, and only their own proposals.
     [HttpGet]
     [Authorize(Roles = "PROVIDER")]
     [ServiceFilter(typeof(RequireProfessionalProfileFilter))]
@@ -34,7 +32,6 @@ public class ProposalsController : ControllerBase
             status, new PageRequest(page, pageSize), cancellationToken));
     }
 
-    // E37: only the provider that presented the proposal.
     [HttpGet("{proposalId:int}")]
     [Authorize(Roles = "PROVIDER")]
     [ServiceFilter(typeof(RequireProfessionalProfileFilter))]
@@ -43,7 +40,6 @@ public class ProposalsController : ControllerBase
         return Ok(await _serviceWorkflowService.GetMyProposalAsync(proposalId, cancellationToken));
     }
 
-    // E28: only the client that created the service of the proposal.
     [HttpPost("{proposalId:int}/accept")]
     [Authorize(Roles = "CLIENT")]
     public async Task<ActionResult<ProposalDecisionResponse>> Accept(int proposalId, CancellationToken cancellationToken)
@@ -51,7 +47,6 @@ public class ProposalsController : ControllerBase
         return Ok(await _serviceWorkflowService.AcceptProposalAsync(proposalId, cancellationToken));
     }
 
-    // E29: only the client that created the service of the proposal.
     [HttpPost("{proposalId:int}/decline")]
     [Authorize(Roles = "CLIENT")]
     public async Task<ActionResult<ProposalDecisionResponse>> Decline(int proposalId, CancellationToken cancellationToken)

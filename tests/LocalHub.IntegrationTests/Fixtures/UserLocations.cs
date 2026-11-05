@@ -5,8 +5,6 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace LocalHub.IntegrationTests.Fixtures;
 
-// The coordinates saved in User, which E02, E04 and E16 do not return (API documentation, E04): they are read from the
-// database.
 public static class UserLocations
 {
     public static async Task<(decimal? Latitude, decimal? Longitude)> ReadUserCoordinatesAsync(

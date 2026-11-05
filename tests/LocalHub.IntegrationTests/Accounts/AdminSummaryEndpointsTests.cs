@@ -14,9 +14,6 @@ using static LocalHub.IntegrationTests.Fixtures.ProfileRequests;
 
 namespace LocalHub.IntegrationTests.Accounts;
 
-// F002 and F003: E39 (summary of the administration), reserved to the administrator.
-// The 401 and 403 cases of this endpoint are in AccessControlTests. The test database keeps the data of the other
-// tests, so the counters are compared with the database and with the values read before each change.
 [Collection(ApiTestGroup.Name)]
 [Trait("Category", "Integration")]
 public class AdminSummaryEndpointsTests(LocalHubApiFactory factory)
@@ -34,7 +31,6 @@ public class AdminSummaryEndpointsTests(LocalHubApiFactory factory)
         string adminToken = await LoginAsAdminAsync(_client);
         var before = await GetSummaryAsync(adminToken);
 
-        // Two new accounts (one client and one provider), one of them deactivated; two new categories, one deactivated.
         await RegisterAndLoginAsync(_client, NewEmail(), "CLIENT");
         string providerEmail = NewEmail();
         await RegisterAndLoginAsync(_client, providerEmail, "PROVIDER");

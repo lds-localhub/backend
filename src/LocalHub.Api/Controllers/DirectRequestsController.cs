@@ -8,7 +8,6 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace LocalHub.Api.Controllers;
 
-// F007: the direct requests received by the provider or sent by the client.
 [ApiController]
 [Route("api/direct-requests")]
 public class DirectRequestsController : ControllerBase
@@ -20,8 +19,6 @@ public class DirectRequestsController : ControllerBase
         _directRequestService = directRequestService;
     }
 
-    // E23: only providers, and only the requests sent to their profile (the client sees the direct requests of each
-    // service in E22).
     [HttpGet]
     [Authorize(Roles = "PROVIDER")]
     [ServiceFilter(typeof(RequireProfessionalProfileFilter))]
@@ -34,7 +31,6 @@ public class DirectRequestsController : ControllerBase
         return Ok(await _directRequestService.ListAsync(status, new PageRequest(page, pageSize), cancellationToken));
     }
 
-    // E36: only the provider that received the request.
     [HttpGet("{directRequestId:int}")]
     [Authorize(Roles = "PROVIDER")]
     [ServiceFilter(typeof(RequireProfessionalProfileFilter))]
@@ -43,7 +39,6 @@ public class DirectRequestsController : ControllerBase
         return Ok(await _directRequestService.GetAsync(directRequestId, cancellationToken));
     }
 
-    // E24: only the provider that received the request.
     [HttpPost("{directRequestId:int}/decline")]
     [Authorize(Roles = "PROVIDER")]
     [ServiceFilter(typeof(RequireProfessionalProfileFilter))]

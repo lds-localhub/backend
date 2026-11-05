@@ -6,7 +6,6 @@ using LocalHub.Domain.Accounts;
 
 namespace LocalHub.Api;
 
-// Reads the authenticated user from the claims of the JWT (sub, role, sid).
 public class HttpCurrentUser : ICurrentUser
 {
     private readonly IHttpContextAccessor _httpContextAccessor;
@@ -33,7 +32,6 @@ public class HttpCurrentUser : ICurrentUser
     {
         get
         {
-            // The token stores "CLIENT", "PROVIDER" or "ADMIN".
             return Enum.Parse<UserRole>(ReadClaim("role"), ignoreCase: true);
         }
     }

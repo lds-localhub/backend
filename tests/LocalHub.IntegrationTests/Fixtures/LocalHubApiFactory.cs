@@ -14,8 +14,7 @@ using Npgsql;
 
 namespace LocalHub.IntegrationTests.Fixtures;
 
-// Starts the API against the PostgreSQL test database "localhub_test".
-// The database is emptied, migrated and seeded once per test run.
+// Runs the API against localhub_test, emptied, migrated and seeded once per run.
 public class LocalHubApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
     public const string SeedPassword = "Teste2026";
@@ -37,8 +36,7 @@ public class LocalHubApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         await scope.ServiceProvider.GetRequiredService<DataSeeder>().SeedAsync();
     }
 
-    // Written as "IAsyncLifetime.DisposeAsync" because WebApplicationFactory already has a DisposeAsync method
-    // with a different return type. There is nothing to clean up at the end.
+    // Explicit because WebApplicationFactory already has a DisposeAsync with another return type.
     Task IAsyncLifetime.DisposeAsync()
     {
         return Task.CompletedTask;
@@ -52,8 +50,6 @@ public class LocalHubApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         builder.UseSetting("Jwt:SigningKey", SigningKey);
         builder.UseSetting("Seed:DefaultPassword", SeedPassword);
 
-        // No test calls the real Nominatim (I043): the adapter is replaced by FakeGeocodingService and the
-        // "Nominatim" HttpClient fails if anything still tries to send a request.
         builder.ConfigureTestServices(services =>
         {
             services.RemoveAll<IGeocodingService>();
@@ -63,8 +59,7 @@ public class LocalHubApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         });
     }
 
-    // CI: ConnectionStrings__LocalHub (ci.yml). Locally: the connection string of appsettings.Development.json.
-    // The database name is always replaced by localhub_test.
+    // CI: ConnectionStrings__LocalHub. Locally: appsettings.Development.json. The database is always localhub_test.
     private static string BuildConnectionString()
     {
         string? connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__LocalHub");
@@ -92,7 +87,6 @@ public class LocalHubApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 
     private static string? FindDevelopmentSettings()
     {
-        // Starts in the test's bin folder and goes up one folder at a time until it finds the backend folder.
         DirectoryInfo? directory = new DirectoryInfo(AppContext.BaseDirectory);
         while (directory != null)
         {

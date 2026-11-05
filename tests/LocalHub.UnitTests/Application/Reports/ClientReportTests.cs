@@ -4,14 +4,9 @@ using LocalHub.Domain.Services;
 
 namespace LocalHub.UnitTests.Application.Reports;
 
-// E33: the indicators of the activity report of the client (RF-F013-01) and its period (RF-F013-02).
 [Trait("Category", "Unit")]
 public class ClientReportTests
 {
-
-    // ---------- Period (RF-F013-02) ----------
-
-    // Rule 3 (criterion 2).
     [Fact]
     [Trait("Requisito", "RF-F013-02")]
     public void Parse_StartDateAfterEndDate_ThrowsGlobalError()
@@ -21,7 +16,4 @@ public class ClientReportTests
         Assert.Equal(ReportPeriod.InvertedMessage, exception.Message);
         Assert.Empty(exception.Errors);
     }
-
-    // ---------- Helpers ----------
-
 }

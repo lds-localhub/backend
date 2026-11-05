@@ -8,16 +8,14 @@ using static LocalHub.IntegrationTests.Fixtures.ProfileRequests;
 
 namespace LocalHub.IntegrationTests.Fixtures;
 
-// A client created through the API (E01, E02 and, when asked, E16 with the address known by FakeGeocodingService).
 public record TestClient(string Token, int UserId);
 
-// Requests to the service endpoints (F007 to F011) that several test classes use.
 public static class ServiceRequests
 {
     public const string ServicesUrl = "/api/services";
     public const string IsoDate = "yyyy-MM-dd";
 
-    // The current date in UTC, the one used by E20 to validate the requested dates (API documentation, section 4.3).
+    // E20 validates the dates in UTC.
     public static DateOnly Today => DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime);
 
     public static async Task<TestClient> RegisterClientAsync(HttpClient client, bool withLocation = true)
@@ -38,8 +36,6 @@ public static class ServiceRequests
         return new TestClient(token, body.GetProperty("userId").GetInt32());
     }
 
-    // A valid body of E20 with direct requests. The location is the registered address of RegisterClientAsync, so the
-    // registered coordinates are used (rule R15).
     public static Dictionary<string, object?> DirectRequestBody(int serviceCategoryId, params int[] professionalProfileIds) =>
         new()
         {
@@ -53,7 +49,6 @@ public static class ServiceRequests
             ["professionalProfileIds"] = professionalProfileIds,
         };
 
-    // A valid body of E20 for a PUBLIC service, with a single date, at the registered address of RegisterClientAsync.
     public static Dictionary<string, object?> PublicBody(int serviceCategoryId) => new()
     {
         ["proposalModel"] = "PUBLIC",

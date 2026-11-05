@@ -15,8 +15,6 @@ using static LocalHub.IntegrationTests.Fixtures.ServiceRequests;
 
 namespace LocalHub.IntegrationTests.Reports;
 
-// F013: E33 (activity report of the client) and F014: E34 (activity report of the provider). Each test uses a new client
-// or provider, so the report only has its data. The 401 cases are in AccessControlTests.
 [Collection(ApiTestGroup.Name)]
 [Trait("Category", "Integration")]
 public class ReportsEndpointsTests(LocalHubApiFactory factory)
@@ -28,10 +26,7 @@ public class ReportsEndpointsTests(LocalHubApiFactory factory)
 
     private readonly HttpClient _client = factory.CreateClient();
 
-    // ---------- RF-F013-01: criterion 1 ----------
-
-    // One ASSIGNED, one COMPLETED and one CANCELLED after being assigned; an OPEN service, with a pending proposal, and
-    // a service cancelled while OPEN are not contracted.
+    // OPEN services and services cancelled while OPEN were never contracted.
     [Fact]
     [Trait("Requisito", "RF-F013-01")]
     public async Task ClientReport_ThreeContractedServices_CountsOnePerStateAndIgnoresUnassigned()
@@ -57,8 +52,6 @@ public class ReportsEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal(new Dictionary<string, int> { ["ASSIGNED"] = 1, ["COMPLETED"] = 1, ["CANCELLED"] = 1 }, byStatus);
     }
 
-    // ---------- RF-F013-01: rule 5 ----------
-
     [Fact]
     [Trait("Requisito", "RF-F013-01")]
     public async Task ClientReport_OtherClientServices_AreNotIncluded()
@@ -77,10 +70,7 @@ public class ReportsEndpointsTests(LocalHubApiFactory factory)
         Assert.Empty(report.GetProperty("completedHistory").EnumerateArray());
     }
 
-    // ---------- RF-F013-02 ----------
-
-    // Criteria 1 and 3: the day of creation is the day in UTC (API documentation v04, section 4.3), so a service created
-    // at 2026-09-30T23:30Z belongs to September, although it is already 1 October in Portugal.
+    // 2026-09-30T23:30Z is already 1 October in Portugal, but counts for September (UTC).
     [Fact]
     [Trait("Requisito", "RF-F013-02")]
     public async Task ClientReport_OctoberPeriod_CountsOnlyServicesCreatedThatMonthInUtc()
@@ -105,10 +95,6 @@ public class ReportsEndpointsTests(LocalHubApiFactory factory)
         Assert.False(october.TryGetProperty("period", out _));
     }
 
-    // ---------- E34, RF-F014-01: rules 1 to 4 ----------
-
-    // Rule 1: only the COMPLETED ones are completed services. Rule 2: the distributions have all the services in which
-    // the proposal of the provider was accepted, and not the service that the client gave to another provider.
     [Fact]
     [Trait("Requisito", "RF-F014-01")]
     public async Task ProviderReport_ServicesWithAcceptedProposal_CountsCompletedAndGroupsByCategoryAndState()
@@ -142,10 +128,7 @@ public class ReportsEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal(new Dictionary<string, int> { ["ASSIGNED"] = 1, ["COMPLETED"] = 1, ["CANCELLED"] = 1 }, byStatus);
     }
 
-    // ---------- E34, RF-F014-02 ----------
-
-    // Criterion 1 and rule 2: the direct requests, the proposals and the accepted amounts follow the creation date of
-    // the service, in UTC, although they were created later.
+    // The direct requests, proposals and amounts follow the creation date of the service.
     [Fact]
     [Trait("Requisito", "RF-F014-02")]
     public async Task ProviderReport_OctoberPeriod_CountsOnlyServicesCreatedThatMonthAndTheirData()
@@ -196,8 +179,6 @@ public class ReportsEndpointsTests(LocalHubApiFactory factory)
         Assert.False(october.TryGetProperty("period", out _));
     }
 
-    // ---------- Helpers ----------
-
     private async Task<JsonElement> GetReportAsync(string token, string query = "")
     {
         using var response = await SendWithTokenAsync(_client, HttpMethod.Get, ReportUrl + query, token);
@@ -219,7 +200,6 @@ public class ReportsEndpointsTests(LocalHubApiFactory factory)
         return await response.Content.ReadFromJsonAsync<JsonElement>();
     }
 
-    // A provider with a profile in a new category, optionally with the given name.
     private async Task<ProviderWithProfile> CreateProviderAsync(string? categoryName = null)
     {
         string adminToken = await LoginAsAdminAsync(_client);
@@ -227,7 +207,6 @@ public class ReportsEndpointsTests(LocalHubApiFactory factory)
         return await CreateProviderInCategoriesAsync(categoryId);
     }
 
-    // A provider with a profile in existing categories; ServiceCategoryId is the first one.
     private async Task<ProviderWithProfile> CreateProviderInCategoriesAsync(params int[] categoryIds)
     {
         var (token, userId, email) = await RegisterProviderAsync(_client);
@@ -252,7 +231,6 @@ public class ReportsEndpointsTests(LocalHubApiFactory factory)
         return (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("proposalId").GetInt32();
     }
 
-    // A PUBLIC service of the client with the proposal of the provider accepted (ASSIGNED).
     private async Task<int> CreateContractedAsync(TestClient client, ProviderWithProfile provider, decimal amount)
     {
         int serviceId = await CreatePublicServiceAsync(client, provider.ServiceCategoryId);
@@ -261,7 +239,6 @@ public class ReportsEndpointsTests(LocalHubApiFactory factory)
         return serviceId;
     }
 
-    // A contracted service, completed and reviewed by the client, with the review moved to the given date.
     private async Task CreateReviewedAsync(TestClient client, ProviderWithProfile provider, int rating, DateTimeOffset date)
     {
         int serviceId = await CreateContractedAsync(client, provider, 80.00m);
@@ -276,7 +253,6 @@ public class ReportsEndpointsTests(LocalHubApiFactory factory)
             $"UPDATE \"Review\" SET \"creationDate\" = {date} WHERE \"serviceId\" = {serviceId}");
     }
 
-    // The same, returning the identifier of the service.
     private async Task<int> CreateDirectServiceAsync(TestClient client, ProviderWithProfile provider)
     {
         var service = await PostDirectServiceAsync(client, provider);
@@ -291,7 +267,7 @@ public class ReportsEndpointsTests(LocalHubApiFactory factory)
         return await response.Content.ReadFromJsonAsync<JsonElement>();
     }
 
-    // The creation date comes from the clock of the API, so the services of other months are moved in the database.
+    // The creation date comes from the API clock, so it is changed in the database.
     private async Task SetCreationDateAsync(int serviceId, DateTimeOffset creationDate)
     {
         using var scope = factory.Services.CreateScope();

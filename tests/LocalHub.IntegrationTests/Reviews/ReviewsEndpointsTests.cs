@@ -10,8 +10,6 @@ using static LocalHub.IntegrationTests.Fixtures.ServiceRequests;
 
 namespace LocalHub.IntegrationTests.Reviews;
 
-// F012: E32 (review a service) and E15 (reviews of a provider), with the average rating and reviewCount of the profile
-// (E13). The 401 cases are in AccessControlTests.
 [Collection(ApiTestGroup.Name)]
 [Trait("Category", "Integration")]
 public class ReviewsEndpointsTests(LocalHubApiFactory factory)
@@ -22,8 +20,6 @@ public class ReviewsEndpointsTests(LocalHubApiFactory factory)
     private const string InvalidTransitionType = "https://localhub.local/erros/transicao-invalida";
 
     private readonly HttpClient _client = factory.CreateClient();
-
-    // ---------- E32: review (criteria 1, 5 and 6) ----------
 
     [Fact]
     [Trait("Requisito", "RF-F012-01")]
@@ -45,27 +41,22 @@ public class ReviewsEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal("Rápida e cuidadosa.", review.GetProperty("comment").GetString());
         Assert.NotEqual(default, review.GetProperty("creationDate").GetDateTimeOffset());
 
-        // The service stays COMPLETED and is marked as reviewed (E22).
         var stored = await GetJsonAsync(service.Client.Token, $"{ServicesUrl}/{service.ServiceId}");
         Assert.Equal("COMPLETED", stored.GetProperty("status").GetString());
         Assert.True(stored.GetProperty("reviewed").GetBoolean());
 
-        // The review is of the provider of the accepted proposal (E13).
         var profile = await GetJsonAsync(service.Client.Token, ProfileUrl(provider.ProfessionalProfileId));
         Assert.Equal(4.0m, profile.GetProperty("averageRating").GetDecimal());
         Assert.Equal(1, profile.GetProperty("reviewCount").GetInt32());
     }
 
-    // ---------- E32: invalid fields (criterion 2) ----------
-
-    // RF-F012-01, criteria 4 and 5: 0, 6 and 3.5 are refused, as a missing rating and a comment over 500 characters.
     public static TheoryData<string, string> InvalidBodies => new()
     {
         { """{ "rating": 0 }""", "rating" },
         { """{ "rating": 3.5 }""", "rating" },
         { """{ "comment": "Sem classificação." }""", "rating" },
         { $$"""{ "rating": 4, "comment": "{{new string('a', 501)}}" }""", "comment" },
-        // A field that is not in the body of E32 (the JSON reader does not name it in errors).
+        // A field that is not in the body.
         { """{ "rating": 4, "reviewed": true }""", "" },
     };
 
@@ -91,8 +82,6 @@ public class ReviewsEndpointsTests(LocalHubApiFactory factory)
         Assert.False(stored.GetProperty("reviewed").GetBoolean());
     }
 
-    // ---------- E32: other actors (criterion 4) ----------
-
     [Fact]
     [Trait("Requisito", "RF-F012-01")]
     public async Task Review_OtherClient_Returns403()
@@ -110,8 +99,6 @@ public class ReviewsEndpointsTests(LocalHubApiFactory factory)
         Assert.False(stored.GetProperty("reviewed").GetBoolean());
     }
 
-    // ---------- E15 (criterion 7) ----------
-
     [Fact]
     [Trait("Requisito", "RF-F004-03")]
     [Trait("Requisito", "RF-F012-01")]
@@ -125,7 +112,6 @@ public class ReviewsEndpointsTests(LocalHubApiFactory factory)
             reviews.Add((service.Client, await ReviewAsync(service, rating, rating == 4 ? null : $"Nota {rating}.")));
         }
 
-        // Another provider's review is not listed.
         var other = await CreateProviderWithProfileAsync(_client);
         await ReviewAsync(await CreateCompletedServiceAsync(other), 1);
 
@@ -160,8 +146,6 @@ public class ReviewsEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         await AssertProblemAsync(response, ForbiddenType, url);
     }
-
-    // ---------- Helpers ----------
 
     private sealed record TestService(TestClient Client, int ServiceId);
 
@@ -209,7 +193,6 @@ public class ReviewsEndpointsTests(LocalHubApiFactory factory)
         return (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("serviceId").GetInt32();
     }
 
-    // A PUBLIC service of a new client, with the proposal of the provider accepted (ASSIGNED).
     private async Task<TestService> CreateAssignedServiceAsync(ProviderWithProfile provider)
     {
         var client = await RegisterClientAsync(_client);
@@ -225,7 +208,6 @@ public class ReviewsEndpointsTests(LocalHubApiFactory factory)
         return new TestService(client, serviceId);
     }
 
-    // The same service, marked as completed by the client (E31).
     private async Task<TestService> CreateCompletedServiceAsync(ProviderWithProfile provider)
     {
         var service = await CreateAssignedServiceAsync(provider);

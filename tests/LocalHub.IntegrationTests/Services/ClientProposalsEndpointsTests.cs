@@ -14,9 +14,6 @@ using static LocalHub.IntegrationTests.Fixtures.ServiceRequests;
 
 namespace LocalHub.IntegrationTests.Services;
 
-// F007 and F008, client side: E28 (accept a proposal), E29 (decline a proposal), E21 (my services), E22 (a service as
-// the client sees it, with its direct requests and proposals) and E23 (reserved to providers). The 401 cases are in
-// AccessControlTests.
 [Collection(ApiTestGroup.Name)]
 [Trait("Category", "Integration")]
 public class ClientProposalsEndpointsTests(LocalHubApiFactory factory)
@@ -27,8 +24,6 @@ public class ClientProposalsEndpointsTests(LocalHubApiFactory factory)
     private const string InvalidTransitionType = "https://localhub.local/erros/transicao-invalida";
 
     private readonly HttpClient _client = factory.CreateClient();
-
-    // ---------- E28: criterion 1 ----------
 
     [Fact]
     [Trait("Requisito", "RF-F007-03")]
@@ -86,8 +81,6 @@ public class ClientProposalsEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal("CLIENT", change.GetProperty("changedByRole").GetString());
     }
 
-    // ---------- E29: criterion 3 ----------
-
     [Fact]
     [Trait("Requisito", "RF-F007-04")]
     [Trait("Requisito", "RF-F008-03")]
@@ -115,8 +108,6 @@ public class ClientProposalsEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal("PENDING", other.GetProperty("status").GetString());
     }
 
-    // ---------- E28 and E29: criterion 4 ----------
-
     [Theory]
     [InlineData("accept")]
     [InlineData("decline")]
@@ -135,8 +126,6 @@ public class ClientProposalsEndpointsTests(LocalHubApiFactory factory)
         var proposal = Assert.Single(await ListProposalsAsync(scenario.Client.Token, scenario.ServiceId));
         Assert.Equal("PENDING", proposal.GetProperty("status").GetString());
     }
-
-    // ---------- E21: criterion 6 ----------
 
     [Fact]
     [Trait("Requisito", "RF-F008-01")]
@@ -158,8 +147,6 @@ public class ClientProposalsEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal(scenario.Providers[0].ProfessionalProfileId, assigned.GetProperty("professionalProfileId").GetInt32());
         Assert.Equal("Prestador Teste", assigned.GetProperty("name").GetString());
     }
-
-    // ---------- E22: criterion 7 ----------
 
     [Fact]
     [Trait("Requisito", "RF-F007-09")]
@@ -205,9 +192,7 @@ public class ClientProposalsEndpointsTests(LocalHubApiFactory factory)
         await AssertProblemAsync(response, ForbiddenType, $"{ServicesUrl}/{scenario.ServiceId}");
     }
 
-    // ---------- Helpers ----------
-
-    // A service of a client and the providers in its category; the first "proposals" providers submitted a proposal.
+    // The first "proposals" providers submitted a proposal.
     private sealed record Scenario(TestClient Client, int ServiceId, List<ProviderWithProfile> Providers, List<int> ProposalIds);
 
     private const string ProposalsUrl = "/api/proposals";
@@ -232,7 +217,6 @@ public class ClientProposalsEndpointsTests(LocalHubApiFactory factory)
         return await response.Content.ReadFromJsonAsync<JsonElement>();
     }
 
-    // All the proposals of the service, as E22 returns them: in "proposals" (PUBLIC) or in each direct request.
     private async Task<List<JsonElement>> ListProposalsAsync(string token, int serviceId)
     {
         var service = await GetServiceAsync(token, serviceId);
@@ -262,7 +246,6 @@ public class ClientProposalsEndpointsTests(LocalHubApiFactory factory)
         return new Scenario(client, serviceId, providers, await SubmitAllAsync(serviceId, providers.Take(proposals)));
     }
 
-    // The first provider creates its own category; the others are created in that category.
     private async Task<List<ProviderWithProfile>> CreateProvidersAsync(int count)
     {
         var first = await CreateProviderWithProfileAsync(_client);
@@ -317,7 +300,6 @@ public class ClientProposalsEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
-    // The cancellation of a service is a later issue (I049), so the state is changed in the database.
     private async Task CancelServiceAsync(int serviceId)
     {
         using var scope = factory.Services.CreateScope();

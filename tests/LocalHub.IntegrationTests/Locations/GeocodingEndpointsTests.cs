@@ -13,7 +13,6 @@ using static LocalHub.IntegrationTests.Fixtures.AuthRequests;
 
 namespace LocalHub.IntegrationTests.Locations;
 
-// E35 (address of the position of the device). Public: no request of this class sends a token.
 [Collection(ApiTestGroup.Name)]
 [Trait("Category", "Integration")]
 public class GeocodingEndpointsTests(LocalHubApiFactory factory)

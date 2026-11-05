@@ -28,7 +28,7 @@ const string InvalidValueMessage = "Valor inválido.";
 
 builder.Services.AddControllers(o =>
     {
-        // A query parameter that cannot be converted (for example ?page=abc) gets a Portuguese message.
+        // Portuguese message for query parameters that cannot be converted (e.g. ?page=abc).
         o.ModelBindingMessageProvider.SetAttemptedValueIsInvalidAccessor((_, _) => InvalidValueMessage);
         o.ModelBindingMessageProvider.SetNonPropertyAttemptedValueIsInvalidAccessor(_ => InvalidValueMessage);
         o.ModelBindingMessageProvider.SetUnknownValueIsInvalidAccessor(_ => InvalidValueMessage);
@@ -37,18 +37,14 @@ builder.Services.AddControllers(o =>
     })
     .AddJsonOptions(o =>
     {
-        // Enum values as in the API documentation (CLIENT, PROVIDER, ADMIN, ...) and instants in UTC.
         o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.SnakeCaseUpper));
         o.JsonSerializerOptions.Converters.Add(new UtcDateTimeOffsetConverter());
     })
     .ConfigureApiBehaviorOptions(o =>
     {
-        // The DTOs are validated before the controller is called (rule R17). The fields with Data Annotations,
-        // the malformed bodies (invalid JSON, unknown enum value) and the query parameters (for example ?page=abc)
-        // use the same 400 format as the other errors, with all the invalid fields.
+        // Same 400 format for DTO validation errors, malformed JSON and invalid query parameters.
         o.InvalidModelStateResponseFactory = context =>
         {
-            // The parameter that receives the body ("request"): its errors only say that the body is missing.
             var bodyParameters = context.ActionDescriptor.Parameters
                 .Where(p => p.BindingInfo?.BindingSource == BindingSource.Body)
                 .Select(p => p.Name)
@@ -64,13 +60,11 @@ builder.Services.AddControllers(o =>
 
                 if (entry.Key.StartsWith("$.", StringComparison.Ordinal))
                 {
-                    // System.Text.Json reports the field as "$.role"; expose it as "role" with a Portuguese message.
+                    // System.Text.Json reports the field as "$.role".
                     errors[entry.Key.Substring(2)] = new[] { InvalidValueMessage };
                 }
                 else if (entry.Key.Length > 0 && entry.Key != "$" && !bodyParameters.Contains(entry.Key))
                 {
-                    // A field of the DTO ("Name", written "name" as in the JSON and in the API documentation) or a
-                    // query parameter ("page"), with the message of each error.
                     errors[JsonNamingPolicy.CamelCase.ConvertName(entry.Key)] = entry.Value.Errors
                         .Select(e => string.IsNullOrEmpty(e.ErrorMessage) ? InvalidValueMessage : e.ErrorMessage)
                         .ToArray();
@@ -94,12 +88,12 @@ builder.Services.AddControllers(o =>
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
-        // Read here, when the API starts, so that the integration tests can replace the signing key.
+        // Read at startup so that the integration tests can replace the signing key.
         var jwt = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>()!;
         options.MapInboundClaims = false;
         options.TokenValidationParameters = new TokenValidationParameters
         {
-            // Only this API issues and validates the tokens (JwtTokenIssuer), so there is no issuer nor audience.
+            // Only this API issues and validates the tokens.
             ValidateIssuer = false,
             ValidateAudience = false,
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt.SigningKey)),
@@ -118,7 +112,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
-// Every endpoint requires a session unless it is marked with [AllowAnonymous] (RF-F001-03).
+// Every endpoint requires a session unless it is marked with [AllowAnonymous].
 builder.Services.AddAuthorizationBuilder()
     .SetFallbackPolicy(new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build());
 

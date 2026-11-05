@@ -7,10 +7,6 @@ using Microsoft.EntityFrameworkCore;
 
 namespace LocalHub.Infrastructure;
 
-// Each table is configured with the Fluent API in its own class of the folder Configurations (UserConfiguration, ...).
-// The relationships with ON DELETE CASCADE and the foreign keys are found by the conventions of Entity Framework,
-// from the navigations of the classes of the domain. There are no CHECK constraints: each rule is checked by the
-// DTOs, the services or the domain (rule R17).
 public class LocalHubDbContext : DbContext
 {
     public LocalHubDbContext(DbContextOptions<LocalHubDbContext> options)
@@ -31,10 +27,8 @@ public class LocalHubDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        // GENERATED ALWAYS AS IDENTITY in every simple primary key.
         modelBuilder.UseIdentityAlwaysColumns();
 
-        // Every class of this project that implements IEntityTypeConfiguration (folder Configurations).
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(LocalHubDbContext).Assembly);
     }
 }

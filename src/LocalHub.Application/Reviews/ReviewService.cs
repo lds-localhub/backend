@@ -12,7 +12,6 @@ using Npgsql;
 
 namespace LocalHub.Application.Reviews;
 
-// The review of a completed service, the recalculation of the average rating and the reviews of a provider (F012).
 public class ReviewService
 {
     private const string AlreadyReviewedMessage = "Este serviço já foi avaliado.";
@@ -28,9 +27,6 @@ public class ReviewService
         _timeProvider = timeProvider;
     }
 
-    // E32 (RF-F012-01, RF-F012-02). The fields were validated by the DTO (rule R17); the actor, the state and the
-    // single review are decided by Service.AddReview. The review and the new average rating of the provider are saved
-    // with a single SaveChangesAsync (rule R1).
     public async Task<ReviewResponse> CreateAsync(
         int serviceId, CreateReviewRequest request, CancellationToken cancellationToken)
     {
@@ -46,7 +42,6 @@ public class ReviewService
 
         var review = service.AddReview(_currentUser.UserId, request.Rating!.Value, request.Comment, _timeProvider.GetUtcNow());
 
-        // RF-F012-01, rule 6: the review is of the provider whose proposal was accepted.
         var provider = service.Proposals.Single().ProfessionalProfile;
         var ratings = await _db.ReviewsOf(provider.ProfessionalProfileId)
             .Select(r => r.Rating)
@@ -60,7 +55,7 @@ public class ReviewService
         }
         catch (DbUpdateException ex)
         {
-            // Two reviews of the same service at the same time: the UNIQUE of serviceId rejects the second one.
+            // Two reviews at the same time: the unique serviceId rejects the second one.
             if (ex.InnerException is PostgresException postgres
                 && postgres.SqlState == PostgresErrorCodes.UniqueViolation)
             {
@@ -68,16 +63,12 @@ public class ReviewService
                     errorType: Review.AlreadyExistsErrorType);
             }
 
-            // Any other error of the database is not expected: the request gets 500.
             throw;
         }
 
         return ReviewResponse.From(review);
     }
 
-    // E15 (RF-F004-03, RF-F012-01): the reviews of a provider, newest first. The access is the same as in E13: a client
-    // sees the reviews of an active provider; a provider only sees its own reviews. A provider without a profile is
-    // stopped before, by the filter (403 perfil-em-falta).
     public async Task<PagedResult<ReviewListItem>> ListByProfileAsync(
         int professionalProfileId, PageRequest page, CancellationToken cancellationToken)
     {
@@ -105,7 +96,7 @@ public class ReviewService
             }
         }
 
-        // The profile of a provider with a deactivated account is not shown to the client (RF-F004-03, rule 2).
+        // Deactivated providers are hidden from clients.
         else if (profile == null || profile.Status != ActivationStatus.Active)
         {
             throw new NotFoundException("Perfil não encontrado.");

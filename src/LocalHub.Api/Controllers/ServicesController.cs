@@ -11,7 +11,6 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace LocalHub.Api.Controllers;
 
-// F007 to F012: the services with direct requests, the PUBLIC services and their reviews.
 [ApiController]
 [Route("api/services")]
 public class ServicesController : ControllerBase
@@ -28,8 +27,6 @@ public class ServicesController : ControllerBase
         _currentUser = currentUser;
     }
 
-    // E32: only the client that created the service (providers and administrators get 403). 201 without Location:
-    // the reviews are consulted in E15.
     [HttpPost("{serviceId:int}/review")]
     [Authorize(Roles = "CLIENT")]
     public async Task<ActionResult<ReviewResponse>> Review(
@@ -39,7 +36,6 @@ public class ServicesController : ControllerBase
         return StatusCode(StatusCodes.Status201Created, review);
     }
 
-    // E20: only clients (providers and administrators get 403).
     [HttpPost]
     [Authorize(Roles = "CLIENT")]
     public async Task<ActionResult<ClientServiceResponse>> Create(
@@ -49,8 +45,6 @@ public class ServicesController : ControllerBase
         return Created($"/api/services/{service.ServiceId}", service);
     }
 
-    // E21: only clients, with the services they created (providers and administrators get 403). The provider follows
-    // its services through the direct requests (E23) and the proposals (E27).
     [HttpGet]
     [Authorize(Roles = "CLIENT")]
     public async Task<ActionResult<PagedResult<ServiceListItem>>> ListMine(
@@ -62,8 +56,6 @@ public class ServicesController : ControllerBase
         return Ok(await _serviceWorkflowService.ListMineAsync(status, new PageRequest(page, pageSize), cancellationToken));
     }
 
-    // E22: only the client that created the service (providers and administrators get 403). The provider consults the
-    // service through its direct request (E36), its proposal (E37) or the PUBLIC service (E38).
     [HttpGet("{serviceId:int}")]
     [Authorize(Roles = "CLIENT")]
     public async Task<ActionResult<ClientServiceResponse>> Get(int serviceId, CancellationToken cancellationToken)
@@ -71,8 +63,6 @@ public class ServicesController : ControllerBase
         return Ok(await _serviceWorkflowService.GetAsync(serviceId, cancellationToken));
     }
 
-    // E30: the client that created the service (OPEN or ASSIGNED) or the provider whose proposal was accepted
-    // (ASSIGNED). Administrators get 403.
     [HttpPost("{serviceId:int}/cancel")]
     [Authorize(Roles = "CLIENT,PROVIDER")]
     [ServiceFilter(typeof(RequireProfessionalProfileFilter))]
@@ -86,7 +76,6 @@ public class ServicesController : ControllerBase
         return Ok(await _serviceWorkflowService.CancelAsProviderAsync(serviceId, cancellationToken));
     }
 
-    // E31: only the client that created the service (providers and administrators get 403).
     [HttpPost("{serviceId:int}/complete")]
     [Authorize(Roles = "CLIENT")]
     public async Task<ActionResult<CompletedServiceResponse>> Complete(int serviceId, CancellationToken cancellationToken)
@@ -94,7 +83,6 @@ public class ServicesController : ControllerBase
         return Ok(await _serviceWorkflowService.CompleteAsync(serviceId, cancellationToken));
     }
 
-    // E25: only providers with a profile (clients and administrators get 403).
     [HttpPost("{serviceId:int}/proposals")]
     [Authorize(Roles = "PROVIDER")]
     [ServiceFilter(typeof(RequireProfessionalProfileFilter))]

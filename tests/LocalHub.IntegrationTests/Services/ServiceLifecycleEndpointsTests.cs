@@ -10,8 +10,6 @@ using static LocalHub.IntegrationTests.Fixtures.ServiceRequests;
 
 namespace LocalHub.IntegrationTests.Services;
 
-// F007 and F008: E30 (cancel a service) and E31 (mark a service as completed). The 401 cases are in
-// AccessControlTests.
 [Collection(ApiTestGroup.Name)]
 [Trait("Category", "Integration")]
 public class ServiceLifecycleEndpointsTests(LocalHubApiFactory factory)
@@ -21,8 +19,6 @@ public class ServiceLifecycleEndpointsTests(LocalHubApiFactory factory)
     private const string InvalidTransitionType = "https://localhub.local/erros/transicao-invalida";
 
     private readonly HttpClient _client = factory.CreateClient();
-
-    // ---------- E30: client, OPEN (criteria 1 and 2) ----------
 
     [Fact]
     [Trait("Requisito", "RF-F007-05")]
@@ -77,8 +73,6 @@ public class ServiceLifecycleEndpointsTests(LocalHubApiFactory factory)
         Assert.All(proposals, p => Assert.Equal("VOID", p.GetProperty("status").GetString()));
     }
 
-    // ---------- E30: provider (criteria 4 and 5) ----------
-
     [Fact]
     [Trait("Requisito", "RF-F007-05")]
     [Trait("Requisito", "RF-F008-04")]
@@ -98,7 +92,6 @@ public class ServiceLifecycleEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal("CANCELLED", (await GetServiceAsync(scenario.Client.Token, scenario.ServiceId)).GetProperty("status").GetString());
     }
 
-    // Rule 2: a provider that only received a direct request.
     [Fact]
     [Trait("Requisito", "RF-F007-05")]
     public async Task Cancel_ProviderWithOnlyDirectRequest_Returns403AndKeepsStates()
@@ -115,8 +108,6 @@ public class ServiceLifecycleEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal("PENDING", service.GetProperty("directRequests")[0].GetProperty("status").GetString());
     }
 
-    // ---------- E30: other actors (criterion 6) ----------
-
     [Fact]
     [Trait("Requisito", "RF-F007-05")]
     public async Task Cancel_OtherClient_Returns403()
@@ -131,8 +122,6 @@ public class ServiceLifecycleEndpointsTests(LocalHubApiFactory factory)
         await AssertProblemAsync(response, ForbiddenType, url);
         Assert.Equal("OPEN", (await GetServiceAsync(scenario.Client.Token, scenario.ServiceId)).GetProperty("status").GetString());
     }
-
-    // ---------- E30: final states (criterion 7) ----------
 
     [Fact]
     [Trait("Requisito", "RF-F007-07")]
@@ -154,8 +143,6 @@ public class ServiceLifecycleEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal("COMPLETED", (await GetServiceAsync(scenario.Client.Token, scenario.ServiceId)).GetProperty("status").GetString());
     }
 
-    // ---------- E31 ----------
-
     [Fact]
     [Trait("Requisito", "RF-F007-06")]
     [Trait("Requisito", "RF-F008-05")]
@@ -171,7 +158,6 @@ public class ServiceLifecycleEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal("COMPLETED", body.GetProperty("status").GetString());
         Assert.NotEqual(JsonValueKind.Null, body.GetProperty("actualCompletionDate").ValueKind);
 
-        // The date returned is the one stored (E22).
         var stored = await GetServiceAsync(scenario.Client.Token, scenario.ServiceId);
         Assert.Equal(body.GetProperty("actualCompletionDate").GetDateTimeOffset(),
             stored.GetProperty("actualCompletionDate").GetDateTimeOffset());
@@ -181,9 +167,7 @@ public class ServiceLifecycleEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal(scenario.ProposalIds[0], accepted.GetProperty("proposalId").GetInt32());
     }
 
-    // ---------- Helpers ----------
-
-    // A service of a client and the providers in its category; the first "proposals" providers submitted a proposal.
+    // The first "proposals" providers submitted a proposal.
     private sealed record Scenario(TestClient Client, int ServiceId, List<ProviderWithProfile> Providers, List<int> ProposalIds);
 
     private static string CancelUrl(int serviceId) => $"{ServicesUrl}/{serviceId}/cancel";
@@ -207,7 +191,6 @@ public class ServiceLifecycleEndpointsTests(LocalHubApiFactory factory)
         return await response.Content.ReadFromJsonAsync<JsonElement>();
     }
 
-    // All the proposals of the service, as E22 returns them: in "proposals" (PUBLIC) or in each direct request.
     private async Task<List<JsonElement>> ListProposalsAsync(string token, int serviceId)
     {
         var service = await GetServiceAsync(token, serviceId);
@@ -247,7 +230,6 @@ public class ServiceLifecycleEndpointsTests(LocalHubApiFactory factory)
         return new Scenario(client, serviceId, providers, await SubmitAllAsync(serviceId, providers.Take(proposals)));
     }
 
-    // The first provider creates its own category; the others are created in that category.
     private async Task<List<ProviderWithProfile>> CreateProvidersAsync(int count)
     {
         var first = await CreateProviderWithProfileAsync(_client);

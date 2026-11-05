@@ -9,14 +9,9 @@ using Microsoft.Extensions.Options;
 
 namespace LocalHub.Infrastructure.Geocoding;
 
-/// <summary>
-/// Adaptador do Nominatim (OpenStreetMap) — Arquitetura v02, DEC-07.
-/// Usa os endpoints «search» e «reverse» no formato jsonv2 e respeita a política de utilização:
-/// User-Agent próprio (configurado no HttpClient) e no máximo um pedido por segundo (<see cref="NominatimRateLimiter"/>).
-/// </summary>
+// Nominatim adapter: own User-Agent and at most one request per second (usage policy).
 public sealed class NominatimGeocodingService : IGeocodingService
 {
-    /// <summary>Tamanho máximo da morada guardada (coluna address varchar(255) do Modelo de Dados v01).</summary>
     public const int AddressMaxLength = 255;
 
     private readonly NominatimOptions _options;
@@ -83,7 +78,7 @@ public sealed class NominatimGeocodingService : IGeocodingService
         using JsonDocument document = await SendAsync("reverse", query, cancellationToken);
         JsonElement root = document.RootElement;
 
-        // Sem morada, o Nominatim responde 200 com { "error": "Unable to geocode" }.
+        // Without an address, Nominatim answers 200 with { "error": "Unable to geocode" }.
         if (root.ValueKind != JsonValueKind.Object
             || root.TryGetProperty("error", out _)
             || !root.TryGetProperty("display_name", out JsonElement displayName)
@@ -92,8 +87,7 @@ public sealed class NominatimGeocodingService : IGeocodingService
             return null;
         }
 
-        // E35 (API v04): street, number, postal code and locality, so that converting it back into coordinates
-        // (E12, E14, E16, E18, E20) gives the same position. Without a street, the full display_name is used.
+        // Street, number, postal code and locality, so that geocoding it back gives the same position.
         string address = (ComposeAddress(root) ?? displayName.GetString()!).Trim();
         if (address.Length == 0)
         {
@@ -103,7 +97,7 @@ public sealed class NominatimGeocodingService : IGeocodingService
         return address.Length <= AddressMaxLength ? address : address.Substring(0, AddressMaxLength);
     }
 
-    // "Rua de Santa Catarina 74, 4000-441 Porto", from the "address" object returned with addressdetails=1.
+    // e.g. "Rua de Santa Catarina 74, 4000-441 Porto"
     private static string? ComposeAddress(JsonElement root)
     {
         if (!root.TryGetProperty("address", out JsonElement details) || details.ValueKind != JsonValueKind.Object)
@@ -161,13 +155,13 @@ public sealed class NominatimGeocodingService : IGeocodingService
         }
         catch (TaskCanceledException ex)
         {
-            // O pedido do utilizador foi cancelado: a exceção continua.
+            // The user's request was cancelled.
             if (cancellationToken.IsCancellationRequested)
             {
                 throw;
             }
 
-            // Tempo limite do HttpClient: não foi o pedido do utilizador a ser cancelado.
+            // HttpClient timeout, not a cancellation by the user.
             _logger.LogWarning(ex, "Falha no pedido {Path} ao Nominatim.", path);
             throw new GeocodingUnavailableException("O Nominatim não respondeu a tempo.", ex);
         }

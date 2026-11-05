@@ -40,7 +40,6 @@ public class AuthService
         _support = support.Value;
     }
 
-    // E01. The fields were validated by the DTO (rule R17); the e-mail already registered depends on the database.
     public async Task<RegisterResponse> RegisterAsync(RegisterRequest request, CancellationToken cancellationToken)
     {
         string email = request.Email!.Trim();
@@ -59,8 +58,7 @@ public class AuthService
         }
         catch (DbUpdateException ex)
         {
-            // Two registrations with the same e-mail at the same time: the unique index UX_User_email
-            // (UserConfiguration) rejects the second one.
+            // Two registrations at the same time: the unique index rejects the second one.
             if (ex.InnerException is PostgresException postgres
                 && postgres.SqlState == PostgresErrorCodes.UniqueViolation
                 && postgres.ConstraintName == "UX_User_email")
@@ -68,20 +66,17 @@ public class AuthService
                 throw new DomainException(DomainErrorKind.Conflict, "Já existe uma conta com este e-mail.", "email");
             }
 
-            // Any other error of the database is not expected: the request gets 500.
             throw;
         }
 
         return new RegisterResponse(user.UserId, user.Name, user.Email, user.Role, user.Status);
     }
 
-    // E02. The fields were validated by the DTO (rule R17). The checks are made in the order of the API
-    // documentation: credentials (401), deactivated account (403) and administrator in the mobile application (403).
     public async Task<LoginResponse> LoginAsync(LoginRequest request, CancellationToken cancellationToken)
     {
         var user = await UsersWithEmail(request.Email!).SingleOrDefaultAsync(cancellationToken);
 
-        // Unknown e-mail and wrong password get the same response (RF-F001-02).
+        // Same response for an unknown e-mail and a wrong password.
         if (user == null)
         {
             throw new InvalidCredentialsException();
@@ -93,7 +88,6 @@ public class AuthService
             throw new InvalidCredentialsException();
         }
 
-        // The message tells the user who to contact to know the reason (RF-F002-04).
         if (user.Status != ActivationStatus.Active)
         {
             throw new ForbiddenException(
@@ -101,7 +95,6 @@ public class AuthService
                 ErrorTypes.AccountDeactivated);
         }
 
-        // The administration is only available in the web application: no session is created (RF-F001-06).
         if (user.Role == UserRole.Admin && request.Client == LoginClient.Mobile)
         {
             throw new ForbiddenException(
@@ -130,8 +123,6 @@ public class AuthService
         await _db.SaveChangesAsync(cancellationToken);
     }
 
-    // E40. The fields were validated by the DTO (rule R17); the current password depends on the database.
-    // The other sessions of the user are revoked and the current one stays valid (RF-F001-07, rule R18).
     public async Task ChangePasswordAsync(ChangePasswordRequest request, CancellationToken cancellationToken)
     {
         int currentSessionId = _currentUser.SessionId;
@@ -161,7 +152,6 @@ public class AuthService
 
     public async Task<bool> ValidateSessionAsync(int sessionId, CancellationToken cancellationToken)
     {
-        // A single query: the session with its user, to check the account state too.
         var session = await _db.UserSessions.AsNoTracking()
             .Include(s => s.User)
             .SingleOrDefaultAsync(s => s.SessionId == sessionId, cancellationToken);
@@ -176,7 +166,7 @@ public class AuthService
         return UsersWithEmail(email).AnyAsync(cancellationToken);
     }
 
-    // E-mails are always stored in lowercase (User.Register), so "Ana@Mail.com" finds "ana@mail.com".
+    // E-mails are stored in lowercase.
     private IQueryable<User> UsersWithEmail(string email)
     {
         string normalized = email.Trim().ToLowerInvariant();

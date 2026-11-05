@@ -10,7 +10,6 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace LocalHub.Api.Controllers;
 
-// Searches by distance: F005 (E18) and F006 (E19, with the detail of each PUBLIC service in E38).
 [ApiController]
 [Route("api/search")]
 public class SearchController : ControllerBase
@@ -22,9 +21,7 @@ public class SearchController : ControllerBase
         _searchService = searchService;
     }
 
-    // E18: public (RF-F001-03, rule 3). The parameters are validated by [ApiController] before the method is called
-    // (rule R17). The reference location is received as an address (rule R3); with the token of a client, its
-    // registered location is used when the request has no address.
+    // Public, but with a client's token the registered location is used when no address is given.
     [HttpGet("providers")]
     [AllowAnonymous]
     public async Task<ActionResult<PagedResult<ProviderSearchResult>>> SearchProviders(
@@ -39,8 +36,6 @@ public class SearchController : ControllerBase
         return Ok(await _searchService.SearchProvidersAsync(request, new PageRequest(page, pageSize), cancellationToken));
     }
 
-    // E19: only providers with a profile (clients and administrators get 403). The distance is always calculated from
-    // the registered location of the provider.
     [HttpGet("services")]
     [Authorize(Roles = "PROVIDER")]
     [ServiceFilter(typeof(RequireProfessionalProfileFilter))]
@@ -55,7 +50,6 @@ public class SearchController : ControllerBase
             serviceCategoryId, withinServiceRadius, new PageRequest(page, pageSize), cancellationToken));
     }
 
-    // E38: only providers with a profile, for the PUBLIC services that E19 returns.
     [HttpGet("services/{serviceId:int}")]
     [Authorize(Roles = "PROVIDER")]
     [ServiceFilter(typeof(RequireProfessionalProfileFilter))]

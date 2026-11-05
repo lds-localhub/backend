@@ -18,7 +18,6 @@ using Npgsql;
 
 namespace LocalHub.Application.Services;
 
-// Creation and life cycle of the services, direct requests and proposals (F007 to F011).
 public class ServiceWorkflowService
 {
     private const string CategoryField = "serviceCategoryId";
@@ -45,11 +44,8 @@ public class ServiceWorkflowService
         _timeProvider = timeProvider;
     }
 
-    // E20 (RF-F009-01, RF-F009-03, RF-F010-01). The fields were validated by the DTO; here are the rules that compare
-    // fields or need the database or the Nominatim (rule R17). The checks go from the cheapest to the most expensive:
-    // first the dates and the recipients, then the category and the chosen profiles (database), and last the address
-    // (Nominatim). Nothing is changed before the address is converted (rule R2), and the service and its direct
-    // requests are saved with a single SaveChangesAsync, in one transaction (rule R1): on any error nothing is created.
+    // Cheapest checks first and the address last, because it calls the Nominatim. Nothing is changed before that,
+    // and everything is saved in a single SaveChangesAsync.
     public async Task<ClientServiceResponse> CreateAsync(CreateServiceRequest request, CancellationToken cancellationToken)
     {
         var client = await _db.Users.SingleOrDefaultAsync(u => u.UserId == _currentUser.UserId, cancellationToken);
@@ -74,7 +70,6 @@ public class ServiceWorkflowService
 
         else if (category.Status != ActivationStatus.Active)
         {
-            // RF-F003-03, rule 3: a deactivated category cannot be used in new services.
             errors.Add(CategoryField, $"A categoria «{category.Name}» está desativada. Escolha uma categoria ativa.");
         }
 
@@ -92,9 +87,7 @@ public class ServiceWorkflowService
 
         errors.ThrowIfAny();
 
-        // Rule R15: the form shows the client's registered address; when location is that address, the registered
-        // coordinates are used without calling the Nominatim. Otherwise the address is converted into coordinates,
-        // without changing the registered location (RF-F009-01, rule 3; RF-F010-01, rule 6).
+        // When the location is the registered address, reuse its coordinates instead of calling the Nominatim.
         string address = request.Location!.Trim();
         var location = address == client.Address && client.Latitude != null && client.Longitude != null
             ? new ResolvedLocation(client.Address, Coordinates.Rounded(client.Latitude.Value, client.Longitude.Value))
@@ -117,13 +110,9 @@ public class ServiceWorkflowService
         _db.Services.Add(service);
         await _db.SaveChangesAsync(cancellationToken);
 
-        // The response has the structure of E22 (API documentation, E20).
         return await ToClientResponseAsync(service, cancellationToken);
     }
 
-    // E25 (RF-F007-01, RF-F011-02). The fields were validated by the DTO (rule R17); the access and the states are
-    // decided by Service.SubmitProposal. The proposal, the answer of the direct request and the unique index
-    // (provider, service) are saved with a single SaveChangesAsync (rule R1).
     public async Task<ProposalResponse> SubmitProposalAsync(
         int serviceId, SubmitProposalRequest request, CancellationToken cancellationToken)
     {
@@ -147,7 +136,6 @@ public class ServiceWorkflowService
             throw new NotFoundException("Serviço não encontrado.");
         }
 
-        // Optional: a missing or blank text is not saved.
         string? obs = string.IsNullOrWhiteSpace(request.Obs) ? null : request.Obs;
 
         var now = _timeProvider.GetUtcNow();
@@ -159,22 +147,19 @@ public class ServiceWorkflowService
         }
         catch (DbUpdateException ex)
         {
-            // Two simultaneous proposals of the same provider: the second one is refused by the unique index.
+            // Two proposals at the same time: the unique index rejects the second one.
             if (ex.InnerException is PostgresException postgres
                 && postgres.SqlState == PostgresErrorCodes.UniqueViolation)
             {
                 throw new DomainException(DomainErrorKind.Conflict, "Já apresentou uma proposta a este serviço.");
             }
 
-            // Any other error of the database is not expected: the request gets 500.
             throw;
         }
 
         return ProposalResponse.From(proposal);
     }
 
-    // E27 (RF-F008-07): the proposals of the provider, newest first, optionally filtered by the state of the proposal,
-    // with the summary that the lists show. Of the Client, only the name is returned, without any contacts.
     public async Task<PagedResult<MyProposalListItem>> ListMyProposalsAsync(
         string? status, PageRequest page, CancellationToken cancellationToken)
     {
@@ -221,7 +206,6 @@ public class ServiceWorkflowService
         return new PagedResult<MyProposalListItem>(page.Page, page.PageSize, total, items);
     }
 
-    // E37 (RF-F008-07): one proposal, only for the provider that presented it (another provider gets 403).
     public async Task<ProviderProposalResponse> GetMyProposalAsync(int proposalId, CancellationToken cancellationToken)
     {
         int? profileId = await _db.FindProfileIdAsync(_currentUser.UserId, cancellationToken);
@@ -292,8 +276,6 @@ public class ServiceWorkflowService
                 row.ClientName));
     }
 
-    // E21 (RF-F008-01): the services that the client created, newest first, optionally filtered by state, with the
-    // summary that the lists show (counters, the provider of the accepted proposal and whether it was reviewed).
     public async Task<PagedResult<ServiceListItem>> ListMineAsync(
         string? status, PageRequest page, CancellationToken cancellationToken)
     {
@@ -337,17 +319,13 @@ public class ServiceWorkflowService
         return new PagedResult<ServiceListItem>(page.Page, page.PageSize, total, items);
     }
 
-    // E22 (RF-F007-09, RF-F008-01): only the client that created the service, with all the direct requests (each with
-    // its proposal) and, in PUBLIC, all the proposals received.
     public async Task<ClientServiceResponse> GetAsync(int serviceId, CancellationToken cancellationToken)
     {
         var service = await FindOwnServiceAsync(_db.Services.AsNoTracking(), serviceId, cancellationToken);
         return await ToClientResponseAsync(service, cancellationToken);
     }
 
-    // E28 (RF-F007-03, RF-F008-02). The changes of the service, of the proposals and of the direct requests are saved
-    // with a single SaveChangesAsync (rule R1). The index UX_Proposal_serviceId_accepted guarantees at most one accepted
-    // proposal per service (rule R1); a second acceptance that the index refuses gets 409.
+    // Saved in a single SaveChangesAsync; the unique index allows only one accepted proposal per service.
     public async Task<ProposalDecisionResponse> AcceptProposalAsync(int proposalId, CancellationToken cancellationToken)
     {
         int serviceId = await FindServiceIdOfProposalAsync(proposalId, cancellationToken);
@@ -359,7 +337,6 @@ public class ServiceWorkflowService
         return ProposalDecisionResponse.From(proposal);
     }
 
-    // E29 (RF-F007-04, RF-F008-03): only the proposal changes; the service stays OPEN.
     public async Task<ProposalDecisionResponse> DeclineProposalAsync(int proposalId, CancellationToken cancellationToken)
     {
         int serviceId = await FindServiceIdOfProposalAsync(proposalId, cancellationToken);
@@ -371,8 +348,6 @@ public class ServiceWorkflowService
         return ProposalDecisionResponse.From(proposal);
     }
 
-    // E30 (RF-F007-05, RF-F008-04), client side: the service, the proposals and the direct requests are saved with a
-    // single SaveChangesAsync (rule R1).
     public async Task<ServiceStatusResponse> CancelAsClientAsync(int serviceId, CancellationToken cancellationToken)
     {
         var service = await FindOwnServiceAsync(_db.Services, serviceId, cancellationToken);
@@ -382,8 +357,6 @@ public class ServiceWorkflowService
         return ServiceStatusResponse.From(service);
     }
 
-    // E30 (RF-F007-05, RF-F008-04), provider side: only the provider whose proposal was accepted, while the service is
-    // ASSIGNED.
     public async Task<ServiceStatusResponse> CancelAsProviderAsync(int serviceId, CancellationToken cancellationToken)
     {
         int? profileId = await _db.FindProfileIdAsync(_currentUser.UserId, cancellationToken);
@@ -392,7 +365,6 @@ public class ServiceWorkflowService
             throw new ForbiddenException(ProfileService.MissingProfileMessage, ErrorTypes.MissingProfile);
         }
 
-        // With the provider of each proposal, who is recorded in the history when the service is cancelled.
         var service = await _db.Services
             .Include(s => s.Proposals).ThenInclude(p => p.ProfessionalProfile).ThenInclude(p => p.ServiceProvider)
             .SingleOrDefaultAsync(s => s.ServiceId == serviceId, cancellationToken);
@@ -407,7 +379,6 @@ public class ServiceWorkflowService
         return ServiceStatusResponse.From(service);
     }
 
-    // E31 (RF-F007-06, RF-F008-05): only the client that created the service, while it is ASSIGNED.
     public async Task<CompletedServiceResponse> CompleteAsync(int serviceId, CancellationToken cancellationToken)
     {
         var service = await FindOwnServiceAsync(_db.Services, serviceId, cancellationToken);
@@ -417,9 +388,6 @@ public class ServiceWorkflowService
         return CompletedServiceResponse.From(service);
     }
 
-    // The service with everything the client sees (E22), also used by E28 to E31. 404 when it does not exist; 403 when it was created
-    // by another client (API documentation, section 7). The client is loaded, because it is recorded in the history of
-    // the changes of state that it makes (E28, E30 and E31), and the history with the user of each change (E22).
     private async Task<Service> FindOwnServiceAsync(
         IQueryable<Service> services, int serviceId, CancellationToken cancellationToken)
     {
@@ -430,7 +398,7 @@ public class ServiceWorkflowService
             .Include(s => s.DirectRequests).ThenInclude(r => r.ProfessionalProfile).ThenInclude(p => p.ServiceProvider)
             .Include(s => s.Proposals).ThenInclude(p => p.ProfessionalProfile).ThenInclude(p => p.ServiceProvider)
             .Include(s => s.StatusHistory).ThenInclude(h => h.ChangedBy)
-            // A single service has few direct requests, proposals and changes of state, so one query is enough.
+            // Few rows per service, so a single query is fine.
             .AsSingleQuery()
             .SingleOrDefaultAsync(s => s.ServiceId == serviceId, cancellationToken);
         if (service == null)
@@ -446,8 +414,7 @@ public class ServiceWorkflowService
         return service;
     }
 
-    // The service of the proposal (E28 and E29): 404 when the proposal does not exist. Whether the service belongs to
-    // the client is checked afterwards, in FindOwnServiceAsync (403).
+    // Ownership is checked afterwards, in FindOwnServiceAsync.
     private async Task<int> FindServiceIdOfProposalAsync(int proposalId, CancellationToken cancellationToken)
     {
         int? serviceId = await _db.Proposals
@@ -462,7 +429,6 @@ public class ServiceWorkflowService
         return serviceId.Value;
     }
 
-    // E22 as the client sees it, with the reviewCount of each provider of the direct requests and of the proposals.
     private async Task<ClientServiceResponse> ToClientResponseAsync(Service service, CancellationToken cancellationToken)
     {
         var profileIds = service.DirectRequests.Select(r => r.ProfessionalProfileId)
@@ -473,8 +439,7 @@ public class ServiceWorkflowService
         return ClientServiceResponse.From(service, reviewCounts);
     }
 
-    // Rule R1: a second accepted proposal in the same service is refused by the index UX_Proposal_serviceId_accepted.
-    // The client has to reload the service, so the error is a 409 transicao-invalida.
+    // A second accepted proposal is rejected by the unique index, so the client must reload the service.
     private async Task SaveDecisionAsync(CancellationToken cancellationToken)
     {
         try
@@ -491,16 +456,13 @@ public class ServiceWorkflowService
                     "O serviço foi alterado por outro pedido entretanto. Recarregue-o e tente novamente.");
             }
 
-            // Any other error of the database is not expected: the request gets 500.
             throw;
         }
     }
 
-    // The rules that compare fields of the request, all reported in the same response.
     private static void CollectRequestErrors(FieldErrors errors, CreateServiceRequest request, DateTimeOffset now)
     {
-        // RF-F010-01, rule 5: a single date (start only) or an interval. The start cannot be before today and the end
-        // cannot be before the start. The current date is calculated in UTC (API documentation, section 4.3).
+        // Today in UTC.
         DateOnly today = DateOnly.FromDateTime(now.UtcDateTime);
         if (request.RequestedStartDate < today)
         {
@@ -511,25 +473,18 @@ public class ServiceWorkflowService
             errors.Add(EndDateField, "A data de fim tem de ser igual ou posterior à data de início.");
         }
 
-        // PUBLIC has no recipients: null or an empty list is accepted, a list with profiles is not (API documentation,
-        // E20).
         if (request.ProposalModel == ProposalModel.Public && request.ProfessionalProfileIds?.Count > 0)
         {
             errors.Add(RecipientsField,
                 "Um trabalho publicado não tem destinatários: não indique professionalProfileIds.");
         }
 
-        // DIRECT_REQUEST needs at least one provider (RF-F009-01, rule 4).
         if (request.ProposalModel == ProposalModel.DirectRequest && (request.ProfessionalProfileIds?.Count ?? 0) == 0)
         {
             errors.Add(RecipientsField, "Selecione pelo menos um Prestador de Serviços.");
         }
     }
 
-    // RF-F009-01, rules 5 and 6 (UC03, E5.3): each chosen provider must have an ACTIVE account and the category of
-    // the service in the profile. Returns one message per profile that cannot be chosen, naming the provider.
-    // Without a category (the one indicated does not exist), only the account is checked, so the other errors are
-    // still reported in the same response.
     private static List<string> DescribeIneligible(IEnumerable<ProfessionalProfile> profiles, int? serviceCategoryId)
     {
         var messages = new List<string>();
@@ -550,7 +505,6 @@ public class ServiceWorkflowService
         return messages;
     }
 
-    // With the provider (account state) and the categories of the profile (RF-F009-01, rules 5 and 6).
     private async Task<List<ProfessionalProfile>> LoadProfilesAsync(
         List<int> profileIds, CancellationToken cancellationToken)
     {
