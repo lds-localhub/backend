@@ -150,7 +150,11 @@ public class SearchService
         // ThrowIfAny above always throws without a location.
         Coordinates reference = provider.Location!;
 
-        var jobs = _db.Services.AsNoTracking().Where(Service.IsOpenPublishedJob);
+        // RF-F006-01: the published jobs (PUBLIC) that are OPEN and whose Client is ACTIVE.
+        var jobs = _db.Services.AsNoTracking()
+            .Where(s => s.ProposalModel == ProposalModel.Public
+                        && s.Status == ServiceStatus.Open
+                        && s.Client.Status == ActivationStatus.Active);
         if (serviceCategoryId != null)
         {
             jobs = jobs.Where(s => s.ServiceCategoryId == serviceCategoryId);
@@ -219,8 +223,10 @@ public class SearchService
         var provider = await FindProviderAsync(cancellationToken);
 
         var job = await _db.Services.AsNoTracking()
-            .Where(s => s.ServiceId == serviceId)
-            .Where(Service.IsOpenPublishedJob)
+            .Where(s => s.ServiceId == serviceId
+                        && s.ProposalModel == ProposalModel.Public
+                        && s.Status == ServiceStatus.Open
+                        && s.Client.Status == ActivationStatus.Active)
             .Select(s => new
             {
                 s.ServiceId,
