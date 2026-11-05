@@ -8,7 +8,6 @@ using Microsoft.EntityFrameworkCore;
 
 namespace LocalHub.Application.Reports;
 
-// Activity reports: F013 (E33) and F014 (E34).
 public class ReportService
 {
     private readonly LocalHubDbContext _db;
@@ -22,10 +21,6 @@ public class ReportService
         _timeProvider = timeProvider;
     }
 
-    // E33 (RF-F013-01, RF-F013-02). Only the services of the authenticated client (rule 5), with an ACCEPTED proposal
-    // (rule 1: they reached ASSIGNED, whatever the current state) and created in the period. A service has at most one
-    // ACCEPTED proposal (index UX_Proposal_serviceId_accepted), so each one is read with it and the indicators are
-    // calculated by ClientReport.
     public async Task<ClientReportResponse> GetClientReportAsync(
         string? startDate, string? endDate, CancellationToken cancellationToken)
     {
@@ -60,10 +55,7 @@ public class ReportService
             .ToList());
     }
 
-    // E34 (RF-F014-01, RF-F014-02). Only the data of the authenticated provider (rule 6); a provider without a profile
-    // is stopped before, by the filter (403 perfil-em-falta). The direct requests, the proposals and the accepted
-    // amounts follow the creation date of their service (RF-F014-02, rule 2). The indicators are calculated by
-    // ProviderReport.
+    // The direct requests, proposals and amounts follow the creation date of their service.
     public async Task<ProviderReportResponse> GetProviderReportAsync(
         string? startDate, string? endDate, CancellationToken cancellationToken)
     {
@@ -106,17 +98,16 @@ public class ReportService
             DateOnly.FromDateTime(_timeProvider.GetUtcNow().UtcDateTime));
     }
 
-    // The services created in the period (RF-F013-02, RF-F014-02), both dates included.
     private IQueryable<Service> CreatedIn(ReportPeriod period)
     {
         var services = _db.Services.AsNoTracking();
-        if (period.From is not null)
+        if (period.From != null)
         {
             var from = period.From.Value;
             services = services.Where(s => s.CreationDate >= from);
         }
 
-        if (period.Until is not null)
+        if (period.Until != null)
         {
             var until = period.Until.Value;
             services = services.Where(s => s.CreationDate < until);

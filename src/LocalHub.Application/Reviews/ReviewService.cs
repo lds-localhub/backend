@@ -12,7 +12,6 @@ using Npgsql;
 
 namespace LocalHub.Application.Reviews;
 
-// The review of a completed service, the recalculation of the average rating and the reviews of a provider (F012).
 public class ReviewService
 {
     private const string AlreadyReviewedMessage = "Este serviço já foi avaliado.";
@@ -28,36 +27,22 @@ public class ReviewService
         _timeProvider = timeProvider;
     }
 
-    // E32 (RF-F012-01, RF-F012-02). The fields were validated by the DTO (rule R17); the actor, the state and the
-    // single review are decided by Service.AddReview. The review and the new average rating of the provider are saved
-    // with a single SaveChangesAsync (rule R1).
     public async Task<ReviewResponse> CreateAsync(
         int serviceId, CreateReviewRequest request, CancellationToken cancellationToken)
     {
-        await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
-
         var service = await _db.Services
             .Include(s => s.Review)
             .Include(s => s.Proposals.Where(p => p.Status == ProposalStatus.Accepted))
             .ThenInclude(p => p.ProfessionalProfile)
             .SingleOrDefaultAsync(s => s.ServiceId == serviceId, cancellationToken);
-        if (service is null)
+        if (service == null)
         {
             throw new NotFoundException("Serviço não encontrado.");
         }
 
-        var review = service.AddReview(_currentUser.UserId, request.Rating!.Value, request.Comment, Now());
+        var review = service.AddReview(_currentUser.UserId, request.Rating!.Value, request.Comment, _timeProvider.GetUtcNow());
 
-        // RF-F012-01, rule 6: the review is of the provider whose proposal was accepted. The row of its profile stays
-        // locked until the end of the transaction, so two reviews of the same provider at the same time are counted
-        // one after the other and the second one reads the rating of the first. The profile is read again after the
-        // lock: if EF kept the average read before it, a new average equal to that one would not be saved.
         var provider = service.Proposals.Single().ProfessionalProfile;
-        await _db.Database.ExecuteSqlAsync(
-            $"SELECT 1 FROM \"ProfessionalProfile\" WHERE \"professionalProfileId\" = {provider.ProfessionalProfileId} FOR UPDATE",
-            cancellationToken);
-        await _db.Entry(provider).ReloadAsync(cancellationToken);
-
         var ratings = await _db.ReviewsOf(provider.ProfessionalProfileId)
             .Select(r => r.Rating)
             .ToListAsync(cancellationToken);
@@ -70,7 +55,7 @@ public class ReviewService
         }
         catch (DbUpdateException ex)
         {
-            // Two reviews of the same service at the same time: the UNIQUE of serviceId rejects the second one.
+            // Two reviews at the same time: the unique serviceId rejects the second one.
             if (ex.InnerException is PostgresException postgres
                 && postgres.SqlState == PostgresErrorCodes.UniqueViolation)
             {
@@ -78,17 +63,12 @@ public class ReviewService
                     errorType: Review.AlreadyExistsErrorType);
             }
 
-            // Any other error of the database is not expected: the request gets 500.
             throw;
         }
 
-        await transaction.CommitAsync(cancellationToken);
         return ReviewResponse.From(review);
     }
 
-    // E15 (RF-F004-03, RF-F012-01): the reviews of a provider, newest first. The access is the same as in E13: a client
-    // sees the reviews of an active provider; a provider only sees its own reviews. A provider without a profile is
-    // stopped before, by the filter (403 perfil-em-falta).
     public async Task<PagedResult<ReviewListItem>> ListByProfileAsync(
         int professionalProfileId, PageRequest page, CancellationToken cancellationToken)
     {
@@ -105,7 +85,7 @@ public class ReviewService
             .SingleOrDefaultAsync(cancellationToken);
         if (_currentUser.Role == UserRole.Provider)
         {
-            if (profile is null)
+            if (profile == null)
             {
                 throw new NotFoundException("Perfil não encontrado.");
             }
@@ -116,8 +96,8 @@ public class ReviewService
             }
         }
 
-        // The profile of a provider with a deactivated account is not shown to the client (RF-F004-03, rule 2).
-        else if (profile is null || profile.Status != ActivationStatus.Active)
+        // Deactivated providers are hidden from clients.
+        else if (profile == null || profile.Status != ActivationStatus.Active)
         {
             throw new NotFoundException("Perfil não encontrado.");
         }
@@ -133,13 +113,5 @@ public class ReviewService
             .ToListAsync(cancellationToken);
 
         return new PagedResult<ReviewListItem>(page.Page, page.PageSize, total, items);
-    }
-
-    // PostgreSQL keeps microseconds (timestamptz), so the instant is truncated before it is used: the creationDate
-    // returned now is the same that will be read from the database later (E15).
-    private DateTimeOffset Now()
-    {
-        var utcNow = _timeProvider.GetUtcNow();
-        return utcNow.AddTicks(-(utcNow.Ticks % TimeSpan.TicksPerMicrosecond));
     }
 }

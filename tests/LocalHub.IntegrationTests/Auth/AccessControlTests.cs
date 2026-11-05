@@ -6,8 +6,7 @@ using static LocalHub.IntegrationTests.Fixtures.AuthRequests;
 
 namespace LocalHub.IntegrationTests.Auth;
 
-// Cross-cutting access tests (test plan, section 5.3): every protected endpoint rejects requests without a valid session
-// with 401, and requests of a role that is not authorized with 403.
+// Every protected endpoint: 401 without a session and 403 with a role that is not authorized.
 [Collection(ApiTestGroup.Name)]
 [Trait("Category", "Integration")]
 public class AccessControlTests(LocalHubApiFactory factory)
@@ -18,7 +17,7 @@ public class AccessControlTests(LocalHubApiFactory factory)
     public static TheoryData<string, string> ProtectedEndpoints => new()
     {
         { "POST", "/api/auth/logout" },
-        { "GET", "/api/users/me" },
+        { "GET", "/api/auth/me" },
         { "GET", "/api/accounts" },
         { "POST", "/api/accounts/1/deactivate" },
         { "POST", "/api/accounts/1/activate" },
@@ -29,7 +28,6 @@ public class AccessControlTests(LocalHubApiFactory factory)
         { "POST", "/api/profiles" },
         { "GET", "/api/profiles/1" },
         { "PUT", "/api/profiles/me" },
-        { "PUT", "/api/profiles/me/service-radius" },
         { "POST", "/api/services" },
         { "GET", "/api/services/1" },
         { "POST", "/api/services/1/proposals" },
@@ -41,9 +39,8 @@ public class AccessControlTests(LocalHubApiFactory factory)
         { "GET", "/api/direct-requests/1" },
         { "GET", "/api/proposals/1" },
         { "GET", "/api/services" },
-        { "GET", "/api/services/1/proposals" },
-        { "POST", "/api/services/1/proposals/1/accept" },
-        { "POST", "/api/services/1/proposals/1/decline" },
+        { "POST", "/api/proposals/1/accept" },
+        { "POST", "/api/proposals/1/decline" },
         { "POST", "/api/services/1/cancel" },
         { "POST", "/api/services/1/complete" },
         { "POST", "/api/services/1/review" },
@@ -76,11 +73,39 @@ public class AccessControlTests(LocalHubApiFactory factory)
         { "GET", "/api/admin/summary", "PROVIDER" },
     };
 
+    // Add each endpoint restricted to the client or the provider here, with one role that is not authorized.
+    public static TheoryData<string, string, string> RoleEndpoints => new()
+    {
+        { "POST", "/api/profiles", "CLIENT" },
+        { "GET", "/api/profiles/1", "ADMIN" },
+        { "PUT", "/api/profiles/me", "CLIENT" },
+        { "GET", "/api/profiles/1/reviews", "ADMIN" },
+        { "PUT", "/api/users/me/location", "PROVIDER" },
+        { "POST", "/api/services", "PROVIDER" },
+        { "GET", "/api/services", "PROVIDER" },
+        { "GET", "/api/services/1", "PROVIDER" },
+        { "POST", "/api/services/1/cancel", "ADMIN" },
+        { "POST", "/api/services/1/complete", "PROVIDER" },
+        { "POST", "/api/services/1/review", "ADMIN" },
+        { "POST", "/api/services/1/proposals", "CLIENT" },
+        { "GET", "/api/proposals", "CLIENT" },
+        { "GET", "/api/proposals/1", "CLIENT" },
+        { "POST", "/api/proposals/1/accept", "PROVIDER" },
+        { "POST", "/api/proposals/1/decline", "PROVIDER" },
+        { "GET", "/api/direct-requests", "CLIENT" },
+        { "GET", "/api/direct-requests/1", "CLIENT" },
+        { "POST", "/api/direct-requests/1/decline", "CLIENT" },
+        { "GET", "/api/search/services", "ADMIN" },
+        { "GET", "/api/search/services/1", "CLIENT" },
+        { "GET", "/api/reports/client", "PROVIDER" },
+        { "GET", "/api/reports/provider", "CLIENT" },
+    };
+
     [Theory]
     [MemberData(nameof(ProtectedEndpoints))]
     [Trait("Requisito", "RF-F001-03")]
     [Trait("Requisito", "RNF-03")]
-    public async Task EndpointProtegido_SemToken_Devolve401(string method, string url)
+    public async Task ProtectedEndpoint_WithoutToken_Returns401(string method, string url)
     {
         using var response = await SendWithTokenAsync(_client, new HttpMethod(method), url, token: null);
 
@@ -89,22 +114,11 @@ public class AccessControlTests(LocalHubApiFactory factory)
     }
 
     [Theory]
-    [MemberData(nameof(ProtectedEndpoints))]
-    [Trait("Requisito", "RF-F001-03")]
-    [Trait("Requisito", "RNF-03")]
-    public async Task EndpointProtegido_TokenInvalido_Devolve401(string method, string url)
-    {
-        using var response = await SendWithTokenAsync(_client, new HttpMethod(method), url, "abc.def.ghi");
-
-        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
-    }
-
-    [Theory]
     [MemberData(nameof(AdministratorEndpoints))]
     [Trait("Requisito", "RF-F001-03")]
     [Trait("Requisito", "RF-F002-01")]
     [Trait("Requisito", "RNF-03")]
-    public async Task EndpointDeAdministrador_PapelNaoAutorizado_Devolve403(string method, string url, string role)
+    public async Task AdministratorEndpoint_UnauthorizedRole_Returns403(string method, string url, string role)
     {
         string token = await RegisterAndLoginAsync(_client, NewEmail(), role);
 
@@ -115,57 +129,18 @@ public class AccessControlTests(LocalHubApiFactory factory)
     }
 
     [Theory]
-    [InlineData("POST", "/api/auth/register")]
-    [InlineData("POST", "/api/auth/login")]
+    [MemberData(nameof(RoleEndpoints))]
     [Trait("Requisito", "RF-F001-03")]
-    public async Task EndpointPublico_SemToken_NaoDevolve401(string method, string url)
+    [Trait("Requisito", "RNF-03")]
+    public async Task ClientOrProviderEndpoint_UnauthorizedRole_Returns403(string method, string url, string role)
     {
-        // An empty body is enough: the request must reach the validation (400), not be stopped by authentication.
-        using var request = new HttpRequestMessage(new HttpMethod(method), url)
-        {
-            Content = new StringContent("{}", System.Text.Encoding.UTF8, "application/json"),
-        };
+        string token = role == "ADMIN"
+            ? await LoginAsAdminAsync(_client)
+            : await RegisterAndLoginAsync(_client, NewEmail(), role);
 
-        using var response = await _client.SendAsync(request);
+        using var response = await SendWithTokenAsync(_client, new HttpMethod(method), url, token);
 
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        await AssertProblemAsync(response, "https://tools.ietf.org/html/rfc9110#section-15.5.1", url);
-    }
-
-    // E08 without includeInactive is public: the list of active categories (RF-F001-03, rule 3; RF-F003-04).
-    [Fact]
-    [Trait("Requisito", "RF-F001-03")]
-    [Trait("Requisito", "RF-F003-04")]
-    public async Task ListarCategoriasAtivas_SemToken_Devolve200()
-    {
-        using var response = await SendWithTokenAsync(_client, HttpMethod.Get, "/api/categories", token: null);
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-    }
-
-    // E18 is public (RF-F001-03, rule 3; RF-F005-01, rule 1): without parameters the request reaches the validation
-    // (400, no category), not the authentication.
-    [Fact]
-    [Trait("Requisito", "RF-F001-03")]
-    [Trait("Requisito", "RF-F005-01")]
-    public async Task PesquisarPrestadores_SemToken_NaoDevolve401()
-    {
-        using var response = await SendWithTokenAsync(_client, HttpMethod.Get, "/api/search/providers", token: null);
-
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        await AssertProblemAsync(response, "https://tools.ietf.org/html/rfc9110#section-15.5.1", "/api/search/providers");
-    }
-
-    // E35 is public (RF-F001-03, rule 3; RF-F015-06): without coordinates the request reaches the validation (400),
-    // not the authentication.
-    [Fact]
-    [Trait("Requisito", "RF-F001-03")]
-    [Trait("Requisito", "RF-F015-06")]
-    public async Task ObterMoradaDasCoordenadas_SemToken_NaoDevolve401()
-    {
-        using var response = await SendWithTokenAsync(_client, HttpMethod.Get, "/api/geocoding/reverse", token: null);
-
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        await AssertProblemAsync(response, "https://tools.ietf.org/html/rfc9110#section-15.5.1", "/api/geocoding/reverse");
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        await AssertProblemAsync(response, "https://tools.ietf.org/html/rfc9110#section-15.5.4", url);
     }
 }

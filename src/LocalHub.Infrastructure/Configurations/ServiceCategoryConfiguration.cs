@@ -5,7 +5,6 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace LocalHub.Infrastructure.Configurations;
 
-// Table "ServiceCategory" of the data model.
 public class ServiceCategoryConfiguration : IEntityTypeConfiguration<ServiceCategory>
 {
     public void Configure(EntityTypeBuilder<ServiceCategory> builder)
@@ -14,7 +13,7 @@ public class ServiceCategoryConfiguration : IEntityTypeConfiguration<ServiceCate
 
         builder.Property(c => c.Name).HasMaxLength(ServiceCategory.NameMaxLength);
 
-        // Normal UNIQUE; the uniqueness ignoring upper and lower case is checked by the CategoryService (E09, E10).
+        // Case-insensitive uniqueness is checked by CategoryService.
         builder.HasIndex(c => c.Name)
             .IsUnique()
             .HasDatabaseName("UX_ServiceCategory_name");

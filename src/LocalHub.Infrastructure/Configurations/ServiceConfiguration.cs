@@ -5,8 +5,6 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace LocalHub.Infrastructure.Configurations;
 
-// Table "Service" of the data model. The relationships with DirectRequest, Proposal, Review and ServiceStatusHistory
-// (ON DELETE CASCADE) are found by convention.
 public class ServiceConfiguration : IEntityTypeConfiguration<Service>
 {
     public void Configure(EntityTypeBuilder<Service> builder)
@@ -19,7 +17,7 @@ public class ServiceConfiguration : IEntityTypeConfiguration<Service>
         builder.Property(s => s.Latitude).HasPrecision(8, 6);
         builder.Property(s => s.Longitude).HasPrecision(9, 6);
 
-        // The accounts and the categories are never deleted, only deactivated.
+        // Accounts and categories are never deleted, only deactivated.
         builder.HasOne(s => s.Client)
             .WithMany(u => u.Services)
             .OnDelete(DeleteBehavior.Restrict);

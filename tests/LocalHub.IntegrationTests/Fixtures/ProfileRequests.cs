@@ -7,15 +7,13 @@ using static LocalHub.IntegrationTests.Fixtures.AuthRequests;
 
 namespace LocalHub.IntegrationTests.Fixtures;
 
-// A provider with a professional profile, created through the API (E01, E02, E09 and E12).
 public record ProviderWithProfile(string Token, int UserId, string Email, int ProfessionalProfileId, int ServiceCategoryId);
 
-// Requests to the professional profile endpoints (F004) that several test classes use.
 public static class ProfileRequests
 {
     public const string ProfilesUrl = "/api/profiles";
 
-    // Each test uses its own categories, so the tests do not depend on each other.
+    // Each test uses its own categories.
     public static async Task<int> CreateCategoryAsync(HttpClient client, string adminToken, string? name = null)
     {
         using var response = await SendJsonAsync(
@@ -25,7 +23,6 @@ public static class ProfileRequests
         return body.GetProperty("serviceCategoryId").GetInt32();
     }
 
-    // A valid body of E12 with the address known by FakeGeocodingService.
     public static Dictionary<string, object?> ValidProfileBody(params int[] serviceCategoryIds) => new()
     {
         ["introduction"] = "Canalizador com equipa própria na área do Grande Porto.",

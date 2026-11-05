@@ -8,18 +8,15 @@ using static LocalHub.IntegrationTests.Fixtures.ProfileRequests;
 
 namespace LocalHub.IntegrationTests.Fixtures;
 
-// A client created through the API (E01, E02 and, when asked, E16 with the address known by FakeGeocodingService).
 public record TestClient(string Token, int UserId);
 
-// Requests to the service endpoints (F007 to F011) that several test classes use.
 public static class ServiceRequests
 {
     public const string ServicesUrl = "/api/services";
     public const string IsoDate = "yyyy-MM-dd";
 
-    // The date in Portugal, the one used by E20 to validate the requested dates.
-    public static DateOnly Today => DateOnly.FromDateTime(
-        TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, TimeZoneInfo.FindSystemTimeZoneById("Europe/Lisbon")).DateTime);
+    // E20 validates the dates in UTC.
+    public static DateOnly Today => DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime);
 
     public static async Task<TestClient> RegisterClientAsync(HttpClient client, bool withLocation = true)
     {
@@ -39,7 +36,6 @@ public static class ServiceRequests
         return new TestClient(token, body.GetProperty("userId").GetInt32());
     }
 
-    // A valid body of E20 with direct requests; without location, so the client's registered location is used.
     public static Dictionary<string, object?> DirectRequestBody(int serviceCategoryId, params int[] professionalProfileIds) =>
         new()
         {
@@ -49,10 +45,10 @@ public static class ServiceRequests
             ["description"] = "Torneira da casa de banho com fuga de água.",
             ["requestedStartDate"] = Today.AddDays(1).ToString(IsoDate, CultureInfo.InvariantCulture),
             ["requestedEndDate"] = Today.AddDays(3).ToString(IsoDate, CultureInfo.InvariantCulture),
+            ["location"] = FakeGeocodingService.KnownAddress,
             ["professionalProfileIds"] = professionalProfileIds,
         };
 
-    // A valid body of E20 for a published job, with a single date.
     public static Dictionary<string, object?> PublicBody(int serviceCategoryId) => new()
     {
         ["proposalModel"] = "PUBLIC",
@@ -60,5 +56,6 @@ public static class ServiceRequests
         ["title"] = "Substituir torneira",
         ["description"] = "Substituir a torneira da cozinha que pinga.",
         ["requestedStartDate"] = Today.AddDays(1).ToString(IsoDate, CultureInfo.InvariantCulture),
+        ["location"] = FakeGeocodingService.KnownAddress,
     };
 }

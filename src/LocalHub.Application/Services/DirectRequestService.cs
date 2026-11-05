@@ -10,7 +10,6 @@ using Microsoft.EntityFrameworkCore;
 
 namespace LocalHub.Application.Services;
 
-// Direct requests seen and answered by the provider that received them, and seen by the client that sent them (F007).
 public class DirectRequestService
 {
     private readonly LocalHubDbContext _db;
@@ -24,8 +23,6 @@ public class DirectRequestService
         _timeProvider = timeProvider;
     }
 
-    // E23 (RF-F007-09), provider side: only the requests sent to the profile of the provider, newest first. The
-    // proposal of the provider is the one for the same service. The data of the Client is not returned.
     public async Task<PagedResult<DirectRequestListItem>> ListAsync(
         string? status, PageRequest page, CancellationToken cancellationToken)
     {
@@ -40,132 +37,36 @@ public class DirectRequestService
         int profileId = await GetMyProfileIdAsync(cancellationToken);
 
         var requests = _db.DirectRequests.AsNoTracking().Where(r => r.ProfessionalProfileId == profileId);
-        if (statusFilter is not null)
+        if (statusFilter != null)
         {
             requests = requests.Where(r => r.Status == statusFilter);
         }
 
         int total = await requests.CountAsync(cancellationToken);
-        var rows = await requests
+        var items = await requests
             .OrderByDescending(r => r.CreationDate)
             .ThenByDescending(r => r.DirectRequestId)
             .Skip(page.Skip)
             .Take(page.PageSize)
-            .Select(r => new
-            {
-                r.DirectRequestId,
-                r.Status,
-                r.CreationDate,
-                r.ResponseDate,
-                Service = _db.Services
-                    .Where(s => s.ServiceId == r.ServiceId)
-                    .Select(s => new DirectRequestServiceSummary(
-                        s.ServiceId,
-                        new ServiceCategorySummary(s.ServiceCategoryId, s.ServiceCategory.Name),
-                        s.Title,
-                        s.Description,
-                        s.Location,
-                        s.RequestedStartDate,
-                        s.RequestedEndDate,
-                        s.Status))
-                    .First(),
-                Proposal = _db.Proposals
-                    .Where(p => p.ServiceId == r.ServiceId && p.ProfessionalProfileId == r.ProfessionalProfileId)
-                    .Select(p => new { p.ProposalId, p.Amount, p.Conditions, p.Obs, p.Status })
-                    .FirstOrDefault(),
-            })
-            .ToListAsync(cancellationToken);
-
-        var items = rows
             .Select(r => new DirectRequestListItem(
                 r.DirectRequestId,
                 r.Status,
-                r.CreationDate,
-                r.ResponseDate,
-                r.Service,
-                r.Proposal is null
-                    ? null
-                    : new DirectRequestProposalSummary(
-                        r.Proposal.ProposalId, r.Proposal.Amount, r.Proposal.Conditions, r.Proposal.Obs, r.Proposal.Status)))
-            .ToList();
+                r.Service.Proposals
+                    .Where(p => p.ProfessionalProfileId == r.ProfessionalProfileId)
+                    .Select(p => (int?)p.ProposalId)
+                    .FirstOrDefault(),
+                new DirectRequestServiceSummary(
+                    r.ServiceId,
+                    r.Service.Title,
+                    new ServiceCategorySummary(r.Service.ServiceCategoryId, r.Service.ServiceCategory.Name),
+                    r.Service.RequestedStartDate,
+                    r.Service.RequestedEndDate,
+                    r.Service.Client.Name)))
+            .ToListAsync(cancellationToken);
 
         return new PagedResult<DirectRequestListItem>(page.Page, page.PageSize, total, items);
     }
 
-    // E23 (RF-F007-09), client side: the requests of the services created by the client, newest first, each with the
-    // provider and its proposal for the same service, so that the client can accept or decline it (E28, E29).
-    public async Task<PagedResult<ClientDirectRequestListItem>> ListForClientAsync(
-        string? status, PageRequest page, CancellationToken cancellationToken)
-    {
-        var errors = new Dictionary<string, string[]>();
-        var statusFilter = EnumQuery.Parse<DirectRequestStatus>(status, "status", errors);
-        page.Validate(errors);
-        if (errors.Count > 0)
-        {
-            throw new ValidationException(errors);
-        }
-
-        int clientId = _currentUser.UserId;
-        var requests = _db.DirectRequests.AsNoTracking()
-            .Where(r => _db.Services.Any(s => s.ServiceId == r.ServiceId && s.ClientId == clientId));
-        if (statusFilter is not null)
-        {
-            requests = requests.Where(r => r.Status == statusFilter);
-        }
-
-        int total = await requests.CountAsync(cancellationToken);
-        var rows = await requests
-            .OrderByDescending(r => r.CreationDate)
-            .ThenByDescending(r => r.DirectRequestId)
-            .Skip(page.Skip)
-            .Take(page.PageSize)
-            .Select(r => new
-            {
-                r.DirectRequestId,
-                r.Status,
-                r.CreationDate,
-                r.ResponseDate,
-                Provider = new ProviderSummary(
-                    r.ProfessionalProfileId, r.ProfessionalProfile.ServiceProvider.Name, r.ProfessionalProfile.AverageRating),
-                Service = _db.Services
-                    .Where(s => s.ServiceId == r.ServiceId)
-                    .Select(s => new DirectRequestServiceSummary(
-                        s.ServiceId,
-                        new ServiceCategorySummary(s.ServiceCategoryId, s.ServiceCategory.Name),
-                        s.Title,
-                        s.Description,
-                        s.Location,
-                        s.RequestedStartDate,
-                        s.RequestedEndDate,
-                        s.Status))
-                    .First(),
-                Proposal = _db.Proposals
-                    .Where(p => p.ServiceId == r.ServiceId && p.ProfessionalProfileId == r.ProfessionalProfileId)
-                    .Select(p => new { p.ProposalId, p.Amount, p.Conditions, p.Obs, p.Status })
-                    .FirstOrDefault(),
-            })
-            .ToListAsync(cancellationToken);
-
-        var items = rows
-            .Select(r => new ClientDirectRequestListItem(
-                r.DirectRequestId,
-                r.Status,
-                r.CreationDate,
-                r.ResponseDate,
-                r.Provider,
-                r.Service,
-                r.Proposal is null
-                    ? null
-                    : new DirectRequestProposalSummary(
-                        r.Proposal.ProposalId, r.Proposal.Amount, r.Proposal.Conditions, r.Proposal.Obs, r.Proposal.Status)))
-            .ToList();
-
-        return new PagedResult<ClientDirectRequestListItem>(page.Page, page.PageSize, total, items);
-    }
-
-    // E36 (RF-F007-09): one direct request, only for the provider that received it (another provider gets 403). The
-    // history of states of the service is in chronological order, only with the role of the author of each change, so
-    // the hired provider is not identified (RNF-06).
     public async Task<ProviderDirectRequestResponse> GetAsync(int directRequestId, CancellationToken cancellationToken)
     {
         int profileId = await GetMyProfileIdAsync(cancellationToken);
@@ -178,31 +79,27 @@ public class DirectRequestService
                 r.Status,
                 r.CreationDate,
                 r.ResponseDate,
-                Service = _db.Services
-                    .Where(s => s.ServiceId == r.ServiceId)
-                    .Select(s => new
-                    {
-                        s.ServiceId,
-                        s.ServiceCategoryId,
-                        CategoryName = s.ServiceCategory.Name,
-                        s.Title,
-                        s.Description,
-                        s.Location,
-                        s.Latitude,
-                        s.Longitude,
-                        s.RequestedStartDate,
-                        s.RequestedEndDate,
-                        s.Status,
-                        s.CreationDate,
-                        ClientName = s.Client.Name,
-                    })
-                    .First(),
-                ProposalId = _db.Proposals
-                    .Where(p => p.ServiceId == r.ServiceId && p.ProfessionalProfileId == r.ProfessionalProfileId)
+                Service = new
+                {
+                    r.ServiceId,
+                    r.Service.ServiceCategoryId,
+                    CategoryName = r.Service.ServiceCategory.Name,
+                    r.Service.Title,
+                    r.Service.Description,
+                    r.Service.Location,
+                    r.Service.Latitude,
+                    r.Service.Longitude,
+                    r.Service.RequestedStartDate,
+                    r.Service.RequestedEndDate,
+                    r.Service.Status,
+                    r.Service.CreationDate,
+                    ClientName = r.Service.Client.Name,
+                },
+                ProposalId = r.Service.Proposals
+                    .Where(p => p.ProfessionalProfileId == r.ProfessionalProfileId)
                     .Select(p => (int?)p.ProposalId)
                     .FirstOrDefault(),
-                History = _db.ServiceStatusHistories
-                    .Where(h => h.ServiceId == r.ServiceId)
+                History = r.Service.StatusHistory
                     .OrderBy(h => h.ChangedAt)
                     .ThenBy(h => h.ServiceStatusHistoryId)
                     .Select(h => new ProviderServiceHistoryResponse(
@@ -210,7 +107,7 @@ public class DirectRequestService
                     .ToList(),
             })
             .SingleOrDefaultAsync(cancellationToken);
-        if (row is null)
+        if (row == null)
         {
             throw new NotFoundException("Solicitação direta não encontrada.");
         }
@@ -244,30 +141,28 @@ public class DirectRequestService
             row.ProposalId);
     }
 
-    // E24 (RF-F007-02). The rules (recipient, OPEN service, PENDING request) are in Service.DeclineDirectRequest.
     public async Task<DirectRequestStatusResponse> DeclineAsync(int directRequestId, CancellationToken cancellationToken)
     {
         int profileId = await GetMyProfileIdAsync(cancellationToken);
         var service = await _db.Services
             .Include(s => s.DirectRequests)
             .SingleOrDefaultAsync(s => s.DirectRequests.Any(r => r.DirectRequestId == directRequestId), cancellationToken);
-        if (service is null)
+        if (service == null)
         {
             throw new NotFoundException("Solicitação direta não encontrada.");
         }
 
-        var utcNow = _timeProvider.GetUtcNow();
-        var now = utcNow.AddTicks(-(utcNow.Ticks % TimeSpan.TicksPerMicrosecond));
+        var now = _timeProvider.GetUtcNow();
         var request = service.DeclineDirectRequest(directRequestId, profileId, now);
         await _db.SaveChangesAsync(cancellationToken);
 
-        return DirectRequestStatusResponse.From(service.ServiceId, request);
+        return DirectRequestStatusResponse.From(request);
     }
 
     private async Task<int> GetMyProfileIdAsync(CancellationToken cancellationToken)
     {
         int? profileId = await _db.FindProfileIdAsync(_currentUser.UserId, cancellationToken);
-        if (profileId is null)
+        if (profileId == null)
         {
             throw new ForbiddenException(ProfileService.MissingProfileMessage, ErrorTypes.MissingProfile);
         }

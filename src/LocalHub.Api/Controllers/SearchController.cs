@@ -10,7 +10,6 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace LocalHub.Api.Controllers;
 
-// Searches by distance: F005 (E18) and F006 (E19, with the detail of each published job in E38).
 [ApiController]
 [Route("api/search")]
 public class SearchController : ControllerBase
@@ -22,47 +21,40 @@ public class SearchController : ControllerBase
         _searchService = searchService;
     }
 
-    // E18: public (RF-F001-03, rule 3). The parameters are validated by [ApiController] before the method is called
-    // (rule R17). With the token of a client, its registered location is used when the request
-    // has no coordinates and no address.
+    // Public, but with a client's token the registered location is used when no address is given.
     [HttpGet("providers")]
     [AllowAnonymous]
     public async Task<ActionResult<PagedResult<ProviderSearchResult>>> SearchProviders(
         [FromQuery, Required(ErrorMessage = "Indique a categoria de serviços.")] int? serviceCategoryId,
         [FromQuery, StringLength(Domain.Accounts.User.AddressMaxLength, ErrorMessage = "A morada é demasiado longa.")] string? address,
-        [FromQuery, Range(-90.0, 90.0, ErrorMessage = "A latitude tem de estar entre -90 e 90.")] decimal? latitude,
-        [FromQuery, Range(-180.0, 180.0, ErrorMessage = "A longitude tem de estar entre -180 e 180.")] decimal? longitude,
         [FromQuery] string? name,
         CancellationToken cancellationToken,
         [FromQuery] int page = PageRequest.DefaultPage,
         [FromQuery] int pageSize = PageRequest.DefaultPageSize)
     {
-        var request = new ProviderSearchRequest(serviceCategoryId, address, latitude, longitude, name);
+        var request = new ProviderSearchRequest(serviceCategoryId, address, name);
         return Ok(await _searchService.SearchProvidersAsync(request, new PageRequest(page, pageSize), cancellationToken));
     }
 
-    // E19: only providers with a profile (clients and administrators get 403). The distance is always calculated from
-    // the registered location of the provider.
     [HttpGet("services")]
     [Authorize(Roles = "PROVIDER")]
-    [RequiresProfessionalProfile]
-    public async Task<ActionResult<PagedResult<PublishedJobSearchResult>>> SearchPublishedJobs(
+    [ServiceFilter(typeof(RequireProfessionalProfileFilter))]
+    public async Task<ActionResult<PagedResult<OpenServiceSearchResult>>> SearchServices(
         CancellationToken cancellationToken,
         [FromQuery] int? serviceCategoryId = null,
         [FromQuery] bool withinServiceRadius = false,
         [FromQuery] int page = PageRequest.DefaultPage,
         [FromQuery] int pageSize = PageRequest.DefaultPageSize)
     {
-        return Ok(await _searchService.SearchPublishedJobsAsync(
+        return Ok(await _searchService.SearchOpenServicesAsync(
             serviceCategoryId, withinServiceRadius, new PageRequest(page, pageSize), cancellationToken));
     }
 
-    // E38: only providers with a profile, for the published jobs that E19 returns.
     [HttpGet("services/{serviceId:int}")]
     [Authorize(Roles = "PROVIDER")]
-    [RequiresProfessionalProfile]
-    public async Task<ActionResult<PublishedJobResponse>> GetPublishedJob(int serviceId, CancellationToken cancellationToken)
+    [ServiceFilter(typeof(RequireProfessionalProfileFilter))]
+    public async Task<ActionResult<OpenServiceResponse>> GetService(int serviceId, CancellationToken cancellationToken)
     {
-        return Ok(await _searchService.GetPublishedJobAsync(serviceId, cancellationToken));
+        return Ok(await _searchService.GetOpenServiceAsync(serviceId, cancellationToken));
     }
 }

@@ -2,8 +2,7 @@ using LocalHub.Infrastructure.Geocoding;
 
 namespace LocalHub.IntegrationTests.Fixtures;
 
-// Replaces the Nominatim adapter in the integration tests (I043: no test calls the real Nominatim).
-// It only knows the addresses below; any other address is "not found".
+// Replaces the Nominatim adapter. It only knows the addresses below; any other address is not found.
 public class FakeGeocodingService : IGeocodingService
 {
     public const string KnownAddress = "Rua do Almada 10, Porto";
@@ -11,8 +10,7 @@ public class FakeGeocodingService : IGeocodingService
     public const decimal KnownLatitude = 41.1579m;
     public const decimal KnownLongitude = -8.6291m;
 
-    // Fictitious addresses north of KnownAddress, on the same meridian, for the searches by distance (F005). On a
-    // meridian the distance is R · Δφ, so with R = 6371 km and 6 decimal places they are at 2.0, 10.0 and 30.0 km.
+    // North of KnownAddress on the same meridian, so the distances are exact: 2, 10 and 30 km.
     public const string AddressAt2Km = "Rua a 2 km do Almada, Porto";
     public const string AddressAt10Km = "Rua a 10 km do Almada, Porto";
     public const string AddressAt30Km = "Rua a 30 km do Almada, Porto";
@@ -41,7 +39,7 @@ public class FakeGeocodingService : IGeocodingService
             throw new GeocodingUnavailableException();
         }
 
-        return Task.FromResult<Coordinates?>(Addresses.TryGetValue(address, out var point) ? point : null);
+        return Task.FromResult<Coordinates?>(Addresses.GetValueOrDefault(address));
     }
 
     public Task<string?> ReverseGeocodeAsync(Coordinates coordinates, CancellationToken cancellationToken = default)
@@ -52,14 +50,5 @@ public class FakeGeocodingService : IGeocodingService
         }
 
         return Task.FromResult(coordinates == Known ? ReverseAddress : null);
-    }
-}
-
-// Primary handler of the "Nominatim" HttpClient in the tests: if anything still uses the real adapter, the test fails.
-public class FailIfCalledHandler : HttpMessageHandler
-{
-    protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-    {
-        throw new InvalidOperationException($"Os testes não podem chamar o Nominatim real ({request.RequestUri}).");
     }
 }

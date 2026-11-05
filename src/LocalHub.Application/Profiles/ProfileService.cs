@@ -1,7 +1,6 @@
 using LocalHub.Application.Common;
 using LocalHub.Application.Common.Exceptions;
 using LocalHub.Application.Locations;
-using LocalHub.Application.Locations.Dtos;
 using LocalHub.Application.Profiles.Dtos;
 using LocalHub.Application.Reviews;
 using LocalHub.Domain.Accounts;
@@ -33,16 +32,13 @@ public class ProfileService
         _currentUser = currentUser;
     }
 
-    // Used by the filter of the endpoints that need a profile (API documentation, section 7).
     public Task<int?> GetMyProfileIdAsync(CancellationToken cancellationToken) =>
         _db.FindProfileIdAsync(_currentUser.UserId, cancellationToken);
 
-    // E12 (RF-F004-01, RF-F015-01): the profile and the first location of the provider are saved together.
-    // The fields were validated by the DTO; here are the rules that need the database or the Nominatim (rule R17).
     public async Task<ProfileResponse> CreateAsync(CreateProfileRequest request, CancellationToken cancellationToken)
     {
         var provider = await _db.Users.SingleOrDefaultAsync(u => u.UserId == _currentUser.UserId, cancellationToken);
-        if (provider is null)
+        if (provider == null)
         {
             throw new NotFoundException("Utilizador não encontrado.");
         }
@@ -53,25 +49,21 @@ public class ProfileService
         }
 
         var categories = await LoadCategoriesAsync(request.ServiceCategoryIds!, currentIds: new HashSet<int>(), cancellationToken);
+
+        // Geocode before changing anything, so nothing is saved if it fails.
+        var location = await _locationResolver.ResolveAddressAsync(request.Address!, "address", cancellationToken);
+
         var profile = ProfessionalProfile.Create(
             provider, request.Introduction!, request.ContactDetails!, request.Experience!, categories,
             request.ServiceRadiusKm!.Value);
-
-        // Last, because it calls the Nominatim: an address that is not found (400) or a Nominatim that is down (503)
-        // leaves nothing saved.
-        var location = await _locationResolver.ResolveAsync(
-            new SetLocationRequest(request.Address, null, null), cancellationToken);
         provider.SetLocation(location.Address, location.Coordinates.Latitude, location.Coordinates.Longitude);
 
         _db.ProfessionalProfiles.Add(profile);
         await SaveNewProfileAsync(cancellationToken);
 
-        // A new profile has no reviews.
         return ProfileResponse.From(profile, reviewCount: 0);
     }
 
-    // E13 (RF-F004-03): a client sees the profile of an active provider; a provider only sees its own profile.
-    // A provider without a profile is stopped before, by the filter (403 perfil-em-falta).
     public async Task<ProfileResponse> GetAsync(int professionalProfileId, CancellationToken cancellationToken)
     {
         var profile = await WithDetails(_db.ProfessionalProfiles.AsNoTracking())
@@ -79,7 +71,7 @@ public class ProfileService
 
         if (_currentUser.Role == UserRole.Provider)
         {
-            if (profile is null)
+            if (profile == null)
             {
                 throw new NotFoundException("Perfil não encontrado.");
             }
@@ -92,8 +84,8 @@ public class ProfileService
             return await ToResponseAsync(profile, cancellationToken);
         }
 
-        // The profile of a provider with a deactivated account is not shown to the client (RF-F004-03, rule 2).
-        if (profile is null || profile.ServiceProvider.Status != ActivationStatus.Active)
+        // Deactivated providers are hidden from clients.
+        if (profile == null || profile.ServiceProvider.Status != ActivationStatus.Active)
         {
             throw new NotFoundException("Perfil não encontrado.");
         }
@@ -101,42 +93,29 @@ public class ProfileService
         return await ToResponseAsync(profile, cancellationToken);
     }
 
-    // E14 (RF-F004-02, RF-F004-04): the list of categories replaces the previous one.
     public async Task<ProfileResponse> UpdateMineAsync(UpdateProfileRequest request, CancellationToken cancellationToken)
     {
         var profile = await FindMineAsync(cancellationToken);
         var currentIds = profile.ServiceAreas.Select(a => a.ServiceCategoryId).ToHashSet();
         var categories = await LoadCategoriesAsync(request.ServiceCategoryIds!, currentIds, cancellationToken);
 
-        profile.UpdateDetails(request.Introduction!, request.ContactDetails!, request.Experience!);
-        profile.ReplaceCategories(categories);
+        // Geocode before changing anything, so nothing is saved if it fails.
+        var location = await _locationResolver.ResolveAddressAsync(request.Address!, "address", cancellationToken);
+
+        profile.Update(request.Introduction!, request.ContactDetails!, request.Experience!,
+            request.ServiceRadiusKm!.Value);
+        profile.SetCategories(categories);
+        profile.ServiceProvider.SetLocation(
+            location.Address, location.Coordinates.Latitude, location.Coordinates.Longitude);
         await _db.SaveChangesAsync(cancellationToken);
 
         return await ToResponseAsync(profile, cancellationToken);
     }
 
-    // The profile with the number of reviews received (F012), shown in the summary of the reviews (RF-F004-03).
     private async Task<ProfileResponse> ToResponseAsync(ProfessionalProfile profile, CancellationToken cancellationToken)
     {
         int reviewCount = await _db.ReviewsOf(profile.ProfessionalProfileId).CountAsync(cancellationToken);
         return ProfileResponse.From(profile, reviewCount);
-    }
-
-    // E17 (RF-F015-01): the new radius replaces the previous one. The range was validated by the DTO.
-    public async Task<ServiceRadiusResponse> SetMyServiceRadiusAsync(
-        ServiceRadiusRequest request, CancellationToken cancellationToken)
-    {
-        var profile = await _db.ProfessionalProfiles
-            .SingleOrDefaultAsync(p => p.ServiceProviderId == _currentUser.UserId, cancellationToken);
-        if (profile is null)
-        {
-            throw new ForbiddenException(MissingProfileMessage, ErrorTypes.MissingProfile);
-        }
-
-        profile.SetServiceRadius(request.ServiceRadiusKm!.Value);
-        await _db.SaveChangesAsync(cancellationToken);
-
-        return new ServiceRadiusResponse(profile.ServiceRadiusKm);
     }
 
     private static IQueryable<ProfessionalProfile> WithDetails(IQueryable<ProfessionalProfile> query) =>
@@ -149,7 +128,7 @@ public class ProfileService
     {
         var profile = await WithDetails(_db.ProfessionalProfiles)
             .SingleOrDefaultAsync(p => p.ServiceProviderId == _currentUser.UserId, cancellationToken);
-        if (profile is null)
+        if (profile == null)
         {
             throw new ForbiddenException(MissingProfileMessage, ErrorTypes.MissingProfile);
         }
@@ -157,8 +136,7 @@ public class ProfileService
         return profile;
     }
 
-    // RF-F004-04: every requested category must exist and only active categories can be added. A category that was
-    // already associated (currentIds) can stay even if it was deactivated in the meantime (API documentation, E14).
+    // A category that was already associated can stay even if it was deactivated meanwhile.
     private async Task<IReadOnlyCollection<ServiceCategory>> LoadCategoriesAsync(
         IReadOnlyList<int> serviceCategoryIds, HashSet<int> currentIds, CancellationToken cancellationToken)
     {
@@ -194,15 +172,13 @@ public class ProfileService
         }
         catch (DbUpdateException ex)
         {
-            // Two E12 requests of the same provider at the same time: the UNIQUE of serviceProviderId (created by the
-            // 1:1 relationship with User) rejects the second one.
+            // Two requests at the same time: the unique serviceProviderId rejects the second one.
             if (ex.InnerException is PostgresException postgres
                 && postgres.SqlState == PostgresErrorCodes.UniqueViolation)
             {
                 throw new DomainException(DomainErrorKind.Conflict, ProfileExistsMessage);
             }
 
-            // Any other error of the database is not expected: the request gets 500.
             throw;
         }
     }

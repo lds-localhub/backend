@@ -21,6 +21,7 @@
     </ItemGroup>
 
     <ItemGroup>
+      <ProjectReference Include="..\..\src\LocalHub.Api\LocalHub.Api.csproj" />
       <ProjectReference Include="..\..\src\LocalHub.Application\LocalHub.Application.csproj" />
       <ProjectReference Include="..\..\src\LocalHub.Domain\LocalHub.Domain.csproj" />
     </ItemGroup>

@@ -1,5 +1,3 @@
-using System.Linq.Expressions;
-
 using LocalHub.Domain.Accounts;
 using LocalHub.Domain.Categories;
 using LocalHub.Domain.Common;
@@ -8,24 +6,13 @@ using LocalHub.Domain.Profiles;
 namespace LocalHub.Domain.Services;
 
 /// <summary>
-/// Represents a service requested by a client, with direct requests to chosen providers (F009) or published as a job
-/// without recipients (F010). Both modalities share the same life cycle (Requirements Specification v04, section 10).
+/// A service requested by a client, with direct requests to chosen providers or public. Both share the same life cycle.
 /// </summary>
 public class Service
 {
-    // Limits of the API documentation (E20), the same as the columns of the data model. The DTOs use the same
-    // constants (rule R17).
     public const int TitleMaxLength = 100;
     public const int DescriptionMaxLength = 1000;
     public const int LocationMaxLength = 255;
-
-    // RF-F006-01 and RF-F011-01 (E19, E38): the published jobs that any provider with a profile can find and consult —
-    // PUBLIC, OPEN and of a Client with an ACTIVE account. It is an expression, so that Entity Framework translates it
-    // into the WHERE of the queries; in C# (Compile()) the Client must be loaded.
-    public static readonly Expression<Func<Service, bool>> IsOpenPublishedJob =
-        s => s.ProposalModel == ProposalModel.Public
-             && s.Status == ServiceStatus.Open
-             && s.Client.Status == ActivationStatus.Active;
 
     public int ServiceId { get; private set; }
     public int ClientId { get; private set; }
@@ -42,7 +29,7 @@ public class Service
     public DateTimeOffset CreationDate { get; private set; }
     public DateTimeOffset? ActualCompletionDate { get; private set; }
 
-    // Navigations (they are not columns). "= null!": always set by Create or loaded by Entity Framework with Include.
+    // Navigations: set by Create or loaded by Entity Framework with Include.
     public User Client { get; private set; } = null!;
     public ServiceCategory ServiceCategory { get; private set; } = null!;
 
@@ -52,21 +39,14 @@ public class Service
     private readonly List<DirectRequest> _directRequests = new();
     public IReadOnlyCollection<DirectRequest> DirectRequests => _directRequests;
 
-    // Null while the service was not reviewed (at most one review per service).
     public Review? Review { get; private set; }
 
     private readonly List<ServiceStatusHistory> _statusHistory = new();
     public IReadOnlyCollection<ServiceStatusHistory> StatusHistory => _statusHistory;
 
-    // Private: a service is created with Create. Entity Framework uses this constructor when it reads a service.
+    // Used by Entity Framework; a service is created with Create.
     private Service() { }
 
-    // RF-F009-01 and RF-F010-01 (E20). The fields were validated by the DTO, and the category, the dates, the
-    // recipients and the location by the ServiceWorkflowService (rule R17). The location is already resolved (the
-    // client's registered location or the address converted into coordinates), because the geocoding happens before
-    // any entity is changed (rule R2). The recipients are the profiles chosen by the client: at least one with
-    // DIRECT_REQUEST and none with PUBLIC. The service starts OPEN and is only assigned when the client accepts a
-    // proposal (no automatic assignment).
     public static Service Create(
         User client,
         ServiceCategory category,
@@ -104,7 +84,7 @@ public class Service
             CreationDate = now,
         };
 
-        // The same profile chosen twice gets a single direct request (RF-F009-01, rule 9).
+        // The same profile chosen twice gets a single direct request.
         var distinct = recipients
             .GroupBy(p => p.ProfessionalProfileId)
             .Select(g => g.First());
@@ -116,10 +96,7 @@ public class Service
         return service;
     }
 
-    // RF-F007-01 and RF-F011-02 (E25), sections 10.3 and 10.4. The provider must have the category of the service and,
-    // with DIRECT_REQUEST, a direct request. The Client (loaded with the service) must have an ACTIVE account.
-    // The provider's areas must be loaded, and the direct requests and the proposals of the provider too.
-    // A provider presents one proposal per service, whatever the state of the first one.
+    // Needs the client, the provider's areas and the provider's direct requests and proposals loaded.
     public Proposal SubmitProposal(
         ProfessionalProfile provider, decimal amount, string conditions, string? obs, DateTimeOffset now)
     {
@@ -136,7 +113,7 @@ public class Service
         }
 
         var request = _directRequests.SingleOrDefault(r => r.ProfessionalProfileId == provider.ProfessionalProfileId);
-        if (ProposalModel == ProposalModel.DirectRequest && request is null)
+        if (ProposalModel == ProposalModel.DirectRequest && request == null)
         {
             throw new DomainException(DomainErrorKind.Forbidden,
                 "Não recebeu uma solicitação direta para este serviço.");
@@ -158,12 +135,10 @@ public class Service
         return proposal;
     }
 
-    // RF-F007-02 (E24), section 10.4: only the provider that received the request declines it, while the service is
-    // OPEN. The service stays OPEN, even without other pending requests and proposals.
     public DirectRequest DeclineDirectRequest(int directRequestId, int professionalProfileId, DateTimeOffset now)
     {
         var request = _directRequests.SingleOrDefault(r => r.DirectRequestId == directRequestId);
-        if (request is null)
+        if (request == null)
         {
             throw new DomainException(DomainErrorKind.Conflict,
                 "A solicitação direta não pertence a este serviço.");
@@ -184,11 +159,8 @@ public class Service
         return request;
     }
 
-    // RF-F007-03 and RF-F008-02 (E28), sections 10.1 to 10.4: only the client that created the service accepts a
-    // PENDING proposal of an OPEN service. The service becomes ASSIGNED, the other PENDING proposals DECLINED and the
-    // direct requests still PENDING become VOID. The provider of the proposal must have an ACTIVE account
-    // (RF-F002-02, rule 7). The proposals must be loaded with the profile and its provider, and all the direct requests.
-    // The change OPEN → ASSIGNED is recorded in the history, made by the client (loaded with the service).
+    // Needs the proposals (with profile and provider), the direct requests and the client loaded.
+    // The other pending proposals are declined and the pending direct requests become void.
     public Proposal AcceptProposal(int proposalId, int clientId, DateTimeOffset now)
     {
         var proposal = FindProposal(proposalId, clientId);
@@ -205,7 +177,8 @@ public class Service
         if (proposal.ProfessionalProfile.ServiceProvider.Status != ActivationStatus.Active)
         {
             throw new DomainException(DomainErrorKind.Conflict,
-                "Não é possível aceitar a proposta de um Prestador com a conta desativada.");
+                "Não é possível aceitar a proposta de um Prestador com a conta desativada.",
+                errorType: Proposal.InactiveProviderErrorType);
         }
 
         ChangeStatus(ServiceStatus.Assigned, Client, now);
@@ -223,8 +196,6 @@ public class Service
         return proposal;
     }
 
-    // RF-F007-04 and RF-F008-03 (E29), section 10.3: only the client that created the service declines a PENDING
-    // proposal of an OPEN service. The other proposals, the direct requests and the service do not change.
     public Proposal DeclineProposal(int proposalId, int clientId, DateTimeOffset now)
     {
         var proposal = FindProposal(proposalId, clientId);
@@ -237,11 +208,8 @@ public class Service
         return proposal;
     }
 
-    // RF-F007-05 and RF-F008-04 (E30), sections 10.1 to 10.4: the client that created the service cancels it while it is
-    // OPEN or ASSIGNED. In OPEN, the PENDING proposals and the PENDING direct requests become VOID; in ASSIGNED, the
-    // ACCEPTED proposal stays ACCEPTED. The DECLINED proposals and the answered direct requests do not change.
-    // The proposals and the direct requests must be loaded, and the client too: the change to CANCELLED is recorded in
-    // the history, made by the client.
+    // Needs the proposals, the direct requests and the client loaded.
+    // In OPEN the pending proposals and direct requests become void; in ASSIGNED the accepted proposal stays.
     public void CancelByClient(int clientId, DateTimeOffset now)
     {
         if (clientId != ClientId)
@@ -255,7 +223,7 @@ public class Service
         {
             foreach (var proposal in _proposals.Where(p => p.Status == ProposalStatus.Pending))
             {
-                proposal.Void(now);
+                proposal.Void();
             }
 
             foreach (var request in _directRequests.Where(r => r.Status == DirectRequestStatus.Pending))
@@ -267,14 +235,10 @@ public class Service
         ChangeStatus(ServiceStatus.Cancelled, Client, now);
     }
 
-    // RF-F007-05 and RF-F008-04 (E30), sections 10.1 and 10.2: the provider whose proposal was accepted cancels the
-    // service, only while it is ASSIGNED; the ACCEPTED proposal stays ACCEPTED. A provider that only received a direct
-    // request or whose proposal was not accepted cannot cancel (403). The proposals must be loaded with the profile and
-    // its provider: the change ASSIGNED → CANCELLED is recorded in the history, made by the provider.
     public void CancelByProvider(int professionalProfileId, DateTimeOffset now)
     {
         var accepted = _proposals.SingleOrDefault(p => p.Status == ProposalStatus.Accepted);
-        if (accepted is null || accepted.ProfessionalProfileId != professionalProfileId)
+        if (accepted == null || accepted.ProfessionalProfileId != professionalProfileId)
         {
             throw new DomainException(DomainErrorKind.Forbidden,
                 "Só o Prestador com a proposta aceite pode cancelar o serviço, e apenas no estado atribuído.");
@@ -284,10 +248,6 @@ public class Service
         ChangeStatus(ServiceStatus.Cancelled, accepted.ProfessionalProfile.ServiceProvider, now);
     }
 
-    // RF-F007-06 and RF-F008-05 (E31), sections 10.1 and 10.2: only the client that created the service marks it as
-    // completed, only while it is ASSIGNED. The date of completion is recorded and the service can then be reviewed
-    // (RF-F012-01). The ACCEPTED proposal stays ACCEPTED. The change ASSIGNED → COMPLETED is recorded in the history,
-    // made by the client (loaded with the service).
     public void Complete(int clientId, DateTimeOffset now)
     {
         if (clientId != ClientId)
@@ -306,9 +266,6 @@ public class Service
         ActualCompletionDate = now;
     }
 
-    // RF-F012-01 (E32): only the client that created the service reviews it, only while it is COMPLETED and only once.
-    // The review is of the provider whose proposal was accepted (rule 6), so a COMPLETED service always has one
-    // (sections 10.1 and 10.2). The service stays COMPLETED. The review must be loaded.
     public Review AddReview(int clientId, short rating, string? comment, DateTimeOffset now)
     {
         if (clientId != ClientId)
@@ -323,7 +280,7 @@ public class Service
                 "Só é possível avaliar um serviço no estado realizado.");
         }
 
-        if (Review is not null)
+        if (Review != null)
         {
             throw new DomainException(DomainErrorKind.Conflict, "Este serviço já foi avaliado.",
                 errorType: Review.AlreadyExistsErrorType);
@@ -333,15 +290,13 @@ public class Service
         return Review;
     }
 
-    // RF-F007-09 and RF-F008-01 (E22): every change of state of the service is recorded with the date and the user that
-    // made it. The creation of the service is not a change of state, so it has no record.
+    // The creation of the service is not recorded as a change of state.
     private void ChangeStatus(ServiceStatus newStatus, User changedBy, DateTimeOffset now)
     {
         _statusHistory.Add(new ServiceStatusHistory(Status, newStatus, changedBy, now));
         Status = newStatus;
     }
 
-    // COMPLETED and CANCELLED are final states (RF-F007-07, RF-F008-06).
     private void EnsureCanBeCancelled()
     {
         if (Status == ServiceStatus.Completed)
@@ -356,7 +311,6 @@ public class Service
         }
     }
 
-    // The client that created the service is the only actor of the decisions on the proposals (section 10.3).
     private Proposal FindProposal(int proposalId, int clientId)
     {
         if (clientId != ClientId)
@@ -366,7 +320,7 @@ public class Service
         }
 
         var proposal = _proposals.SingleOrDefault(p => p.ProposalId == proposalId);
-        if (proposal is null)
+        if (proposal == null)
         {
             throw new DomainException(DomainErrorKind.Conflict, "A proposta não pertence a este serviço.");
         }

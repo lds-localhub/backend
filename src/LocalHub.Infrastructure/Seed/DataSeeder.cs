@@ -22,12 +22,9 @@ public class DataSeeder
 
     public async Task SeedAsync(CancellationToken cancellationToken = default)
     {
-        await AddIfMissingAsync(User.CreateAdministrator("Ana Almeida", "ana.almeida@localhub.test"),
-            cancellationToken);
-        await AddIfMissingAsync(User.CreateAdministrator("Rui Rocha", "rui.rocha@localhub.test"), cancellationToken);
-        await AddIfMissingAsync(User.Register("Carla Costa", "carla.costa@localhub.test", UserRole.Client),
-            cancellationToken);
-        await AddIfMissingAsync(User.Register("Hugo Henriques", "hugo.henriques@localhub.test", UserRole.Provider),
+        Func<User, string, string> hashPassword = _passwordHasher.HashPassword;
+        await AddIfMissingAsync(
+            User.CreateAdministrator("Ana Almeida", "ana.almeida@localhub.test", _password, hashPassword),
             cancellationToken);
 
         await _db.SaveChangesAsync(cancellationToken);
@@ -40,7 +37,6 @@ public class DataSeeder
             return;
         }
 
-        user.SetPasswordHash(_passwordHasher.HashPassword(user, _password));
         _db.Users.Add(user);
     }
 }

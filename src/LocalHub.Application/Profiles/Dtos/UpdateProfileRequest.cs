@@ -1,12 +1,11 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
 
+using LocalHub.Domain.Accounts;
 using LocalHub.Domain.Profiles;
 
 namespace LocalHub.Application.Profiles.Dtos;
 
-// Body of E14. The address and the radius are changed in E16 and E17. Fields that are not listed here, such as
-// averageRating, are rejected with 400 (API documentation, E14; RF-F004-02, rule 3).
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public record UpdateProfileRequest(
     [Required(ErrorMessage = "Indique a apresentação.")]
@@ -24,4 +23,13 @@ public record UpdateProfileRequest(
 
     [Required(ErrorMessage = "Indique pelo menos uma categoria de serviços.")]
     [MinLength(1, ErrorMessage = "Indique pelo menos uma categoria de serviços.")]
-    IReadOnlyList<int>? ServiceCategoryIds);
+    IReadOnlyList<int>? ServiceCategoryIds,
+
+    [Required(ErrorMessage = "A morada é obrigatória.")]
+    [StringLength(User.AddressMaxLength, ErrorMessage = "A morada é demasiado longa.")]
+    string? Address,
+
+    [Required(ErrorMessage = "Indique o raio de atuação, em quilómetros.")]
+    [Range(ProfessionalProfile.ServiceRadiusMinKm, ProfessionalProfile.ServiceRadiusMaxKm,
+        ErrorMessage = "O raio de atuação tem de estar entre 1 e 100 km.")]
+    short? ServiceRadiusKm);

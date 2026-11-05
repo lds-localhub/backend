@@ -5,22 +5,20 @@ using System.Text.Json;
 
 namespace LocalHub.IntegrationTests.Fixtures;
 
-// Requests to the authentication endpoints that several test classes use.
 public static class AuthRequests
 {
     public const string ValidPassword = "casa2026";
 
-    // Administrator created by the DataSeeder, with the password LocalHubApiFactory.SeedPassword.
+    // Created by the DataSeeder.
     public const string AdminEmail = "ana.almeida@localhub.test";
 
-    // Each test uses its own e-mail, so the tests do not depend on each other.
+    // Each test uses its own e-mail.
     public static string NewEmail() => $"teste.{Guid.NewGuid():N}@localhub.test";
 
     public static Task<HttpResponseMessage> RegisterAsync(
         HttpClient client, string name, string email, string password, string role) =>
         client.PostAsJsonAsync("/api/auth/register", new { name, email, password, role });
 
-    // "app" is the application that starts the session (E02, field client): WEB or MOBILE.
     public static Task<HttpResponseMessage> LoginAsync(
         HttpClient client, string email, string password, string app = "WEB") =>
         client.PostAsJsonAsync("/api/auth/login", new { email, password, client = app });
@@ -37,7 +35,6 @@ public static class AuthRequests
         return await client.SendAsync(request);
     }
 
-    // Checks the "type" and "instance" fields of a Problem Details response (API documentation, section 4.6).
     public static async Task<JsonElement> AssertProblemAsync(HttpResponseMessage response, string type, string instance)
     {
         Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);

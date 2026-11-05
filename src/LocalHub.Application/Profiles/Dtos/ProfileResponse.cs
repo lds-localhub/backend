@@ -2,7 +2,6 @@ using LocalHub.Domain.Profiles;
 
 namespace LocalHub.Application.Profiles.Dtos;
 
-// Professional profile as returned by E12, E13 and E14 (API documentation, section F004).
 public record ProfileResponse(
     int ProfessionalProfileId,
     int ServiceProviderId,
@@ -16,8 +15,7 @@ public record ProfileResponse(
     decimal? AverageRating,
     int ReviewCount)
 {
-    // The profile must be loaded with its provider and the categories of its areas. reviewCount is the number of
-    // reviews received (0 without reviews), counted with ReviewQueries.ReviewsOf.
+    // The profile must be loaded with its provider and the categories of its areas.
     public static ProfileResponse From(ProfessionalProfile profile, int reviewCount)
     {
         var categories = ProfileCategoryResponse.InDisplayOrder(
@@ -40,7 +38,6 @@ public record ProfileResponse(
 
 public record ProfileCategoryResponse(int ServiceCategoryId, string Name)
 {
-    // The same order wherever the categories of a profile are listed (E12 to E14 and the results of E18).
     public static IReadOnlyList<ProfileCategoryResponse> InDisplayOrder(IEnumerable<ProfileCategoryResponse> categories) =>
         categories
             .OrderBy(c => c.Name, StringComparer.CurrentCulture)

@@ -9,14 +9,9 @@ using Microsoft.Extensions.Options;
 
 namespace LocalHub.Infrastructure.Geocoding;
 
-/// <summary>
-/// Adaptador do Nominatim (OpenStreetMap) — Arquitetura v02, DEC-07.
-/// Usa os endpoints «search» e «reverse» no formato jsonv2 e respeita a política de utilização:
-/// User-Agent próprio (configurado no HttpClient) e no máximo um pedido por segundo (<see cref="NominatimRateLimiter"/>).
-/// </summary>
-public sealed partial class NominatimGeocodingService : IGeocodingService
+// Nominatim adapter: own User-Agent and at most one request per second (usage policy).
+public sealed class NominatimGeocodingService : IGeocodingService
 {
-    /// <summary>Tamanho máximo da morada guardada (coluna address varchar(255) do Modelo de Dados v01).</summary>
     public const int AddressMaxLength = 255;
 
     private readonly NominatimOptions _options;
@@ -51,7 +46,7 @@ public sealed partial class NominatimGeocodingService : IGeocodingService
             ["email"] = _options.Email,
         };
 
-        using JsonDocument document = await SendAsync("search", query, cancellationToken).ConfigureAwait(false);
+        using JsonDocument document = await SendAsync("search", query, cancellationToken);
         JsonElement root = document.RootElement;
 
         if (root.ValueKind != JsonValueKind.Array || root.GetArrayLength() == 0)
@@ -80,10 +75,10 @@ public sealed partial class NominatimGeocodingService : IGeocodingService
             ["email"] = _options.Email,
         };
 
-        using JsonDocument document = await SendAsync("reverse", query, cancellationToken).ConfigureAwait(false);
+        using JsonDocument document = await SendAsync("reverse", query, cancellationToken);
         JsonElement root = document.RootElement;
 
-        // Sem morada, o Nominatim responde 200 com { "error": "Unable to geocode" }.
+        // Without an address, Nominatim answers 200 with { "error": "Unable to geocode" }.
         if (root.ValueKind != JsonValueKind.Object
             || root.TryGetProperty("error", out _)
             || !root.TryGetProperty("display_name", out JsonElement displayName)
@@ -92,8 +87,7 @@ public sealed partial class NominatimGeocodingService : IGeocodingService
             return null;
         }
 
-        // E35 (API v04): street, number, postal code and locality, so that converting it back into coordinates
-        // (E12, E14, E16, E18, E20) gives the same position. Without a street, the full display_name is used.
+        // Street, number, postal code and locality, so that geocoding it back gives the same position.
         string address = (ComposeAddress(root) ?? displayName.GetString()!).Trim();
         if (address.Length == 0)
         {
@@ -103,7 +97,7 @@ public sealed partial class NominatimGeocodingService : IGeocodingService
         return address.Length <= AddressMaxLength ? address : address.Substring(0, AddressMaxLength);
     }
 
-    // "Rua de Santa Catarina 74, 4000-441 Porto", from the "address" object returned with addressdetails=1.
+    // e.g. "Rua de Santa Catarina 74, 4000-441 Porto"
     private static string? ComposeAddress(JsonElement root)
     {
         if (!root.TryGetProperty("address", out JsonElement details) || details.ValueKind != JsonValueKind.Object)
@@ -112,15 +106,16 @@ public sealed partial class NominatimGeocodingService : IGeocodingService
         }
 
         string? road = ReadString(details, "road");
-        if (road is null)
+        if (road == null)
         {
             return null;
         }
 
-        string street = ReadString(details, "house_number") is { } number ? $"{road} {number}" : road;
+        string? number = ReadString(details, "house_number");
+        string street = number != null ? $"{road} {number}" : road;
         string? locality = ReadString(details, "city") ?? ReadString(details, "town")
             ?? ReadString(details, "village") ?? ReadString(details, "municipality");
-        string place = string.Join(' ', new[] { ReadString(details, "postcode"), locality }.Where(p => p is not null));
+        string place = string.Join(' ', new[] { ReadString(details, "postcode"), locality }.Where(p => p != null));
 
         return place.Length == 0 ? street : $"{street}, {place}";
     }
@@ -138,41 +133,41 @@ public sealed partial class NominatimGeocodingService : IGeocodingService
     {
         Uri requestUri = BuildRelativeUri(path, query);
 
-        await _rateLimiter.WaitTurnAsync(cancellationToken).ConfigureAwait(false);
+        await _rateLimiter.WaitTurnAsync(cancellationToken);
 
         try
         {
-            using HttpResponseMessage response = await _httpClient.GetAsync(requestUri, cancellationToken).ConfigureAwait(false);
+            using HttpResponseMessage response = await _httpClient.GetAsync(requestUri, cancellationToken);
 
             if (!response.IsSuccessStatusCode)
             {
-                LogUnsuccessfulStatus(_logger, (int)response.StatusCode, path);
+                _logger.LogWarning("O Nominatim respondeu {StatusCode} ao pedido {Path}.", (int)response.StatusCode, path);
                 throw new GeocodingUnavailableException("O Nominatim respondeu com um código de erro.");
             }
 
-            using Stream content = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-            return await JsonDocument.ParseAsync(content, cancellationToken: cancellationToken).ConfigureAwait(false);
+            using Stream content = await response.Content.ReadAsStreamAsync(cancellationToken);
+            return await JsonDocument.ParseAsync(content, cancellationToken: cancellationToken);
         }
         catch (HttpRequestException ex)
         {
-            LogRequestFailed(_logger, ex, path);
+            _logger.LogWarning(ex, "Falha no pedido {Path} ao Nominatim.", path);
             throw new GeocodingUnavailableException("Não foi possível contactar o Nominatim.", ex);
         }
         catch (TaskCanceledException ex)
         {
-            // O pedido do utilizador foi cancelado: a exceção continua.
+            // The user's request was cancelled.
             if (cancellationToken.IsCancellationRequested)
             {
                 throw;
             }
 
-            // Tempo limite do HttpClient: não foi o pedido do utilizador a ser cancelado.
-            LogRequestFailed(_logger, ex, path);
+            // HttpClient timeout, not a cancellation by the user.
+            _logger.LogWarning(ex, "Falha no pedido {Path} ao Nominatim.", path);
             throw new GeocodingUnavailableException("O Nominatim não respondeu a tempo.", ex);
         }
         catch (JsonException ex)
         {
-            LogRequestFailed(_logger, ex, path);
+            _logger.LogWarning(ex, "Falha no pedido {Path} ao Nominatim.", path);
             throw new GeocodingUnavailableException("O Nominatim devolveu uma resposta inválida.", ex);
         }
     }
@@ -203,10 +198,4 @@ public sealed partial class NominatimGeocodingService : IGeocodingService
             && text.ValueKind == JsonValueKind.String
             && decimal.TryParse(text.GetString(), NumberStyles.Float, CultureInfo.InvariantCulture, out value);
     }
-
-    [LoggerMessage(Level = LogLevel.Warning, Message = "O Nominatim respondeu {StatusCode} ao pedido {Path}.")]
-    private static partial void LogUnsuccessfulStatus(ILogger logger, int statusCode, string path);
-
-    [LoggerMessage(Level = LogLevel.Warning, Message = "Falha no pedido {Path} ao Nominatim.")]
-    private static partial void LogRequestFailed(ILogger logger, Exception exception, string path);
 }

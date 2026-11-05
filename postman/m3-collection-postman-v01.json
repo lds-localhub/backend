@@ -93,7 +93,7 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test(\"Devolve 201\", () => pm.response.to.have.status(201));",
-                  "pm.test(\"Location aponta para /api/users/me\", () => pm.expect(pm.response.headers.get(\"Location\")).to.eql(\"/api/users/me\"));",
+                  "pm.test(\"Sem cabeçalho Location\", () => pm.expect(pm.response.headers.has(\"Location\")).to.eql(false));",
                   "pm.test(\"Conta ativa com o papel pedido\", () => {",
                   "    const body = pm.response.json();",
                   "    pm.expect(body.email).to.eql(pm.collectionVariables.get(\"email\"));",
@@ -268,13 +268,15 @@
                 "exec": [
                   "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
                   "const body = pm.response.json();",
-                  "pm.test(\"Devolve token, expiresAt e user\", () => {",
+                  "pm.test(\"Devolve só token e user\", () => {",
+                  "    pm.expect(Object.keys(body)).to.eql([\"token\", \"user\"]);",
                   "    pm.expect(body.token).to.be.a(\"string\").and.not.empty;",
-                  "    pm.expect(body.expiresAt).to.be.a(\"string\");",
                   "    pm.expect(body.user.email).to.eql(pm.collectionVariables.get(\"email\"));",
+                  "    pm.expect(Object.keys(body.user)).to.eql([\"userId\", \"name\", \"email\", \"role\", \"address\", \"professionalProfileId\"]);",
                   "});",
-                  "pm.test(\"Sessão de 8 horas, no máximo\", () => {",
-                  "    const hours = (new Date(body.expiresAt) - Date.now()) / 3600000;",
+                  "pm.test(\"Sessão de 8 horas, no máximo (exp do token)\", () => {",
+                  "    const payload = JSON.parse(atob(body.token.split(\".\")[1].replace(/-/g, \"+\").replace(/_/g, \"/\")));",
+                  "    const hours = (payload.exp * 1000 - Date.now()) / 3600000;",
                   "    pm.expect(hours).to.be.within(7.9, 8);",
                   "});",
                   "// Guarda o token para os pedidos protegidos seguintes.",
@@ -343,13 +345,13 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/users/me",
+              "raw": "{{baseUrl}}/api/auth/me",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
-                "users",
+                "auth",
                 "me"
               ]
             },
@@ -376,8 +378,11 @@
                   "    const body = pm.response.json();",
                   "    pm.expect(body.email).to.eql(pm.collectionVariables.get(\"email\"));",
                   "    pm.expect(body.role).to.eql(\"CLIENT\");",
-                  "    pm.expect(body.latitude).to.be.null;",
+                  "    pm.expect(body.address).to.be.null;",
                   "    pm.expect(body.professionalProfileId).to.be.null;",
+                  "});",
+                  "pm.test(\"Só os campos de E04, sem status nem coordenadas\", () => {",
+                  "    pm.expect(Object.keys(pm.response.json())).to.eql([\"userId\", \"name\", \"email\", \"role\", \"address\", \"professionalProfileId\"]);",
                   "});"
                 ]
               }
@@ -390,13 +395,13 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/users/me",
+              "raw": "{{baseUrl}}/api/auth/me",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
-                "users",
+                "auth",
                 "me"
               ]
             },
@@ -469,13 +474,13 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/users/me",
+              "raw": "{{baseUrl}}/api/auth/me",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
-                "users",
+                "auth",
                 "me"
               ]
             },
@@ -943,13 +948,13 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/users/me",
+              "raw": "{{baseUrl}}/api/auth/me",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
-                "users",
+                "auth",
                 "me"
               ]
             },
@@ -1312,10 +1317,11 @@
                 "exec": [
                   "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
                   "const body = pm.response.json();",
-                  "pm.test(\"Lista só com categorias ativas\", () => {",
-                  "    pm.expect(body).to.be.an(\"array\");",
-                  "    body.forEach(c => pm.expect(c.status).to.eql(\"ACTIVE\"));",
-                  "});"
+                  "pm.test(\"Lista sem paginação, com total e items\", () => {",
+                  "    pm.expect(body).to.have.all.keys(\"total\", \"items\");",
+                  "    pm.expect(body.total).to.eql(body.items.length);",
+                  "});",
+                  "pm.test(\"Lista só com categorias ativas\", () => body.items.forEach(c => pm.expect(c.status).to.eql(\"ACTIVE\")));"
                 ]
               }
             }
@@ -1671,7 +1677,7 @@
                   "    pm.expect(body.name).to.eql(pm.collectionVariables.get(\"categoryName\"));",
                   "    pm.expect(body.status).to.eql(\"ACTIVE\");",
                   "});",
-                  "pm.test(\"Cabeçalho Location\", () => pm.expect(pm.response.headers.get(\"Location\")).to.eql(`/api/categories/${body.serviceCategoryId}`));",
+                  "pm.test(\"Sem cabeçalho Location\", () => pm.expect(pm.response.headers.has(\"Location\")).to.eql(false));",
                   "pm.collectionVariables.set(\"categoryId\", body.serviceCategoryId);"
                 ]
               }
@@ -1986,7 +1992,7 @@
                 "exec": [
                   "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
                   "const id = Number(pm.collectionVariables.get(\"categoryId\"));",
-                  "pm.test(\"Sem a categoria desativada\", () => pm.expect(pm.response.json().map(c => c.serviceCategoryId)).to.not.include(id));"
+                  "pm.test(\"Sem a categoria desativada\", () => pm.expect(pm.response.json().items.map(c => c.serviceCategoryId)).to.not.include(id));"
                 ]
               }
             }
@@ -2033,7 +2039,7 @@
                 "exec": [
                   "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
                   "const id = Number(pm.collectionVariables.get(\"categoryId\"));",
-                  "const category = pm.response.json().find(c => c.serviceCategoryId === id);",
+                  "const category = pm.response.json().items.find(c => c.serviceCategoryId === id);",
                   "pm.test(\"Inclui a categoria desativada\", () => pm.expect(category.status).to.eql(\"INACTIVE\"));"
                 ]
               }
@@ -2158,7 +2164,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"address\": \"Avenida dos Aliados, Porto\"\n}",
+              "raw": "{\n  \"address\": \"Avenida da Liberdade, Braga\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -2175,7 +2181,7 @@
                 }
               ]
             },
-            "description": "RF-F015-03. A morada é convertida em coordenadas pelo Nominatim (requer acesso à Internet)."
+            "description": "RF-F015-02, RF-F015-03. Só o Cliente. A morada é convertida em coordenadas pelo Nominatim (requer acesso à Internet). Na aplicação mobile, a morada pode ser preenchida com E35 e é enviada como texto depois de confirmada."
           },
           "event": [
             {
@@ -2184,11 +2190,10 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
-                  "pm.test(\"Guarda a morada e as coordenadas\", () => {",
+                  "pm.test(\"Devolve o utilizador com a nova morada, sem as coordenadas\", () => {",
                   "    const body = pm.response.json();",
-                  "    pm.expect(body.address).to.eql(\"Avenida dos Aliados, Porto\");",
-                  "    pm.expect(body.latitude).to.be.within(41, 42);",
-                  "    pm.expect(body.longitude).to.be.within(-9, -8);",
+                  "    pm.expect(body.address).to.eql(\"Avenida da Liberdade, Braga\");",
+                  "    pm.expect(body).to.not.have.any.keys(\"latitude\", \"longitude\", \"status\");",
                   "});"
                 ]
               }
@@ -2196,7 +2201,7 @@
           ]
         },
         {
-          "name": "E16 — Definir a localização por coordenadas (200)",
+          "name": "E16 — Coordenadas no corpo (400)",
           "request": {
             "method": "PUT",
             "header": [
@@ -2236,68 +2241,7 @@
                 }
               ]
             },
-            "description": "RF-F015-03. A morada é obtida a partir das coordenadas pelo Nominatim (requer acesso à Internet)."
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
-                  "pm.test(\"Guarda as coordenadas e uma morada\", () => {",
-                  "    const body = pm.response.json();",
-                  "    pm.expect(body.latitude).to.eql(41.366);",
-                  "    pm.expect(body.longitude).to.eql(-8.194);",
-                  "    pm.expect(body.address).to.be.a(\"string\").and.not.empty;",
-                  "});"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "E16 — Morada e coordenadas ao mesmo tempo (400)",
-          "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/users/me/location",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "users",
-                "me",
-                "location"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"address\": \"Avenida dos Aliados, Porto\",\n  \"latitude\": 41.366,\n  \"longitude\": -8.194\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{token}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "description": "RF-F015-03. Indica-se a morada ou as coordenadas, nunca ambas."
+            "description": "Regra R3 e RF-F015-06: o pedido só recebe a morada; as coordenadas do dispositivo só são recebidas em E35."
           },
           "event": [
             {
@@ -2306,11 +2250,10 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test(\"Devolve 400\", () => pm.response.to.have.status(400));",
-                  "pm.test(\"Erro em Problem Details no campo address\", () => {",
+                  "pm.test(\"Erro em Problem Details\", () => {",
                   "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
                   "    const body = pm.response.json();",
                   "    pm.expect(body.type).to.eql(\"https://tools.ietf.org/html/rfc9110#section-15.5.1\");",
-                  "    pm.expect(body.errors).to.have.property(\"address\");",
                   "    pm.expect(body.instance).to.eql(\"/\" + pm.request.url.path.join(\"/\"));",
                   "});"
                 ]
@@ -2563,7 +2506,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"introduction\": \"x\",\n  \"contactDetails\": \"x\",\n  \"experience\": \"x\",\n  \"serviceCategoryIds\": [\n    {{profileCategoryId}}\n  ]\n}",
+              "raw": "{\n  \"introduction\": \"x\",\n  \"contactDetails\": \"x\",\n  \"experience\": \"x\",\n  \"serviceCategoryIds\": [\n    {{profileCategoryId}}\n  ],\n  \"address\": \"Rua de Santa Catarina 200, Porto\",\n  \"serviceRadiusKm\": 15\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -2771,13 +2714,13 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/users/me",
+              "raw": "{{baseUrl}}/api/auth/me",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
-                "users",
+                "auth",
                 "me"
               ]
             },
@@ -2801,9 +2744,9 @@
                 "exec": [
                   "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
                   "const body = pm.response.json();",
-                  "pm.test(\"professionalProfileId e coordenadas\", () => {",
+                  "pm.test(\"professionalProfileId e morada\", () => {",
                   "    pm.expect(body.professionalProfileId).to.eql(Number(pm.collectionVariables.get(\"profileId\")));",
-                  "    pm.expect(body.latitude).to.not.eql(null);",
+                  "    pm.expect(body.address).to.not.eql(null);",
                   "});"
                 ]
               }
@@ -2873,7 +2816,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"introduction\": \"Canalizador com equipa própria no Porto e Matosinhos.\",\n  \"contactDetails\": \"Telefone 220 000 000\",\n  \"experience\": \"16 anos em reparação de fugas.\",\n  \"serviceCategoryIds\": [\n    {{profileCategoryId}}\n  ]\n}",
+              "raw": "{\n  \"introduction\": \"Canalizador com equipa própria no Porto e Matosinhos.\",\n  \"contactDetails\": \"Telefone 220 000 000\",\n  \"experience\": \"16 anos em reparação de fugas.\",\n  \"serviceCategoryIds\": [\n    {{profileCategoryId}}\n  ],\n  \"address\": \"Rua de Santa Catarina 200, Porto\",\n  \"serviceRadiusKm\": 25\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -2890,7 +2833,7 @@
                 }
               ]
             },
-            "description": "RF-F004-02, RF-F004-04. A lista de categorias substitui a anterior; a morada e o raio não mudam."
+            "description": "RF-F004-02, RF-F004-04, RF-F015-01. A lista de categorias, a morada e o raio substituem os anteriores; a morada é convertida em coordenadas pelo Nominatim (precisa de acesso à Internet)."
           },
           "event": [
             {
@@ -2899,7 +2842,8 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
-                  "pm.test(\"Apresentação alterada\", () => pm.expect(pm.response.json().introduction).to.eql(\"Canalizador com equipa própria no Porto e Matosinhos.\"));"
+                  "pm.test(\"Apresentação alterada\", () => pm.expect(pm.response.json().introduction).to.eql(\"Canalizador com equipa própria no Porto e Matosinhos.\"));",
+                  "pm.test(\"Raio de 25 km\", () => pm.expect(pm.response.json().serviceRadiusKm).to.eql(25));"
                 ]
               }
             }
@@ -2928,7 +2872,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"introduction\": \"x\",\n  \"contactDetails\": \"x\",\n  \"experience\": \"x\",\n  \"serviceCategoryIds\": [\n    {{profileCategoryId}}\n  ],\n  \"averageRating\": 5\n}",
+              "raw": "{\n  \"introduction\": \"x\",\n  \"contactDetails\": \"x\",\n  \"experience\": \"x\",\n  \"serviceCategoryIds\": [\n    {{profileCategoryId}}\n  ],\n  \"address\": \"Rua de Santa Catarina 200, Porto\",\n  \"serviceRadiusKm\": 15,\n  \"averageRating\": 5\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -2960,7 +2904,7 @@
           ]
         },
         {
-          "name": "E17 — Definir o raio de atuação (200)",
+          "name": "E14 — Raio fora do intervalo (400)",
           "request": {
             "method": "PUT",
             "header": [
@@ -2970,76 +2914,19 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/profiles/me/service-radius",
+              "raw": "{{baseUrl}}/api/profiles/me",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
                 "profiles",
-                "me",
-                "service-radius"
+                "me"
               ]
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"serviceRadiusKm\": 25\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{profileToken}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "description": "RF-F015-01. O novo raio substitui o anterior."
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
-                  "pm.test(\"Raio de 25 km\", () => pm.expect(pm.response.json().serviceRadiusKm).to.eql(25));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "E17 — Raio fora do intervalo (400)",
-          "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/profiles/me/service-radius",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "profiles",
-                "me",
-                "service-radius"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"serviceRadiusKm\": 150\n}",
+              "raw": "{\n  \"introduction\": \"Canalizador com equipa própria no Porto e Matosinhos.\",\n  \"contactDetails\": \"Telefone 220 000 000\",\n  \"experience\": \"16 anos em reparação de fugas.\",\n  \"serviceCategoryIds\": [\n    {{profileCategoryId}}\n  ],\n  \"address\": \"Rua de Santa Catarina 200, Porto\",\n  \"serviceRadiusKm\": 150\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -3066,6 +2953,61 @@
                 "exec": [
                   "pm.test(\"Devolve 400\", () => pm.response.to.have.status(400));",
                   "pm.test(\"Erro no raio\", () => pm.expect(pm.response.json().errors).to.have.property(\"serviceRadiusKm\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E16 — Prestador define a morada no perfil, não aqui (403)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/me/location",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "me",
+                "location"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"address\": \"Avenida dos Aliados, Porto\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{profileToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F015-01, regra 3: a morada do Prestador é definida em E12 e E14."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 403\", () => pm.response.to.have.status(403));"
                 ]
               }
             }
@@ -3160,12 +3102,12 @@
       "description": "Endpoint E18 (API v03, secção 8). Usa o perfil e a categoria criados na F004 e a sessão do Cliente da F001, com a localização definida na F015, por isso deve ser executada depois dessas pastas. O pedido com morada precisa de acesso à Internet (Nominatim).",
       "item": [
         {
-          "name": "E18 — Pesquisar sem sessão, com coordenadas (200)",
+          "name": "E18 — Pesquisar sem sessão, com morada (200)",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/search/providers?serviceCategoryId={{profileCategoryId}}&latitude=41.1496&longitude=-8.6109",
+              "raw": "{{baseUrl}}/api/search/providers?serviceCategoryId={{profileCategoryId}}&address=Avenida dos Aliados, Porto",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -3180,19 +3122,15 @@
                   "value": "{{profileCategoryId}}"
                 },
                 {
-                  "key": "latitude",
-                  "value": "41.1496"
-                },
-                {
-                  "key": "longitude",
-                  "value": "-8.6109"
+                  "key": "address",
+                  "value": "Avenida dos Aliados, Porto"
                 }
               ]
             },
             "auth": {
               "type": "noauth"
             },
-            "description": "RF-F005-01, RF-F005-02. Pesquisa pública na categoria do perfil da F004, a partir das coordenadas da Avenida dos Aliados (Porto). Os resultados vêm ordenados por distância crescente, com a distância em km com uma casa decimal e o indicador dentro / fora do raio."
+            "description": "RF-F005-01, RF-F005-02. Pesquisa pública na categoria do perfil da F004, a partir da morada da Avenida dos Aliados (Porto), convertida em coordenadas pelo Nominatim (precisa de acesso à Internet). Os resultados vêm ordenados por distância crescente, com a distância em km com uma casa decimal e o indicador dentro / fora do raio."
           },
           "event": [
             {
@@ -3213,6 +3151,7 @@
                   "    pm.expect(profile.name).to.eql(\"Canalizações Silva\");",
                   "    pm.expect(profile.serviceCategories.map(c => c.serviceCategoryId)).to.include(Number(pm.collectionVariables.get(\"profileCategoryId\")));",
                   "    pm.expect(profile.averageRating).to.eql(null);",
+                  "    pm.expect(profile.reviewCount).to.eql(0);",
                   "    pm.expect(profile.distanceKm).to.be.below(5);",
                   "    pm.expect(profile.serviceRadiusKm).to.eql(25);",
                   "    pm.expect(profile.withinServiceRadius).to.eql(true);",
@@ -3308,7 +3247,7 @@
                 }
               ]
             },
-            "description": "RF-F005-02, regra 1: sem coordenadas nem morada, usa a localização registada do Cliente da F001 (definida por coordenadas na F015, a cerca de 40 km do Porto). RF-F005-01, regra 7: o Prestador fora do raio de 25 km continua a ser apresentado."
+            "description": "RF-F005-02, regra 1: sem morada, usa a localização registada do Cliente da F001 (definida na F015, em Braga, a cerca de 47 km do Porto). RF-F005-01, regra 7: o Prestador fora do raio de 25 km continua a ser apresentado."
           },
           "event": [
             {
@@ -3335,7 +3274,7 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/search/providers?serviceCategoryId={{profileCategoryId}}&latitude=41.1496&longitude=-8.6109&name=SILVA",
+              "raw": "{{baseUrl}}/api/search/providers?serviceCategoryId={{profileCategoryId}}&address=Avenida dos Aliados, Porto&name=SILVA",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -3350,12 +3289,8 @@
                   "value": "{{profileCategoryId}}"
                 },
                 {
-                  "key": "latitude",
-                  "value": "41.1496"
-                },
-                {
-                  "key": "longitude",
-                  "value": "-8.6109"
+                  "key": "address",
+                  "value": "Avenida dos Aliados, Porto"
                 },
                 {
                   "key": "name",
@@ -3411,7 +3346,7 @@
             "auth": {
               "type": "noauth"
             },
-            "description": "RF-F005-01, regra 5: um Visitante sem morada nem coordenadas não pode pesquisar."
+            "description": "RF-F005-01, regra 5: um Visitante sem morada não pode pesquisar."
           },
           "event": [
             {
@@ -3438,7 +3373,7 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/search/providers?serviceCategoryId=2147483647&latitude=41.1496&longitude=-8.6109",
+              "raw": "{{baseUrl}}/api/search/providers?serviceCategoryId=2147483647&address=Avenida dos Aliados, Porto",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -3453,12 +3388,8 @@
                   "value": "2147483647"
                 },
                 {
-                  "key": "latitude",
-                  "value": "41.1496"
-                },
-                {
-                  "key": "longitude",
-                  "value": "-8.6109"
+                  "key": "address",
+                  "value": "Avenida dos Aliados, Porto"
                 }
               ]
             },
@@ -3487,12 +3418,12 @@
           ]
         },
         {
-          "name": "E18 — Coordenadas fora do intervalo (400)",
+          "name": "E18 — Só coordenadas, sem morada (400)",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/search/providers?serviceCategoryId={{profileCategoryId}}&latitude=95&longitude=10",
+              "raw": "{{baseUrl}}/api/search/providers?serviceCategoryId={{profileCategoryId}}&latitude=41.1496&longitude=-8.6109",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -3508,18 +3439,18 @@
                 },
                 {
                   "key": "latitude",
-                  "value": "95"
+                  "value": "41.1496"
                 },
                 {
                   "key": "longitude",
-                  "value": "10"
+                  "value": "-8.6109"
                 }
               ]
             },
             "auth": {
               "type": "noauth"
             },
-            "description": "RF-F015-04: a latitude tem de estar entre -90 e 90 e a longitude entre -180 e 180."
+            "description": "Regra R3: a localização de referência é recebida como morada (na aplicação mobile, preenchida com E35); as coordenadas não são usadas, por isso um Visitante sem morada não pode pesquisar."
           },
           "event": [
             {
@@ -3528,11 +3459,11 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test(\"Devolve 400\", () => pm.response.to.have.status(400));",
-                  "pm.test(\"Erro em Problem Details no campo latitude\", () => {",
+                  "pm.test(\"Erro em Problem Details no campo address\", () => {",
                   "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
                   "    const body = pm.response.json();",
                   "    pm.expect(body.type).to.eql(\"https://tools.ietf.org/html/rfc9110#section-15.5.1\");",
-                  "    pm.expect(body.errors).to.have.property(\"latitude\");",
+                  "    pm.expect(body.errors).to.have.property(\"address\");",
                   "    pm.expect(body.instance).to.eql(\"/\" + pm.request.url.path.join(\"/\"));",
                   "});"
                 ]
@@ -3546,13 +3477,13 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/users/me",
+              "raw": "{{baseUrl}}/api/auth/me",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
-                "users",
+                "auth",
                 "me"
               ]
             },
@@ -3577,8 +3508,7 @@
                   "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
                   "pm.test(\"Localização da F015\", () => {",
                   "    const body = pm.response.json();",
-                  "    pm.expect(body.latitude).to.eql(41.366);",
-                  "    pm.expect(body.longitude).to.eql(-8.194);",
+                  "    pm.expect(body.address).to.eql(\"Avenida da Liberdade, Braga\");",
                   "});"
                 ]
               }
@@ -3613,7 +3543,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"proposalModel\": \"DIRECT_REQUEST\",\n  \"serviceCategoryId\": {{profileCategoryId}},\n  \"description\": \"Torneira da casa de banho com fuga de água.\",\n  \"requestedStartDate\": \"{{serviceStartDate}}\",\n  \"requestedEndDate\": \"{{serviceEndDate}}\",\n  \"professionalProfileIds\": [\n    {{profileId}}\n  ]\n}",
+              "raw": "{\n  \"proposalModel\": \"DIRECT_REQUEST\",\n  \"serviceCategoryId\": {{profileCategoryId}},\n  \"title\": \"Reparar fuga na torneira\",\n  \"description\": \"Torneira da casa de banho com fuga de água.\",\n  \"requestedStartDate\": \"{{serviceStartDate}}\",\n  \"requestedEndDate\": \"{{serviceEndDate}}\",\n  \"location\": \"Avenida da Liberdade, Braga\",\n  \"professionalProfileIds\": [\n    {{profileId}}\n  ]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -3630,7 +3560,7 @@
                 }
               ]
             },
-            "description": "RF-F009-01. Sem location, é usada a localização registada do Cliente (E16, pasta F015). Cria o serviço OPEN e uma solicitação direta PENDING para o perfil da F004."
+            "description": "RF-F009-01. O local de realização é a localização registada do Cliente (E16, pasta F015), por isso são usadas as coordenadas registadas, sem chamar o Nominatim (regra R15). Cria o serviço OPEN e uma solicitação direta PENDING para o perfil da F004."
           },
           "event": [
             {
@@ -3656,9 +3586,11 @@
                   "    pm.expect(body.proposalModel).to.eql(\"DIRECT_REQUEST\");",
                   "    pm.expect(body.status).to.eql(\"OPEN\");",
                   "    pm.expect(body.requestedStartDate).to.eql(pm.collectionVariables.get(\"serviceStartDate\"));",
-                  "    pm.expect(body.directRequests.map(r => r.professionalProfileId)).to.eql([Number(pm.collectionVariables.get(\"profileId\"))]);",
+                  "    pm.expect(body.directRequests.map(r => r.professionalProfile.professionalProfileId)).to.eql([Number(pm.collectionVariables.get(\"profileId\"))]);",
                   "    pm.expect(body.directRequests[0].status).to.eql(\"PENDING\");",
                   "    pm.expect(body.directRequests[0].responseDate).to.eql(null);",
+                  "    pm.expect(body.directRequests[0].proposal).to.eql(null);",
+                  "    pm.expect(body.proposals).to.eql([]);",
                   "});",
                   "pm.test(\"Cabeçalho Location\", () => pm.expect(pm.response.headers.get(\"Location\")).to.eql(`/api/services/${body.serviceId}`));",
                   "pm.collectionVariables.set(\"serviceId\", body.serviceId);"
@@ -3689,7 +3621,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"proposalModel\": \"DIRECT_REQUEST\",\n  \"serviceCategoryId\": {{profileCategoryId}},\n  \"description\": \"Torneira da casa de banho com fuga de água.\",\n  \"requestedStartDate\": \"{{serviceStartDate}}\",\n  \"requestedEndDate\": \"{{serviceEndDate}}\",\n  \"professionalProfileIds\": [\n    {{profileId}},\n    {{profileId}}\n  ]\n}",
+              "raw": "{\n  \"proposalModel\": \"DIRECT_REQUEST\",\n  \"serviceCategoryId\": {{profileCategoryId}},\n  \"title\": \"Reparar fuga na torneira\",\n  \"description\": \"Torneira da casa de banho com fuga de água.\",\n  \"requestedStartDate\": \"{{serviceStartDate}}\",\n  \"requestedEndDate\": \"{{serviceEndDate}}\",\n  \"location\": \"Avenida da Liberdade, Braga\",\n  \"professionalProfileIds\": [\n    {{profileId}},\n    {{profileId}}\n  ]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -3743,7 +3675,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"proposalModel\": \"PUBLIC\",\n  \"serviceCategoryId\": {{profileCategoryId}},\n  \"description\": \"Substituir a torneira da cozinha que pinga.\",\n  \"requestedStartDate\": \"{{serviceStartDate}}\",\n  \"location\": \"Rua de Costa Cabral 500, Porto\"\n}",
+              "raw": "{\n  \"proposalModel\": \"PUBLIC\",\n  \"serviceCategoryId\": {{profileCategoryId}},\n  \"title\": \"Substituir torneira\",\n  \"description\": \"Substituir a torneira da cozinha que pinga.\",\n  \"requestedStartDate\": \"{{serviceStartDate}}\",\n  \"location\": \"Rua de Costa Cabral 500, Porto\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -3776,6 +3708,7 @@
                   "    pm.expect(body.location).to.eql(\"Rua de Costa Cabral 500, Porto\");",
                   "    pm.expect(body.requestedEndDate).to.eql(null);",
                   "    pm.expect(body.directRequests).to.eql([]);",
+                  "    pm.expect(body.proposals).to.eql([]);",
                   "});"
                 ]
               }
@@ -3804,7 +3737,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"proposalModel\": \"PUBLIC\",\n  \"serviceCategoryId\": {{profileCategoryId}},\n  \"description\": \"Pintar a sala.\",\n  \"requestedStartDate\": \"{{serviceStartDate}}\",\n  \"professionalProfileIds\": [\n    {{profileId}}\n  ]\n}",
+              "raw": "{\n  \"proposalModel\": \"PUBLIC\",\n  \"serviceCategoryId\": {{profileCategoryId}},\n  \"title\": \"Pintar a sala\",\n  \"description\": \"Pintar a sala.\",\n  \"requestedStartDate\": \"{{serviceStartDate}}\",\n  \"location\": \"Avenida da Liberdade, Braga\",\n  \"professionalProfileIds\": [\n    {{profileId}}\n  ]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -3837,7 +3770,7 @@
           ]
         },
         {
-          "name": "E20 — Campos em falta e data no passado (400)",
+          "name": "E20 — Campos em falta (400)",
           "request": {
             "method": "POST",
             "header": [
@@ -3858,7 +3791,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"proposalModel\": \"PUBLIC\",\n  \"description\": \"\",\n  \"requestedStartDate\": \"2020-01-01\"\n}",
+              "raw": "{\n  \"proposalModel\": \"PUBLIC\",\n  \"title\": \"Pedido de serviço\",\n  \"description\": \"\",\n  \"requestedStartDate\": \"{{serviceStartDate}}\",\n  \"location\": \"Avenida da Liberdade, Braga\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -3875,7 +3808,7 @@
                 }
               ]
             },
-            "description": "RF-F010-01, regras 2 a 5: os erros de todos os campos são devolvidos na mesma resposta."
+            "description": "RF-F010-01, regra 2: a categoria e a descrição são obrigatórias; os erros dos campos em falta são devolvidos em errors."
           },
           "event": [
             {
@@ -3885,7 +3818,62 @@
                 "exec": [
                   "pm.test(\"Devolve 400\", () => pm.response.to.have.status(400));",
                   "const errors = pm.response.json().errors;",
-                  "pm.test(\"Erros por campo\", () => pm.expect(errors).to.have.all.keys(\"serviceCategoryId\", \"description\", \"requestedStartDate\"));"
+                  "pm.test(\"Erros nos campos em falta\", () => pm.expect(errors).to.have.all.keys(\"serviceCategoryId\", \"description\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E20 — Data no passado (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/services",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "services"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"proposalModel\": \"PUBLIC\",\n  \"serviceCategoryId\": {{profileCategoryId}},\n  \"title\": \"Pedido de serviço\",\n  \"description\": \"Pintar a sala.\",\n  \"requestedStartDate\": \"2020-01-01\",\n  \"location\": \"Avenida da Liberdade, Braga\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "RF-F010-01, regra 5: a data pretendida não pode ser anterior à data atual (em UTC, API v04, secção 4.3)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Devolve 400\", () => pm.response.to.have.status(400));",
+                  "const errors = pm.response.json().errors;",
+                  "pm.test(\"Erro só em requestedStartDate\", () => pm.expect(errors).to.have.all.keys(\"requestedStartDate\"));"
                 ]
               }
             }
@@ -3913,7 +3901,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"proposalModel\": \"PUBLIC\",\n  \"serviceCategoryId\": {{profileCategoryId}},\n  \"description\": \"Pintar a sala.\",\n  \"requestedStartDate\": \"{{serviceStartDate}}\"\n}",
+              "raw": "{\n  \"proposalModel\": \"PUBLIC\",\n  \"serviceCategoryId\": {{profileCategoryId}},\n  \"title\": \"Pintar a sala\",\n  \"description\": \"Pintar a sala.\",\n  \"requestedStartDate\": \"{{serviceStartDate}}\",\n  \"location\": \"Avenida da Liberdade, Braga\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -3966,7 +3954,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"proposalModel\": \"PUBLIC\",\n  \"serviceCategoryId\": {{profileCategoryId}},\n  \"description\": \"Pintar a sala.\",\n  \"requestedStartDate\": \"{{serviceStartDate}}\"\n}",
+              "raw": "{\n  \"proposalModel\": \"PUBLIC\",\n  \"serviceCategoryId\": {{profileCategoryId}},\n  \"title\": \"Pintar a sala\",\n  \"description\": \"Pintar a sala.\",\n  \"requestedStartDate\": \"{{serviceStartDate}}\",\n  \"location\": \"Avenida da Liberdade, Braga\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -4021,7 +4009,7 @@
                 }
               ]
             },
-            "description": "RF-F007-09. O Prestador vê as solicitações dirigidas ao seu perfil, da mais recente para a mais antiga, sem dados do Cliente."
+            "description": "RF-F007-09. O Prestador vê as solicitações dirigidas ao seu perfil, da mais recente para a mais antiga, com o resumo das listas: o proposalId e o serviço com o nome do Cliente, sem contactos."
           },
           "event": [
             {
@@ -4039,10 +4027,14 @@
                   "});",
                   "pm.test(\"A solicitação do serviço criado em E20 está pendente e sem proposta\", () => {",
                   "    pm.expect(mine.status).to.eql(\"PENDING\");",
-                  "    pm.expect(mine.responseDate).to.eql(null);",
-                  "    pm.expect(mine.proposal).to.eql(null);",
+                  "    pm.expect(mine.proposalId).to.eql(null);",
                   "});",
-                  "pm.test(\"Sem dados do Cliente\", () => pm.expect(pm.response.text()).to.not.include(\"clientId\"));",
+                  "pm.test(\"Só o resumo das listas, com o nome do Cliente\", () => {",
+                  "    pm.expect(mine).to.have.all.keys(\"directRequestId\", \"status\", \"proposalId\", \"service\");",
+                  "    pm.expect(mine.service).to.have.all.keys(\"serviceId\", \"title\", \"serviceCategory\", \"requestedStartDate\", \"requestedEndDate\", \"clientName\");",
+                  "    pm.expect(mine.service.clientName).to.be.a(\"string\");",
+                  "});",
+                  "pm.test(\"Sem contactos do Cliente\", () => pm.expect(pm.response.text()).to.not.include(\"clientId\"));",
                   "pm.collectionVariables.set(\"directRequestId\", mine.directRequestId);"
                 ]
               }
@@ -4097,7 +4089,7 @@
           ]
         },
         {
-          "name": "E23 — Solicitações dos serviços do Cliente (200)",
+          "name": "E23 — Pedido de um Cliente (403)",
           "request": {
             "method": "GET",
             "header": [],
@@ -4121,7 +4113,7 @@
                 }
               ]
             },
-            "description": "RF-F007-09: o Cliente vê as solicitações diretas dos serviços que criou, cada uma com o Prestador e a proposta associada."
+            "description": "RF-F007-09. Só o Prestador lista as solicitações diretas; o Cliente consulta-as em cada serviço (E22)."
           },
           "event": [
             {
@@ -4129,17 +4121,14 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
-                  "pm.test(\"Cada solicitação tem o Prestador\", () => {",
-                  "    pm.response.json().items.forEach(r => pm.expect(r.professionalProfile).to.have.property(\"professionalProfileId\"));",
-                  "});"
+                  "pm.test(\"Devolve 403\", () => pm.response.to.have.status(403));"
                 ]
               }
             }
           ]
         },
         {
-          "name": "E22 — Consultar o serviço como destinatário (200)",
+          "name": "E22 — Pedido de um Prestador (403)",
           "request": {
             "method": "GET",
             "header": [],
@@ -4164,7 +4153,7 @@
                 }
               ]
             },
-            "description": "RF-F007-09, RNF-06. O Prestador vê só a sua solicitação direta e a distância; sem clientId nem outros Prestadores."
+            "description": "API v04, E22: só o Cliente que criou o serviço o consulta. O Prestador consulta a solicitação direta (E36), a proposta (E37) ou o trabalho publicado (E38)."
           },
           "event": [
             {
@@ -4172,58 +4161,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
-                  "const body = pm.response.json();",
-                  "pm.test(\"Serviço aberto, com a distância e só a solicitação do Prestador\", () => {",
-                  "    pm.expect(body.serviceId).to.eql(Number(pm.collectionVariables.get(\"serviceId\")));",
-                  "    pm.expect(body.status).to.eql(\"OPEN\");",
-                  "    pm.expect(body.distanceKm).to.be.a(\"number\");",
-                  "    pm.expect(body.directRequests.length).to.eql(1);",
-                  "    pm.expect(body.directRequests[0].professionalProfileId).to.eql(Number(pm.collectionVariables.get(\"profileId\")));",
-                  "    pm.expect(body.myProposal).to.eql(null);",
-                  "    pm.expect(body.acceptedProposal).to.eql(null);",
-                  "});",
-                  "pm.test(\"Sem dados do Cliente\", () => pm.expect(body).to.not.have.property(\"clientId\"));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "E22 — Serviço inexistente (404)",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/services/2147483647",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "services",
-                "2147483647"
-              ]
-            },
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{profileToken}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "description": "API v03, secção 7: 404 para um serviço inexistente."
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test(\"Devolve 404\", () => pm.response.to.have.status(404));"
+                  "pm.test(\"Devolve 403\", () => pm.response.to.have.status(403));"
                 ]
               }
             }
@@ -4498,15 +4436,16 @@
                   "pm.test(\"Devolve 201\", () => pm.response.to.have.status(201));",
                   "const body = pm.response.json();",
                   "pm.test(\"Proposta pendente com os dados enviados\", () => {",
-                  "    pm.expect(body.serviceId).to.eql(Number(pm.collectionVariables.get(\"serviceId\")));",
-                  "    pm.expect(body.professionalProfileId).to.eql(Number(pm.collectionVariables.get(\"profileId\")));",
                   "    pm.expect(body.amount).to.eql(80);",
                   "    pm.expect(body.conditions).to.eql(\"Inclui deslocação e material.\");",
                   "    pm.expect(body.obs).to.eql(\"Disponível dia 9 às 18h30.\");",
                   "    pm.expect(body.status).to.eql(\"PENDING\");",
                   "    pm.expect(body.decisionDate).to.eql(null);",
                   "});",
-                  "pm.test(\"Cabeçalho Location\", () => pm.expect(pm.response.headers.get(\"Location\")).to.eql(`/api/services/${body.serviceId}/proposals/${body.proposalId}`));",
+                  "pm.test(\"Só os campos da proposta\", () => {",
+                  "    pm.expect(body).to.have.all.keys(\"proposalId\", \"amount\", \"conditions\", \"obs\", \"status\", \"creationDate\", \"decisionDate\");",
+                  "});",
+                  "pm.test(\"Cabeçalho Location\", () => pm.expect(pm.response.headers.get(\"Location\")).to.eql(`/api/proposals/${body.proposalId}`));",
                   "pm.collectionVariables.set(\"proposalId\", body.proposalId);"
                 ]
               }
@@ -4569,19 +4508,19 @@
           ]
         },
         {
-          "name": "E22 — O serviço depois da proposta (200)",
+          "name": "E36 — A solicitação depois da proposta (200)",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/services/{{serviceId}}",
+              "raw": "{{baseUrl}}/api/direct-requests/{{directRequestId}}",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
-                "services",
-                "{{serviceId}}"
+                "direct-requests",
+                "{{directRequestId}}"
               ]
             },
             "auth": {
@@ -4594,7 +4533,7 @@
                 }
               ]
             },
-            "description": "RF-F007-09. myProposal é a proposta do Prestador e a solicitação está PROPOSAL_SUBMITTED."
+            "description": "RF-F007-09. A solicitação está PROPOSAL_SUBMITTED, com responseDate e o proposalId da proposta do Prestador."
           },
           "event": [
             {
@@ -4604,11 +4543,10 @@
                 "exec": [
                   "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
                   "const body = pm.response.json();",
-                  "pm.test(\"A proposta e a solicitação respondida\", () => {",
-                  "    pm.expect(body.myProposal.proposalId).to.eql(Number(pm.collectionVariables.get(\"proposalId\")));",
-                  "    pm.expect(body.myProposal.status).to.eql(\"PENDING\");",
-                  "    pm.expect(body.directRequests[0].status).to.eql(\"PROPOSAL_SUBMITTED\");",
-                  "    pm.expect(body.directRequests[0].responseDate).to.be.a(\"string\");",
+                  "pm.test(\"A solicitação respondida, com a proposta\", () => {",
+                  "    pm.expect(body.status).to.eql(\"PROPOSAL_SUBMITTED\");",
+                  "    pm.expect(body.responseDate).to.be.a(\"string\");",
+                  "    pm.expect(body.proposalId).to.eql(Number(pm.collectionVariables.get(\"proposalId\")));",
                   "});"
                 ]
               }
@@ -4679,7 +4617,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"proposalModel\": \"DIRECT_REQUEST\",\n  \"serviceCategoryId\": {{profileCategoryId}},\n  \"description\": \"Substituir o sifão do lava-loiça.\",\n  \"requestedStartDate\": \"{{serviceStartDate}}\",\n  \"requestedEndDate\": \"{{serviceEndDate}}\",\n  \"professionalProfileIds\": [\n    {{profileId}}\n  ]\n}",
+              "raw": "{\n  \"proposalModel\": \"DIRECT_REQUEST\",\n  \"serviceCategoryId\": {{profileCategoryId}},\n  \"title\": \"Pedido de serviço\",\n  \"description\": \"Substituir o sifão do lava-loiça.\",\n  \"requestedStartDate\": \"{{serviceStartDate}}\",\n  \"requestedEndDate\": \"{{serviceEndDate}}\",\n  \"location\": \"Avenida da Liberdade, Braga\",\n  \"professionalProfileIds\": [\n    {{profileId}}\n  ]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -4718,7 +4656,6 @@
                 "exec": [
                   "pm.test(\"Devolve 201\", () => pm.response.to.have.status(201));",
                   "const body = pm.response.json();",
-                  "pm.collectionVariables.set(\"declineServiceId\", body.serviceId);",
                   "pm.collectionVariables.set(\"declineRequestId\", body.directRequests[0].directRequestId);"
                 ]
               }
@@ -4805,10 +4742,10 @@
                   "const body = pm.response.json();",
                   "pm.test(\"Solicitação recusada\", () => {",
                   "    pm.expect(body.directRequestId).to.eql(Number(pm.collectionVariables.get(\"declineRequestId\")));",
-                  "    pm.expect(body.serviceId).to.eql(Number(pm.collectionVariables.get(\"declineServiceId\")));",
                   "    pm.expect(body.status).to.eql(\"DECLINED\");",
                   "    pm.expect(body.responseDate).to.be.a(\"string\");",
-                  "});"
+                  "});",
+                  "pm.test(\"Só o que mudou na solicitação\", () => pm.expect(body).to.have.all.keys(\"directRequestId\", \"status\", \"responseDate\"));"
                 ]
               }
             }
@@ -4898,19 +4835,19 @@
           ]
         },
         {
-          "name": "E22 — O serviço continua aberto depois da recusa (200)",
+          "name": "E36 — A solicitação recusada e o serviço aberto (200)",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/services/{{declineServiceId}}",
+              "raw": "{{baseUrl}}/api/direct-requests/{{declineRequestId}}",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
-                "services",
-                "{{declineServiceId}}"
+                "direct-requests",
+                "{{declineRequestId}}"
               ]
             },
             "auth": {
@@ -4933,9 +4870,9 @@
                 "exec": [
                   "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
                   "const body = pm.response.json();",
-                  "pm.test(\"Serviço OPEN com a solicitação DECLINED\", () => {",
-                  "    pm.expect(body.status).to.eql(\"OPEN\");",
-                  "    pm.expect(body.directRequests[0].status).to.eql(\"DECLINED\");",
+                  "pm.test(\"Solicitação DECLINED com o serviço OPEN\", () => {",
+                  "    pm.expect(body.status).to.eql(\"DECLINED\");",
+                  "    pm.expect(body.service.status).to.eql(\"OPEN\");",
                   "});"
                 ]
               }
@@ -5014,7 +4951,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"proposalModel\": \"PUBLIC\",\n  \"serviceCategoryId\": {{profileCategoryId}},\n  \"description\": \"Substituir a torneira da cozinha que pinga.\",\n  \"requestedStartDate\": \"{{serviceStartDate}}\"\n}",
+              "raw": "{\n  \"proposalModel\": \"PUBLIC\",\n  \"serviceCategoryId\": {{profileCategoryId}},\n  \"title\": \"Substituir torneira\",\n  \"description\": \"Substituir a torneira da cozinha que pinga.\",\n  \"requestedStartDate\": \"{{serviceStartDate}}\",\n  \"location\": \"Avenida da Liberdade, Braga\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -5059,17 +4996,18 @@
           ]
         },
         {
-          "name": "E22 — Consultar o trabalho publicado sem ter proposta (200)",
+          "name": "E38 — Consultar o trabalho publicado sem ter proposta (200)",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/services/{{publicServiceId}}",
+              "raw": "{{baseUrl}}/api/search/services/{{publicServiceId}}",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
+                "search",
                 "services",
                 "{{publicServiceId}}"
               ]
@@ -5094,11 +5032,10 @@
                 "exec": [
                   "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
                   "const body = pm.response.json();",
-                  "pm.test(\"Trabalho publicado sem solicitações nem proposta\", () => {",
-                  "    pm.expect(body.proposalModel).to.eql(\"PUBLIC\");",
-                  "    pm.expect(body.directRequests).to.eql([]);",
-                  "    pm.expect(body.myProposal).to.eql(null);",
-                  "    pm.expect(body).to.not.have.property(\"clientId\");",
+                  "pm.test(\"Trabalho publicado sem proposta nem dados do Cliente\", () => {",
+                  "    pm.expect(body.serviceId).to.eql(Number(pm.collectionVariables.get(\"publicServiceId\")));",
+                  "    pm.expect(body.myProposalId).to.eql(null);",
+                  "    pm.expect(body).to.not.have.property(\"clientName\");",
                   "});"
                 ]
               }
@@ -5190,7 +5127,7 @@
                 }
               ]
             },
-            "description": "RF-F008-07. As propostas do Prestador, da mais recente para a mais antiga, com o resumo do serviço."
+            "description": "RF-F008-07. As propostas do Prestador, da mais recente para a mais antiga, com o resumo das listas: o valor, o estado e o serviço com o nome do Cliente, sem contactos."
           },
           "event": [
             {
@@ -5202,12 +5139,13 @@
                   "const body = pm.response.json();",
                   "pm.test(\"Duas propostas, a mais recente primeiro\", () => {",
                   "    pm.expect(body.total).to.eql(2);",
-                  "    pm.expect(body.items.map(p => p.serviceId)).to.eql([Number(pm.collectionVariables.get(\"publicServiceId\")), Number(pm.collectionVariables.get(\"serviceId\"))]);",
+                  "    pm.expect(body.items.map(p => p.service.serviceId)).to.eql([Number(pm.collectionVariables.get(\"publicServiceId\")), Number(pm.collectionVariables.get(\"serviceId\"))]);",
                   "});",
-                  "pm.test(\"Resumo do serviço\", () => {",
-                  "    pm.expect(body.items[0].service.proposalModel).to.eql(\"PUBLIC\");",
+                  "pm.test(\"Só o resumo das listas\", () => {",
+                  "    pm.expect(body.items[0]).to.have.all.keys(\"proposalId\", \"amount\", \"status\", \"service\");",
+                  "    pm.expect(body.items[0].service).to.have.all.keys(\"serviceId\", \"title\", \"serviceCategory\", \"requestedStartDate\", \"requestedEndDate\", \"status\", \"clientName\");",
                   "    pm.expect(body.items[0].service.status).to.eql(\"OPEN\");",
-                  "    pm.expect(body.items[1].service.proposalModel).to.eql(\"DIRECT_REQUEST\");",
+                  "    pm.expect(body.items[0].service.clientName).to.be.a(\"string\");",
                   "});"
                 ]
               }
@@ -5215,12 +5153,12 @@
           ]
         },
         {
-          "name": "E27 — Filtros por estado e modalidade (200)",
+          "name": "E27 — Filtro por estado e paginação (200)",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/proposals?status=PENDING&proposalModel=PUBLIC&page=1&pageSize=10",
+              "raw": "{{baseUrl}}/api/proposals?status=PENDING&page=2&pageSize=1",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -5234,16 +5172,12 @@
                   "value": "PENDING"
                 },
                 {
-                  "key": "proposalModel",
-                  "value": "PUBLIC"
-                },
-                {
                   "key": "page",
-                  "value": "1"
+                  "value": "2"
                 },
                 {
                   "key": "pageSize",
-                  "value": "10"
+                  "value": "1"
                 }
               ]
             },
@@ -5257,7 +5191,7 @@
                 }
               ]
             },
-            "description": "RF-F008-07, regra 5: filtro pelo estado da proposta e pela modalidade do serviço, com paginação."
+            "description": "RF-F008-07, regra 5: filtro pelo estado da proposta, com paginação."
           },
           "event": [
             {
@@ -5267,10 +5201,11 @@
                 "exec": [
                   "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
                   "const body = pm.response.json();",
-                  "pm.test(\"Só a proposta ao trabalho publicado\", () => {",
-                  "    pm.expect(body.pageSize).to.eql(10);",
-                  "    pm.expect(body.total).to.eql(1);",
-                  "    pm.expect(body.items[0].serviceId).to.eql(Number(pm.collectionVariables.get(\"publicServiceId\")));",
+                  "pm.test(\"Segunda página com a proposta pendente mais antiga\", () => {",
+                  "    pm.expect(body.pageSize).to.eql(1);",
+                  "    pm.expect(body.total).to.eql(2);",
+                  "    pm.expect(body.items).to.have.lengthOf(1);",
+                  "    pm.expect(body.items[0].service.serviceId).to.eql(Number(pm.collectionVariables.get(\"serviceId\")));",
                   "});"
                 ]
               }
@@ -5940,7 +5875,7 @@
     },
     {
       "name": "F007 e F008 — Decisões e consultas do Cliente",
-      "description": "Endpoints E21, E22, E23, E26, E28 e E29 na vista do Cliente (API v03, secção 8). Usa o Cliente (token), o Prestador com perfil (profileToken, profileId), o serviço da pasta F009 e F010 (serviceId) e a proposta e o trabalho publicado da pasta F007 e F011 (proposalId, publicServiceId); executar depois dessas pastas.",
+      "description": "Endpoints E21, E22, E28 e E29 na vista do Cliente (API v04; E26 retirado: as propostas são devolvidas em E22). Usa o Cliente (token), o Prestador com perfil (profileToken, profileId), o serviço da pasta F009 e F010 (serviceId) e a proposta e o trabalho publicado da pasta F007 e F011 (proposalId, publicServiceId); executar depois dessas pastas.",
       "item": [
         {
           "name": "E21 — Listar os meus serviços (200)",
@@ -5967,7 +5902,7 @@
                 }
               ]
             },
-            "description": "RF-F008-01. Os serviços criados pelo Cliente da F001, do mais recente para o mais antigo, com o número de propostas pendentes."
+            "description": "RF-F008-01. Os serviços criados pelo Cliente da F001, do mais recente para o mais antigo, com o resumo das listas: contadores das solicitações e das propostas, o Prestador atribuído e se foi avaliado."
           },
           "event": [
             {
@@ -5981,7 +5916,14 @@
                   "pm.test(\"Inclui o serviço da F009 com propostas pendentes\", () => {",
                   "    pm.expect(service).to.not.eql(undefined);",
                   "    pm.expect(service.pendingProposalsCount).to.be.at.least(1);",
-                  "    pm.expect(service).to.not.have.property(\"directRequests\");",
+                  "    pm.expect(service.directRequestsCount).to.be.at.least(1);",
+                  "    pm.expect(service.proposalsCount).to.be.at.least(1);",
+                  "    pm.expect(service.assignedProvider).to.eql(null);",
+                  "    pm.expect(service.reviewed).to.eql(false);",
+                  "});",
+                  "pm.test(\"Só o resumo das listas\", () => {",
+                  "    pm.expect(service).to.have.all.keys(\"serviceId\", \"title\", \"proposalModel\", \"serviceCategory\", \"status\", \"creationDate\",",
+                  "        \"directRequestsCount\", \"proposalsCount\", \"pendingProposalsCount\", \"assignedProvider\", \"reviewed\");",
                   "});",
                   "pm.test(\"Do mais recente para o mais antigo\", () => {",
                   "    const dates = body.items.map(s => s.creationDate);",
@@ -6074,31 +6016,37 @@
                 "exec": [
                   "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
                   "const body = pm.response.json();",
-                  "pm.test(\"Solicitações com o Prestador\", () => {",
+                  "pm.test(\"Solicitações com o Prestador e a proposta\", () => {",
                   "    pm.expect(body.directRequests).to.not.be.empty;",
-                  "    body.directRequests.forEach(r => pm.expect(r.professionalProfile).to.have.all.keys(\"professionalProfileId\", \"name\", \"averageRating\"));",
+                  "    body.directRequests.forEach(r => {",
+                  "        pm.expect(r.professionalProfile).to.have.all.keys(\"professionalProfileId\", \"name\", \"averageRating\", \"reviewCount\");",
+                  "        pm.expect(r).to.have.property(\"proposal\");",
+                  "    });",
                   "});",
-                  "pm.test(\"Ainda sem proposta aceite\", () => pm.expect(body.acceptedProposal).to.eql(null));"
+                  "pm.test(\"Sem propostas fora das solicitações diretas\", () => pm.expect(body.proposals).to.eql([]));",
+                  "pm.test(\"Nome do Cliente, sem clientId\", () => {",
+                  "    pm.expect(body.clientName).to.be.a(\"string\");",
+                  "    pm.expect(body).to.not.have.property(\"clientId\");",
+                  "});"
                 ]
               }
             }
           ]
         },
         {
-          "name": "E26 — Consultar as propostas do serviço (200)",
+          "name": "E22 — Proposta da solicitação direta (200)",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/services/{{serviceId}}/proposals",
+              "raw": "{{baseUrl}}/api/services/{{serviceId}}",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
                 "services",
-                "{{serviceId}}",
-                "proposals"
+                "{{serviceId}}"
               ]
             },
             "auth": {
@@ -6111,7 +6059,7 @@
                 }
               ]
             },
-            "description": "RF-F007-09, RF-F008-01. Todas as propostas do serviço, com o Prestador; a da F007 e F011 está PENDING."
+            "description": "RF-F007-09, RF-F008-01. Cada solicitação direta traz a proposta do Prestador; a da F007 e F011 está PENDING."
           },
           "event": [
             {
@@ -6120,10 +6068,10 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
-                  "const proposal = pm.response.json().find(p => p.proposalId === Number(pm.collectionVariables.get(\"proposalId\")));",
+                  "const request = pm.response.json().directRequests.find(r => r.proposal && r.proposal.proposalId === Number(pm.collectionVariables.get(\"proposalId\")));",
                   "pm.test(\"Proposta pendente com o Prestador\", () => {",
-                  "    pm.expect(proposal.status).to.eql(\"PENDING\");",
-                  "    pm.expect(proposal.professionalProfile.professionalProfileId).to.eql(Number(pm.collectionVariables.get(\"profileId\")));",
+                  "    pm.expect(request.proposal.status).to.eql(\"PENDING\");",
+                  "    pm.expect(request.professionalProfile.professionalProfileId).to.eql(Number(pm.collectionVariables.get(\"profileId\")));",
                   "});"
                 ]
               }
@@ -6131,61 +6079,19 @@
           ]
         },
         {
-          "name": "E26 — Pedido de um Prestador (403)",
+          "name": "E22 — Propostas do trabalho publicado (200, guarda publicProposalId)",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/services/{{serviceId}}/proposals",
+              "raw": "{{baseUrl}}/api/services/{{publicServiceId}}",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
                 "services",
-                "{{serviceId}}",
-                "proposals"
-              ]
-            },
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{profileToken}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "description": "RNF-06. Só o Cliente que criou o serviço consulta as propostas."
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test(\"Devolve 403\", () => pm.response.to.have.status(403));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "E26 — Propostas do trabalho publicado (200, guarda publicProposalId)",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/services/{{publicServiceId}}/proposals",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "services",
-                "{{publicServiceId}}",
-                "proposals"
+                "{{publicServiceId}}"
               ]
             },
             "auth": {
@@ -6207,7 +6113,7 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
-                  "const proposals = pm.response.json();",
+                  "const proposals = pm.response.json().proposals;",
                   "pm.test(\"Uma proposta pendente\", () => pm.expect(proposals.filter(p => p.status === \"PENDING\")).to.have.lengthOf(1));",
                   "pm.collectionVariables.set(\"publicProposalId\", proposals[0].proposalId);"
                 ]
@@ -6221,14 +6127,12 @@
             "method": "POST",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/services/{{publicServiceId}}/proposals/{{publicProposalId}}/decline",
+              "raw": "{{baseUrl}}/api/proposals/{{publicProposalId}}/decline",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
-                "services",
-                "{{publicServiceId}}",
                 "proposals",
                 "{{publicProposalId}}",
                 "decline"
@@ -6255,6 +6159,7 @@
                   "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
                   "pm.test(\"Proposta recusada\", () => {",
                   "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.all.keys(\"proposalId\", \"status\", \"decisionDate\");",
                   "    pm.expect(body.status).to.eql(\"DECLINED\");",
                   "    pm.expect(body.decisionDate).to.not.eql(null);",
                   "});"
@@ -6269,14 +6174,12 @@
             "method": "POST",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/services/{{publicServiceId}}/proposals/{{publicProposalId}}/decline",
+              "raw": "{{baseUrl}}/api/proposals/{{publicProposalId}}/decline",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
-                "services",
-                "{{publicServiceId}}",
                 "proposals",
                 "{{publicProposalId}}",
                 "decline"
@@ -6313,14 +6216,12 @@
             "method": "POST",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/services/{{serviceId}}/proposals/{{proposalId}}/accept",
+              "raw": "{{baseUrl}}/api/proposals/{{proposalId}}/accept",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
-                "services",
-                "{{serviceId}}",
                 "proposals",
                 "{{proposalId}}",
                 "accept"
@@ -6351,19 +6252,17 @@
           ]
         },
         {
-          "name": "E28 — Aceitar a proposta (200, ASSIGNED)",
+          "name": "E28 — Aceitar a proposta (200, ACCEPTED)",
           "request": {
             "method": "POST",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/services/{{serviceId}}/proposals/{{proposalId}}/accept",
+              "raw": "{{baseUrl}}/api/proposals/{{proposalId}}/accept",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
-                "services",
-                "{{serviceId}}",
                 "proposals",
                 "{{proposalId}}",
                 "accept"
@@ -6389,13 +6288,11 @@
                 "exec": [
                   "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
                   "const body = pm.response.json();",
-                  "pm.test(\"Serviço atribuído com a proposta aceite\", () => {",
-                  "    pm.expect(body.status).to.eql(\"ASSIGNED\");",
-                  "    pm.expect(body.acceptedProposal.proposalId).to.eql(Number(pm.collectionVariables.get(\"proposalId\")));",
-                  "    pm.expect(body.acceptedProposal.status).to.eql(\"ACCEPTED\");",
-                  "});",
-                  "pm.test(\"Nenhuma solicitação direta fica pendente\", () => {",
-                  "    body.directRequests.forEach(r => pm.expect(r.status).to.not.eql(\"PENDING\"));",
+                  "pm.test(\"Só o que mudou na proposta\", () => {",
+                  "    pm.expect(body).to.have.all.keys(\"proposalId\", \"status\", \"decisionDate\");",
+                  "    pm.expect(body.proposalId).to.eql(Number(pm.collectionVariables.get(\"proposalId\")));",
+                  "    pm.expect(body.status).to.eql(\"ACCEPTED\");",
+                  "    pm.expect(body.decisionDate).to.not.eql(null);",
                   "});"
                 ]
               }
@@ -6408,14 +6305,12 @@
             "method": "POST",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/services/{{serviceId}}/proposals/{{proposalId}}/accept",
+              "raw": "{{baseUrl}}/api/proposals/{{proposalId}}/accept",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
-                "services",
-                "{{serviceId}}",
                 "proposals",
                 "{{proposalId}}",
                 "accept"
@@ -6447,7 +6342,7 @@
           ]
         },
         {
-          "name": "E21 — O Prestador vê o serviço atribuído (200)",
+          "name": "E21 — O serviço atribuído, com o Prestador (200)",
           "request": {
             "method": "GET",
             "header": [],
@@ -6466,12 +6361,12 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{profileToken}}",
+                  "value": "{{token}}",
                   "type": "string"
                 }
               ]
             },
-            "description": "RF-F008-01. O Prestador só vê os serviços em que a sua proposta foi aceite, com pendingProposalsCount 0."
+            "description": "RF-F008-01. Depois de aceitar a proposta, o serviço está ASSIGNED, sem propostas pendentes, com o Prestador da proposta aceite em assignedProvider."
           },
           "event": [
             {
@@ -6481,9 +6376,10 @@
                 "exec": [
                   "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
                   "const service = pm.response.json().items.find(s => s.serviceId === Number(pm.collectionVariables.get(\"serviceId\")));",
-                  "pm.test(\"Serviço atribuído\", () => {",
+                  "pm.test(\"Serviço atribuído ao Prestador da proposta aceite\", () => {",
                   "    pm.expect(service.status).to.eql(\"ASSIGNED\");",
                   "    pm.expect(service.pendingProposalsCount).to.eql(0);",
+                  "    pm.expect(service.assignedProvider.professionalProfileId).to.eql(Number(pm.collectionVariables.get(\"profileId\")));",
                   "});"
                 ]
               }
@@ -6496,14 +6392,12 @@
             "method": "POST",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/services/{{serviceId}}/proposals/{{proposalId}}/accept",
+              "raw": "{{baseUrl}}/api/proposals/{{proposalId}}/accept",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
-                "services",
-                "{{serviceId}}",
                 "proposals",
                 "{{proposalId}}",
                 "accept"
@@ -6610,9 +6504,10 @@
                 "exec": [
                   "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
                   "const body = pm.response.json();",
-                  "pm.test(\"Trabalho cancelado sem proposta aceite\", () => {",
+                  "pm.test(\"Só o serviço e o novo estado\", () => {",
+                  "    pm.expect(body).to.have.all.keys(\"serviceId\", \"status\");",
+                  "    pm.expect(body.serviceId).to.eql(Number(pm.collectionVariables.get(\"publicServiceId\")));",
                   "    pm.expect(body.status).to.eql(\"CANCELLED\");",
-                  "    pm.expect(body.acceptedProposal).to.eql(null);",
                   "});"
                 ]
               }
@@ -6740,10 +6635,9 @@
                   "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
                   "const body = pm.response.json();",
                   "pm.test(\"Serviço realizado com a data de realização\", () => {",
+                  "    pm.expect(body).to.have.all.keys(\"serviceId\", \"status\", \"actualCompletionDate\");",
                   "    pm.expect(body.status).to.eql(\"COMPLETED\");",
                   "    pm.expect(body.actualCompletionDate).to.not.eql(null);",
-                  "    pm.expect(body.acceptedProposal.status).to.eql(\"ACCEPTED\");",
-                  "    pm.expect(body.reviewed).to.eql(false);",
                   "});"
                 ]
               }
@@ -8563,10 +8457,6 @@
     },
     {
       "key": "proposalId",
-      "value": ""
-    },
-    {
-      "key": "declineServiceId",
       "value": ""
     },
     {

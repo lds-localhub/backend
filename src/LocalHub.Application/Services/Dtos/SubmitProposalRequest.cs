@@ -6,7 +6,6 @@ using LocalHub.Domain.Services;
 
 namespace LocalHub.Application.Services.Dtos;
 
-// Body of E25. Fields that are not listed here are rejected with 400.
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public record SubmitProposalRequest(
     [Required(ErrorMessage = "Indique o valor da proposta.")]

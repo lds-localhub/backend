@@ -8,7 +8,6 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace LocalHub.Api.Controllers;
 
-// F015: the address of the position of the device, used by the mobile application (E35).
 [ApiController]
 [Route("api/geocoding")]
 public class GeocodingController : ControllerBase
@@ -20,8 +19,6 @@ public class GeocodingController : ControllerBase
         _locationService = locationService;
     }
 
-    // E35: public (RF-F001-03, rule 3). The coordinates are validated by [ApiController] before the method is called
-    // (RF-F015-04, rule R17).
     [HttpGet("reverse")]
     [AllowAnonymous]
     public async Task<ActionResult<AddressResponse>> Reverse(

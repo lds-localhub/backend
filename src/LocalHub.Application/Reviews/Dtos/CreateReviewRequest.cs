@@ -5,8 +5,6 @@ using LocalHub.Domain.Services;
 
 namespace LocalHub.Application.Reviews.Dtos;
 
-// Body of E32. Fields that are not listed here are rejected with 400. A rating with decimal places (3.5) is not a
-// whole number, so the JSON reader rejects it with 400.
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public record CreateReviewRequest(
     [Required(ErrorMessage = "Indique a classificação.")]

@@ -28,15 +28,12 @@ public class LocationService
         _currentUser = currentUser;
     }
 
-    // E35: the address of the position of the device, used by the mobile application to fill the address field.
-    // Nothing is saved: the address is only used when the user confirms it and submits the form (RF-F015-06, rule R3).
-    // The ranges of the coordinates were validated by the controller (RF-F015-04, rule R17).
     public async Task<AddressResponse> ReverseGeocodeAsync(
         decimal latitude, decimal longitude, CancellationToken cancellationToken)
     {
         string? address = await _geocodingService.ReverseGeocodeAsync(
             Coordinates.Rounded(latitude, longitude), cancellationToken);
-        if (address is null)
+        if (address == null)
         {
             throw new ValidationException(AddressNotFoundMessage);
         }
@@ -44,14 +41,13 @@ public class LocationService
         return new AddressResponse(address);
     }
 
-    // E16. The location is resolved before the user is loaded, so when the address is not found or the geocoding
-    // service is unavailable the saved location stays as it was.
+    // Geocode before changing anything, so a failure keeps the previous location.
     public async Task<UserResponse> SetMineAsync(SetLocationRequest request, CancellationToken cancellationToken)
     {
-        var location = await _resolver.ResolveAsync(request, cancellationToken);
+        var location = await _resolver.ResolveAddressAsync(request.Address!, "address", cancellationToken);
 
         var user = await _db.Users.SingleOrDefaultAsync(u => u.UserId == _currentUser.UserId, cancellationToken);
-        if (user is null)
+        if (user == null)
         {
             throw new NotFoundException("Utilizador não encontrado.");
         }

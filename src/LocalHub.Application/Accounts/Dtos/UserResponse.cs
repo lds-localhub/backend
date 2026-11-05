@@ -7,13 +7,9 @@ public record UserResponse(
     string Name,
     string Email,
     UserRole Role,
-    ActivationStatus Status,
     string? Address,
-    decimal? Latitude,
-    decimal? Longitude,
     int? ProfessionalProfileId)
 {
-    // professionalProfileId: null for clients, administrators and providers without a profile (API documentation, E04).
     public static UserResponse From(User user, int? professionalProfileId)
     {
         return new UserResponse(
@@ -21,10 +17,7 @@ public record UserResponse(
             user.Name,
             user.Email,
             user.Role,
-            user.Status,
             user.Address,
-            user.Latitude,
-            user.Longitude,
             professionalProfileId);
     }
 }

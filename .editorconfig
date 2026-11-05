@@ -74,7 +74,7 @@ dotnet_style_prefer_conditional_expression_over_return = true:suggestion
 dotnet_style_prefer_foreach_explicit_cast_in_source = when_strongly_typed:suggestion
 dotnet_style_prefer_inferred_anonymous_type_member_names = true:suggestion
 dotnet_style_prefer_inferred_tuple_names = true:suggestion
-dotnet_style_prefer_is_null_check_over_reference_equality_method = true:suggestion
+dotnet_style_prefer_is_null_check_over_reference_equality_method = false
 dotnet_style_prefer_simplified_boolean_expressions = true:suggestion
 dotnet_style_prefer_simplified_interpolation = true:suggestion
 
@@ -109,7 +109,7 @@ csharp_style_expression_bodied_properties = true:silent
 csharp_style_pattern_matching_over_as_with_null_check = true:suggestion
 csharp_style_pattern_matching_over_is_with_cast_check = true:suggestion
 csharp_style_prefer_extended_property_pattern = true:suggestion
-csharp_style_prefer_not_pattern = true:suggestion
+csharp_style_prefer_not_pattern = false
 csharp_style_prefer_pattern_matching = true:silent
 csharp_style_prefer_switch_expression = true:suggestion
 
@@ -138,7 +138,7 @@ csharp_style_implicit_object_creation_when_type_is_apparent = true:suggestion
 csharp_style_inlined_variable_declaration = true:suggestion
 csharp_style_prefer_index_operator = true:suggestion
 csharp_style_prefer_local_over_anonymous_function = true:suggestion
-csharp_style_prefer_null_check_over_type_check = true:suggestion
+csharp_style_prefer_null_check_over_type_check = false
 csharp_style_prefer_range_operator = true:suggestion
 csharp_style_prefer_tuple_swap = true:suggestion
 csharp_style_prefer_utf8_string_literals = true:suggestion
@@ -387,7 +387,7 @@ dotnet_naming_style.s_camelcase.required_suffix =
 dotnet_naming_style.s_camelcase.word_separator =
 dotnet_naming_style.s_camelcase.capitalization = camel_case
 
-#### Documented analyzer exclusions (RI v02, section 10.4) ####
+#### Documented analyzer exclusions (RI v03, section 10.4) ####
 # CA1707 (remove underscores from member names), only for files under tests/.
 # Justification: the group names test methods Method_Scenario/Expected, the common
 # .NET convention for tests. Production code under src/ keeps the rule enabled.
@@ -398,6 +398,13 @@ dotnet_diagnostic.CA1707.severity = none
 # Justification: it logs once per unexpected 500 error, so the performance gain
 # of LoggerMessage is irrelevant and a plain LogError call is easier to maintain.
 [src/LocalHub.Api/Middleware/ErrorHandlingMiddleware.cs]
+dotnet_diagnostic.CA1848.severity = none
+
+# CA1848 (use LoggerMessage delegates), only for NominatimGeocodingService.cs.
+# Justification: it only logs warnings when a request to the geocoding service fails,
+# so the performance gain of LoggerMessage is irrelevant and plain LogWarning calls
+# are easier to read and maintain.
+[src/LocalHub.Infrastructure/Geocoding/NominatimGeocodingService.cs]
 dotnet_diagnostic.CA1848.severity = none
 
 [src/LocalHub.Infrastructure/Migrations/*.cs]
