@@ -113,6 +113,7 @@ public class ServiceDecisionTests
         var exception = Assert.Throws<DomainException>(() => service.AcceptProposal(101, ClientId, Decision));
 
         Assert.Equal(DomainErrorKind.Conflict, exception.Kind);
+        Assert.Equal(Proposal.InactiveProviderErrorType, exception.ErrorType);
         Assert.Equal(ServiceStatus.Open, service.Status);
         Assert.Equal(ProposalStatus.Pending, proposal.Status);
     }

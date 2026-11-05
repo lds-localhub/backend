@@ -205,7 +205,8 @@ public class Service
         if (proposal.ProfessionalProfile.ServiceProvider.Status != ActivationStatus.Active)
         {
             throw new DomainException(DomainErrorKind.Conflict,
-                "Não é possível aceitar a proposta de um Prestador com a conta desativada.");
+                "Não é possível aceitar a proposta de um Prestador com a conta desativada.",
+                errorType: Proposal.InactiveProviderErrorType);
         }
 
         ChangeStatus(ServiceStatus.Assigned, Client, now);

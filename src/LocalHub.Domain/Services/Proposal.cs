@@ -16,6 +16,10 @@ public class Proposal
     public const double AmountMin = 0.01;
     public const double AmountMax = 100000.00;
 
+    // Error type of the API (section 4.6) for the acceptance of a proposal of a provider with a deactivated account
+    // (E28; RF-F002-02, rule 7).
+    public const string InactiveProviderErrorType = "prestador-inativo";
+
     public int ProposalId { get; private set; }
     public int ServiceId { get; private set; }
     public int ProfessionalProfileId { get; private set; }

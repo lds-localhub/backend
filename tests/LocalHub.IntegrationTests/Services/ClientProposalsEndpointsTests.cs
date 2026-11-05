@@ -24,8 +24,8 @@ public class ClientProposalsEndpointsTests(LocalHubApiFactory factory)
     private const string BadRequestType = "https://tools.ietf.org/html/rfc9110#section-15.5.1";
     private const string ForbiddenType = "https://tools.ietf.org/html/rfc9110#section-15.5.4";
     private const string NotFoundType = "https://tools.ietf.org/html/rfc9110#section-15.5.5";
-    private const string ConflictType = "https://tools.ietf.org/html/rfc9110#section-15.5.10";
     private const string InvalidTransitionType = "https://localhub.local/erros/transicao-invalida";
+    private const string InactiveProviderType = "https://localhub.local/erros/prestador-inativo";
 
     private readonly HttpClient _client = factory.CreateClient();
 
@@ -141,7 +141,7 @@ public class ClientProposalsEndpointsTests(LocalHubApiFactory factory)
     [Fact]
     [Trait("Requisito", "RF-F002-02")]
     [Trait("Requisito", "RF-F007-03")]
-    public async Task AcceptProposal_PrestadorComContaDesativada_Devolve409EServicoFicaAberto()
+    public async Task AcceptProposal_PrestadorComContaDesativada_Devolve409PrestadorInativoEServicoFicaAberto()
     {
         var scenario = await CreatePublicScenarioAsync(proposals: 1);
         await DeactivateAsync(scenario.Providers[0].UserId);
@@ -150,7 +150,7 @@ public class ClientProposalsEndpointsTests(LocalHubApiFactory factory)
         using var response = await PostAsync(scenario.Client.Token, url);
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
-        await AssertProblemAsync(response, ConflictType, url);
+        await AssertProblemAsync(response, InactiveProviderType, url);
         var service = await GetServiceAsync(scenario.Client.Token, scenario.ServiceId);
         Assert.Equal("OPEN", service.GetProperty("status").GetString());
         Assert.Equal("PENDING", Assert.Single(service.GetProperty("proposals").EnumerateArray()).GetProperty("status").GetString());
