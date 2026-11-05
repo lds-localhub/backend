@@ -129,54 +129,29 @@ No ambiente Development, o documento OpenAPI está disponível em
 
 ## Collection Postman
 
-Collection v1 (I060), no formato Postman Collection v2.1:
+`postman/m3-collection-postman-v01.json` tem as pastas organizadas pelas funcionalidades da Documentação da API v04
+(as funcionalidades que a documentação descreve em conjunto, como F007 e F008, ficam na mesma pasta), com um
+pedido por endpoint (E01 a E41, exceto E17 e E26, retirados), exemplos de dados fictícios e verificações do código
+HTTP e dos campos principais (Plano de Testes do backend, secção 12). Os casos de erro são verificados pelos testes de
+integração. Com a API em execução, importar o ficheiro no Postman e executar a collection por ordem, ou, com o
+Postman CLI:
 
-| Ficheiro | Conteúdo |
-|---|---|
-| `postman/m3-collection-postman-v01.json` | 195 pedidos, em pastas por funcionalidade (F001 a F015), com pelo menos um pedido para cada um dos 39 endpoints em vigor da Documentação da API v04 (E01 a E41, exceto E17 e E26, retirados). O nome de cada pedido começa pelo endpoint (Exx). Cada pedido testa o código de estado e a estrutura da resposta (os erros, em Problem Details) e tem um exemplo de resposta. |
-| `postman/m3-ambiente-postman-v01.json` | Ambiente local: `baseUrl`, `adminEmail` e as variáveis `adminPassword` e `refPassword`, vazias (indicadas na execução). |
+```powershell
+postman collection run postman/m3-collection-postman-v01.json --env-var "adminPassword=<palavra-passe>"
+```
 
-Os ficheiros não contêm palavras-passe reais, tokens nem outros segredos (RNF-04): os tokens e a palavra-passe
-temporária dos exemplos de resposta estão substituídos por marcadores.
+Os pedidos dependem dos anteriores, por isso as pastas são executadas pela ordem em que estão. Alguns pedidos só
+preparam dados: registam e iniciam sessão com as contas usadas na pasta e criam a categoria e o perfil usados nas
+pastas seguintes. O pedido de início de sessão (E02) guarda o token na variável `token`, usada pelos pedidos
+protegidos. Cada execução regista contas novas com e-mails fictícios (`@localhub.test`), por isso pode ser repetida.
+E40 altera a palavra-passe do Cliente criado na F001 e guarda a nova na variável `password`; E41 redefine a
+palavra-passe do Prestador criado na F002, nunca a do Administrador.
 
-Ordem de execução — a collection completa, pela ordem das pastas, sobre a base de dados de referência:
-
-1. Repor a base de referência: `psql -U postgres -d postgres -f database/repor-base-dados.sql`.
-2. Arrancar a API em Development (`dotnet run --project src/LocalHub.Api`, em `http://localhost:5041`).
-3. Executar com o [Postman CLI](https://learning.postman.com/docs/postman-cli/postman-cli-installation/), ou importar os dois ficheiros no Postman e usar o Collection Runner:
-
-   ```powershell
-   postman collection run postman/m3-collection-postman-v01.json -e postman/m3-ambiente-postman-v01.json `
-       --env-var "adminPassword=<palavra-passe>" --env-var "refPassword=<palavra-passe>"
-   ```
-
-   `adminPassword` é a palavra-passe do Administrador `ana.almeida@localhub.test` e `refPassword` a das restantes
-   contas do conjunto de referência (ambas fictícias, em `database/README.md`).
-
-A primeira pasta, «Dados de referência (I057)», só consulta dados: inicia sessão com contas do conjunto de
-referência e confirma valores conhecidos (perfil 1, avaliações, serviço 1, relatórios da Carla Costa e do Hugo
-Henriques). O pedido de início de sessão (E02) guarda o token na variável `token`, usada pelos pedidos protegidos. As
-restantes pastas registam contas novas com e-mails fictícios aleatórios (`@localhub.test`), por isso a collection
-pode ser repetida sem repor a base.
-
-Os pedidos da gestão de contas (F002) iniciam sessão com o Administrador `ana.almeida@localhub.test`, com a
-palavra-passe indicada na execução, na variável `adminPassword`, como no comando acima. A F001 também altera e repõe a
-palavra-passe da conta criada (E40) e a F002 redefine a palavra-passe da conta de Prestador criada (E41). As
-pastas F003 e F004 também a usam, para criar as categorias. A pasta F005 (pesquisa de Prestadores) usa o perfil e a
-categoria criados na F004 e o Cliente da F001, com a localização da F015, por isso só funciona depois dessas pastas.
-A pasta F009 e F010 (criar serviço) usa o Cliente da F001 e a localização definida na F015, e o perfil criado na
-F004, por isso tem de ser executada depois delas. A pasta «F006, F007 e F008 — Consultas do Prestador» (E19, E38,
-E36 e E37) usa o serviço, a solicitação direta, a proposta e o trabalho publicado da pasta F007 e F011, antes de o
-Cliente decidir sobre as propostas. A pasta F007 e F008 (decisões e consultas do Cliente) usa o serviço da F009 e
-F010 e a proposta e o trabalho publicado da pasta F007 e F011, por isso tem de ser executada depois delas. A pasta
-«F007 e F008 — Cancelar e concluir serviços» (E30 e E31) cancela o trabalho publicado e marca como realizado o serviço
-atribuído na pasta anterior, por isso tem de ser executada depois dela. A pasta «F012 — Avaliação do
-serviço» (E32 e E15) avalia o serviço realizado na pasta anterior e confirma a classificação média do perfil
-(E13). A pasta «F013 — Relatório do Cliente» (E33) procura esse serviço realizado no histórico do
-relatório. A pasta «F014 — Relatório do Prestador» (E34) confirma esse serviço e a avaliação recebida nos indicadores
-do Prestador, por isso tem de ser executada depois dela. A pasta «F015, F002 e F003 — Morada das coordenadas e resumo
-da administração» (E35 e E39) usa o `adminToken` da F002 e o Cliente da F001, e E35 chama o Nominatim (requer acesso à
-Internet); é a última a ser executada.
+Os pedidos da gestão de contas (F002) iniciam sessão com o Administrador `ana.almeida@localhub.test`. A
+palavra-passe não está na collection: é a de `Seed:DefaultPassword` (ou a dos scripts de `database/`, se a base de
+dados foi criada com eles) e é indicada na execução, na variável `adminPassword`, como no comando acima. As pastas
+F003, «F002 e F003 — Resumo da administração» e F004 usam a mesma sessão do Administrador. Os pedidos com moradas ou coordenadas (E12,
+E14, E16, E18 e E35) usam o Nominatim para as converter, por isso a execução requer acesso à Internet.
 
 ## Integração contínua
 
