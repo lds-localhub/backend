@@ -43,7 +43,7 @@ public class SearchController : ControllerBase
     // the registered location of the provider.
     [HttpGet("services")]
     [Authorize(Roles = "PROVIDER")]
-    [RequiresProfessionalProfile]
+    [ServiceFilter(typeof(RequireProfessionalProfileFilter))]
     public async Task<ActionResult<PagedResult<PublishedJobSearchResult>>> SearchPublishedJobs(
         CancellationToken cancellationToken,
         [FromQuery] int? serviceCategoryId = null,
@@ -58,7 +58,7 @@ public class SearchController : ControllerBase
     // E38: only providers with a profile, for the published jobs that E19 returns.
     [HttpGet("services/{serviceId:int}")]
     [Authorize(Roles = "PROVIDER")]
-    [RequiresProfessionalProfile]
+    [ServiceFilter(typeof(RequireProfessionalProfileFilter))]
     public async Task<ActionResult<PublishedJobResponse>> GetPublishedJob(int serviceId, CancellationToken cancellationToken)
     {
         return Ok(await _searchService.GetPublishedJobAsync(serviceId, cancellationToken));

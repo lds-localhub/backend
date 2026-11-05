@@ -534,8 +534,11 @@ public class ProfilesEndpointsTests(LocalHubApiFactory factory)
     public async Task EndpointDePrestador_PrestadorSemPerfil_Devolve403PerfilEmFalta(string method, string url)
     {
         var (token, _, _) = await RegisterProviderAsync(_client);
+        // A valid body of E14: the profile filter is an action filter, so it runs after the validation of the body
+        // (rule R11 of the Class Model).
+        object body = method == "PUT" ? UpdateBody(1) : new { };
 
-        using var response = await SendJsonAsync(_client, new HttpMethod(method), url, token, new { });
+        using var response = await SendJsonAsync(_client, new HttpMethod(method), url, token, body);
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         await AssertProblemAsync(response, MissingProfileType, url);

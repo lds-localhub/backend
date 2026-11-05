@@ -36,7 +36,7 @@ public class ReportsController : ControllerBase
     // 403 perfil-em-falta. The dates are read as in E33.
     [HttpGet("provider")]
     [Authorize(Roles = "PROVIDER")]
-    [RequiresProfessionalProfile]
+    [ServiceFilter(typeof(RequireProfessionalProfileFilter))]
     public async Task<ActionResult<ProviderReportResponse>> GetProviderReport(
         CancellationToken cancellationToken,
         [FromQuery] string? startDate = null,

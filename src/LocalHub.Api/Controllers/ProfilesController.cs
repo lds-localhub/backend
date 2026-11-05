@@ -28,7 +28,7 @@ public class ProfilesController : ControllerBase
     // E15: the same access as E13 (a client sees any active provider; a provider only its own reviews).
     [HttpGet("{professionalProfileId:int}/reviews")]
     [Authorize(Roles = "CLIENT,PROVIDER")]
-    [RequiresProfessionalProfile]
+    [ServiceFilter(typeof(RequireProfessionalProfileFilter))]
     public async Task<ActionResult<PagedResult<ReviewListItem>>> ListReviews(
         int professionalProfileId,
         CancellationToken cancellationToken,
@@ -52,7 +52,7 @@ public class ProfilesController : ControllerBase
     // E13: a client sees any active provider; a provider only sees its own profile.
     [HttpGet("{professionalProfileId:int}")]
     [Authorize(Roles = "CLIENT,PROVIDER")]
-    [RequiresProfessionalProfile]
+    [ServiceFilter(typeof(RequireProfessionalProfileFilter))]
     public async Task<ActionResult<ProfileResponse>> Get(int professionalProfileId, CancellationToken cancellationToken)
     {
         return Ok(await _profileService.GetAsync(professionalProfileId, cancellationToken));
@@ -61,7 +61,7 @@ public class ProfilesController : ControllerBase
     // E14
     [HttpPut("me")]
     [Authorize(Roles = "PROVIDER")]
-    [RequiresProfessionalProfile]
+    [ServiceFilter(typeof(RequireProfessionalProfileFilter))]
     public async Task<ActionResult<ProfileResponse>> UpdateMine(
         UpdateProfileRequest request, CancellationToken cancellationToken)
     {

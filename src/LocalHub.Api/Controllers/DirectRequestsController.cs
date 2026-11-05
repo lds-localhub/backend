@@ -24,7 +24,7 @@ public class DirectRequestsController : ControllerBase
     // service in E22).
     [HttpGet]
     [Authorize(Roles = "PROVIDER")]
-    [RequiresProfessionalProfile]
+    [ServiceFilter(typeof(RequireProfessionalProfileFilter))]
     public async Task<ActionResult<PagedResult<DirectRequestListItem>>> List(
         CancellationToken cancellationToken,
         [FromQuery] string? status = null,
@@ -37,7 +37,7 @@ public class DirectRequestsController : ControllerBase
     // E36: only the provider that received the request.
     [HttpGet("{directRequestId:int}")]
     [Authorize(Roles = "PROVIDER")]
-    [RequiresProfessionalProfile]
+    [ServiceFilter(typeof(RequireProfessionalProfileFilter))]
     public async Task<ActionResult<ProviderDirectRequestResponse>> Get(int directRequestId, CancellationToken cancellationToken)
     {
         return Ok(await _directRequestService.GetAsync(directRequestId, cancellationToken));
@@ -46,7 +46,7 @@ public class DirectRequestsController : ControllerBase
     // E24: only the provider that received the request.
     [HttpPost("{directRequestId:int}/decline")]
     [Authorize(Roles = "PROVIDER")]
-    [RequiresProfessionalProfile]
+    [ServiceFilter(typeof(RequireProfessionalProfileFilter))]
     public async Task<ActionResult<DirectRequestStatusResponse>> Decline(
         int directRequestId, CancellationToken cancellationToken)
     {

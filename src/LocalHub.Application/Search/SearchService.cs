@@ -265,8 +265,8 @@ public class SearchService
             job.MyProposalId);
     }
 
-    // The profile of the provider that searches, with its service radius and location. The RequiresProfessionalProfile
-    // filter already refuses a provider without a profile; this is the same rule in the application.
+    // The profile of the provider that searches, with its service radius and location. The RequireProfessionalProfileFilter
+    // already refuses a provider without a profile; this is the same rule in the application.
     private async Task<ProviderReference> FindProviderAsync(CancellationToken cancellationToken)
     {
         var profile = await _db.ProfessionalProfiles.AsNoTracking()

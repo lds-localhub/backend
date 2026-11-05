@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 
 using LocalHub.Api;
+using LocalHub.Api.Filters;
 using LocalHub.Api.Json;
 using LocalHub.Api.Middleware;
 using LocalHub.Application;
@@ -125,6 +126,7 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUser, HttpCurrentUser>();
 builder.Services.AddScoped<ErrorHandlingMiddleware>();
 builder.Services.AddScoped<SessionValidationMiddleware>();
+builder.Services.AddScoped<RequireProfessionalProfileFilter>();
 
 var app = builder.Build();
 

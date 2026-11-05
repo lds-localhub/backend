@@ -23,7 +23,7 @@ public class ProposalsController : ControllerBase
     // E27: only providers, and only their own proposals.
     [HttpGet]
     [Authorize(Roles = "PROVIDER")]
-    [RequiresProfessionalProfile]
+    [ServiceFilter(typeof(RequireProfessionalProfileFilter))]
     public async Task<ActionResult<PagedResult<MyProposalListItem>>> ListMine(
         CancellationToken cancellationToken,
         [FromQuery] string? status = null,
@@ -37,7 +37,7 @@ public class ProposalsController : ControllerBase
     // E37: only the provider that presented the proposal.
     [HttpGet("{proposalId:int}")]
     [Authorize(Roles = "PROVIDER")]
-    [RequiresProfessionalProfile]
+    [ServiceFilter(typeof(RequireProfessionalProfileFilter))]
     public async Task<ActionResult<ProviderProposalResponse>> Get(int proposalId, CancellationToken cancellationToken)
     {
         return Ok(await _serviceWorkflowService.GetMyProposalAsync(proposalId, cancellationToken));

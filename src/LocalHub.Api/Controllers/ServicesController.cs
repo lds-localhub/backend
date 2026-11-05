@@ -75,7 +75,7 @@ public class ServicesController : ControllerBase
     // (ASSIGNED). Administrators get 403.
     [HttpPost("{serviceId:int}/cancel")]
     [Authorize(Roles = "CLIENT,PROVIDER")]
-    [RequiresProfessionalProfile]
+    [ServiceFilter(typeof(RequireProfessionalProfileFilter))]
     public async Task<ActionResult<ServiceStatusResponse>> Cancel(int serviceId, CancellationToken cancellationToken)
     {
         if (_currentUser.Role == UserRole.Client)
@@ -97,7 +97,7 @@ public class ServicesController : ControllerBase
     // E25: only providers with a profile (clients and administrators get 403).
     [HttpPost("{serviceId:int}/proposals")]
     [Authorize(Roles = "PROVIDER")]
-    [RequiresProfessionalProfile]
+    [ServiceFilter(typeof(RequireProfessionalProfileFilter))]
     public async Task<ActionResult<ProposalResponse>> SubmitProposal(
         int serviceId, SubmitProposalRequest request, CancellationToken cancellationToken)
     {
