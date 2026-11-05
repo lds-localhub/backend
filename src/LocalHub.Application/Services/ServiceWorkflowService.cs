@@ -511,8 +511,9 @@ public class ServiceWorkflowService
             errors.Add(EndDateField, "A data de fim tem de ser igual ou posterior à data de início.");
         }
 
-        // PUBLIC does not accept the field at all, not even an empty list (API documentation, E20).
-        if (request.ProposalModel == ProposalModel.Public && request.ProfessionalProfileIds != null)
+        // PUBLIC has no recipients: null or an empty list is accepted, a list with profiles is not (API documentation,
+        // E20).
+        if (request.ProposalModel == ProposalModel.Public && request.ProfessionalProfileIds?.Count > 0)
         {
             errors.Add(RecipientsField,
                 "Um trabalho publicado não tem destinatários: não indique professionalProfileIds.");

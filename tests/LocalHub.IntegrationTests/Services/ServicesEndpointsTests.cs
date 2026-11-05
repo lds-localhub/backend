@@ -425,9 +425,7 @@ public class ServicesEndpointsTests(LocalHubApiFactory factory)
     [Theory]
     [InlineData("DIRECT_REQUEST", false)]
     [InlineData("DIRECT_REQUEST", true)]
-    [InlineData("PUBLIC", true)]
     [Trait("Requisito", "RF-F009-01")]
-    [Trait("Requisito", "RF-F010-01")]
     public async Task Create_ListaDePerfisIncompativelComAModalidade_Devolve400NosPerfis(string model, bool emptyList)
     {
         int categoryId = await NewCategoryAsync();
@@ -443,6 +441,27 @@ public class ServicesEndpointsTests(LocalHubApiFactory factory)
 
         await AssertFieldErrorAsync(response, "professionalProfileIds");
         Assert.Equal((0, 0), await CountSavedAsync(client.UserId));
+    }
+
+    // API documentation, E20: with PUBLIC the error is only for a list with profiles, so an empty list is the same as
+    // null.
+    [Fact]
+    [Trait("Requisito", "RF-F010-01")]
+    public async Task Create_TrabalhoPublicadoComListaDePerfisVazia_Devolve201SemSolicitacoes()
+    {
+        int categoryId = await NewCategoryAsync();
+        var client = await RegisterClientAsync(_client);
+        var body = PublicBody(categoryId);
+        body["professionalProfileIds"] = Array.Empty<int>();
+
+        using var response = await SendJsonAsync(_client, HttpMethod.Post, ServicesUrl, client.Token, body);
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var service = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("PUBLIC", service.GetProperty("proposalModel").GetString());
+        Assert.Equal("OPEN", service.GetProperty("status").GetString());
+        Assert.Empty(service.GetProperty("directRequests").EnumerateArray());
+        Assert.Equal((1, 0), await CountSavedAsync(client.UserId));
     }
 
     [Fact]
