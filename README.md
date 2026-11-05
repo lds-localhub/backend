@@ -52,10 +52,11 @@ Cada camada regista os seus serviços num ficheiro `DependencyInjection.cs`
    CREATE ROLE localhub WITH LOGIN PASSWORD 'escolher-uma-palavra-passe';
    ```
 
-2. Criar a base de dados `localhub_dev`, com dono `localhub`, com o esquema e os dados fictícios de referência (scripts e contas de referência em [`database/README.md`](database/README.md)). A partir da raiz do repositório (no Windows, o `psql` está em `C:\Program Files\PostgreSQL\18\bin`). O mesmo comando cria a base e, se já existir, repõe-na (apaga todos os dados):
+2. Criar a base de dados `localhub_dev`, com dono `localhub`, com o esquema e os dados fictícios de referência (scripts e contas de referência em [`database/README.md`](database/README.md)). A partir da raiz do repositório (no Windows, o `psql` está em `C:\Program Files\PostgreSQL\18\bin`):
 
    ```powershell
-   psql -U postgres -d postgres -f database/repor-base-dados.sql
+   psql -U postgres -d postgres -f database/criar-base-dados.sql   # criar (idempotente: não altera uma base já criada)
+   psql -U postgres -d postgres -f database/repor-base-dados.sql   # repor (apaga todos os dados e volta ao conjunto de referência)
    ```
 
 Usar apenas **dados fictícios** em todos os ambientes.
