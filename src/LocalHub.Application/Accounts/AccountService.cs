@@ -6,6 +6,7 @@ using LocalHub.Application.Common.Exceptions;
 using LocalHub.Application.Profiles;
 using LocalHub.Domain.Accounts;
 using LocalHub.Domain.Common;
+using LocalHub.Domain.Services;
 using LocalHub.Infrastructure;
 
 using Microsoft.AspNetCore.Identity;
@@ -64,7 +65,7 @@ public class AccountService
     }
 
     // E05: accounts of clients and providers, optionally filtered by role and status, ordered by name.
-    public async Task<PagedResult<AccountResponse>> ListAsync(
+    public async Task<PagedResult<AccountListItemResponse>> ListAsync(
         string? role, string? status, PageRequest page, CancellationToken cancellationToken)
     {
         var errors = new Dictionary<string, string[]>();
@@ -113,7 +114,7 @@ public class AccountService
         }
 
         int total = await query.CountAsync(cancellationToken);
-        var items = await query
+        var accounts = await query
             .OrderBy(u => u.Name)
             .ThenBy(u => u.UserId) // stable order between pages when two accounts have the same name
             .Skip(page.Skip)
@@ -121,7 +122,80 @@ public class AccountService
             .Select(u => new AccountResponse(u.UserId, u.Name, u.Email, u.Role, u.Status))
             .ToListAsync(cancellationToken);
 
-        return new PagedResult<AccountResponse>(page.Page, page.PageSize, total, items);
+        var alerts = await GetAlertsAsync(accounts, cancellationToken);
+        var items = accounts
+            .Select(a => new AccountListItemResponse(
+                a.UserId, a.Name, a.Email, a.Role, a.Status, alerts.GetValueOrDefault(a.UserId) ?? []))
+            .ToList();
+
+        return new PagedResult<AccountListItemResponse>(page.Page, page.PageSize, total, items);
+    }
+
+    // Conduct alerts of the accounts of one page of E05 (RF-F002-01). Calculated in each request from the existing
+    // data and never stored; they only inform the administrator and never change the status of the account.
+    private async Task<Dictionary<int, List<AccountAlertResponse>>> GetAlertsAsync(
+        IReadOnlyCollection<AccountResponse> accounts, CancellationToken cancellationToken)
+    {
+        var userIds = accounts.Select(a => a.UserId).ToList();
+        var providerIds = accounts.Where(a => a.Role == UserRole.Provider).Select(a => a.UserId).ToList();
+        var clientIds = accounts.Where(a => a.Role == UserRole.Client).Select(a => a.UserId).ToList();
+
+        // Services cancelled in the ASSIGNED state by the user (the author of the transition), for both roles.
+        var cancelled = await _db.ServiceStatusHistories.AsNoTracking()
+            .Where(h => h.PreviousStatus == ServiceStatus.Assigned
+                && h.NewStatus == ServiceStatus.Cancelled
+                && userIds.Contains(h.ChangedByUserId))
+            .GroupBy(h => h.ChangedByUserId)
+            .Select(g => new { UserId = g.Key, Count = g.Select(h => h.ServiceId).Distinct().Count() })
+            .ToDictionaryAsync(x => x.UserId, x => x.Count, cancellationToken);
+
+        // Provider: services in which a proposal of the provider was accepted.
+        var providerAssigned = await _db.Proposals.AsNoTracking()
+            .Where(p => p.Status == ProposalStatus.Accepted
+                && providerIds.Contains(p.ProfessionalProfile.ServiceProviderId))
+            .GroupBy(p => p.ProfessionalProfile.ServiceProviderId)
+            .Select(g => new { UserId = g.Key, Count = g.Select(p => p.ServiceId).Distinct().Count() })
+            .ToDictionaryAsync(x => x.UserId, x => x.Count, cancellationToken);
+
+        // Client: services of the client with a transition to ASSIGNED.
+        var clientAssigned = await _db.Services.AsNoTracking()
+            .Where(s => clientIds.Contains(s.ClientId)
+                && s.StatusHistory.Any(h => h.NewStatus == ServiceStatus.Assigned))
+            .GroupBy(s => s.ClientId)
+            .Select(g => new { UserId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.UserId, x => x.Count, cancellationToken);
+
+        // Provider: average rating of the profile (RF-F012-02) and number of reviews received.
+        var ratings = await _db.ProfessionalProfiles.AsNoTracking()
+            .Where(p => providerIds.Contains(p.ServiceProviderId) && p.AverageRating != null)
+            .Select(p => new
+            {
+                UserId = p.ServiceProviderId,
+                p.AverageRating,
+                ReviewCount = _db.Reviews.Count(r => r.Service.Proposals.Any(
+                    sp => sp.ProfessionalProfileId == p.ProfessionalProfileId && sp.Status == ProposalStatus.Accepted)),
+            })
+            .ToDictionaryAsync(x => x.UserId, cancellationToken);
+
+        var result = new Dictionary<int, List<AccountAlertResponse>>();
+        foreach (var account in accounts)
+        {
+            int assigned = account.Role == UserRole.Provider
+                ? providerAssigned.GetValueOrDefault(account.UserId)
+                : clientAssigned.GetValueOrDefault(account.UserId);
+            var alerts = new List<AccountAlertResponse?>
+            {
+                AccountAlertResponse.ForAssignedCancellations(cancelled.GetValueOrDefault(account.UserId), assigned),
+            };
+            if (account.Role == UserRole.Provider && ratings.TryGetValue(account.UserId, out var rating))
+            {
+                alerts.Add(AccountAlertResponse.ForLowAverageRating(rating.AverageRating, rating.ReviewCount));
+            }
+
+            result[account.UserId] = alerts.OfType<AccountAlertResponse>().ToList();
+        }
+
+        return result;
     }
 
     // E39: the counters of the administrator's home page (W50), without the administrator accounts (as in E05).
