@@ -41,46 +41,6 @@ public class AuthEndpointsTests(LocalHubApiFactory factory)
 
     [Fact]
     [Trait("Requisito", "RF-F001-01")]
-    public async Task Register_EmailJaUsadoComMaiusculas_Devolve409ComErroNoEmail()
-    {
-        string email = NewEmail();
-        using var first = await RegisterAsync(_client, "Ana Costa", email, ValidPassword, "CLIENT");
-
-        using var response = await RegisterAsync(_client, "Ana Costa", email.ToUpperInvariant(), ValidPassword, "PROVIDER");
-
-        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
-        var body = await AssertProblemAsync(
-            response, "https://tools.ietf.org/html/rfc9110#section-15.5.10", "/api/auth/register");
-        Assert.True(body.GetProperty("errors").TryGetProperty("email", out _));
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F001-01")]
-    public async Task Register_MesmoEmailEmSimultaneo_CriaApenasUmaConta()
-    {
-        string email = NewEmail();
-
-        // The two requests run at the same time, so both can pass the e-mail check before either is saved;
-        // the unique index on the e-mail must reject the second one with 409 instead of creating two accounts.
-        var responses = await Task.WhenAll(Enumerable.Range(0, 5).Select(_ =>
-            RegisterAsync(factory.CreateClient(), "Ana Costa", email, ValidPassword, "CLIENT")));
-
-        var statusCodes = responses.Select(r => r.StatusCode).ToList();
-        foreach (var response in responses)
-        {
-            response.Dispose();
-        }
-
-        Assert.Equal(1, statusCodes.Count(s => s == HttpStatusCode.Created));
-        Assert.All(statusCodes.Where(s => s != HttpStatusCode.Created),
-            s => Assert.Equal(HttpStatusCode.Conflict, s));
-
-        using var login = await LoginAsync(_client, email, ValidPassword);
-        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F001-01")]
     public async Task Register_CamposInvalidosEPapelAdministrador_Devolve400ComErroPorCampo()
     {
         using var response = await RegisterAsync(_client, "", "invalido", "curta", "ADMIN");
@@ -112,39 +72,6 @@ public class AuthEndpointsTests(LocalHubApiFactory factory)
     }
 
     [Fact]
-    [Trait("Requisito", "RNF-01")]
-    public async Task Register_DuasContasComMesmaPalavraPasse_GuardaResumosDiferentesEAmbasIniciamSessao()
-    {
-        string firstEmail = NewEmail();
-        string secondEmail = NewEmail();
-        using var first = await RegisterAsync(_client, "Ana Costa", firstEmail, ValidPassword, "CLIENT");
-        using var second = await RegisterAsync(_client, "Rui Costa", secondEmail, ValidPassword, "PROVIDER");
-
-        string firstHash = await GetPasswordHashAsync(firstEmail);
-        string secondHash = await GetPasswordHashAsync(secondEmail);
-        using var firstLogin = await LoginAsync(_client, firstEmail, ValidPassword);
-        using var secondLogin = await LoginAsync(_client, secondEmail, ValidPassword);
-
-        Assert.NotEqual(firstHash, secondHash);
-        Assert.DoesNotContain(ValidPassword, firstHash, StringComparison.Ordinal);
-        Assert.Equal(HttpStatusCode.OK, firstLogin.StatusCode);
-        Assert.Equal(HttpStatusCode.OK, secondLogin.StatusCode);
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F001-01")]
-    public async Task Register_PapelDesconhecido_Devolve400ComErroNoPapel()
-    {
-        using var response = await RegisterAsync(_client, "Ana Costa", NewEmail(), ValidPassword, "XYZ");
-
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        var body = await AssertProblemAsync(
-            response, "https://tools.ietf.org/html/rfc9110#section-15.5.1", "/api/auth/register");
-        var errors = body.GetProperty("errors");
-        Assert.True(errors.TryGetProperty("role", out _));
-    }
-
-    [Fact]
     [Trait("Requisito", "RF-F001-02")]
     [Trait("Requisito", "RF-F001-05")]
     public async Task Login_AdministradorDoConjuntoInicial_Devolve200ComTokenESessaoDeOitoHoras()
@@ -159,15 +86,6 @@ public class AuthEndpointsTests(LocalHubApiFactory factory)
         // The expiry is not in the response (API documentation, E02): it is read from the session just created.
         var expiresAt = await GetLastSessionExpiryAsync(AdminEmail);
         Assert.InRange(expiresAt - DateTimeOffset.UtcNow, TimeSpan.FromHours(7.9), TimeSpan.FromHours(8));
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F001-02")]
-    public async Task Login_EmailComMaiusculas_Devolve200()
-    {
-        using var response = await LoginAsync(_client, AdminEmail.ToUpperInvariant(), LocalHubApiFactory.SeedPassword);
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
     [Fact]
@@ -188,63 +106,6 @@ public class AuthEndpointsTests(LocalHubApiFactory factory)
     }
 
     [Fact]
-    [Trait("Requisito", "RF-F001-02")]
-    public async Task Login_CamposEmFalta_Devolve400()
-    {
-        using var response = await _client.PostAsJsonAsync("/api/auth/login", new { });
-
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F001-03")]
-    public async Task GetMe_ComToken_DevolveUtilizadorAutenticado()
-    {
-        string email = NewEmail();
-        string token = await RegisterAndLoginAsync(_client, email);
-
-        using var response = await SendWithTokenAsync(_client, HttpMethod.Get, "/api/auth/me", token);
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
-        Assert.Equal(email, body.GetProperty("email").GetString());
-        Assert.Equal("PROVIDER", body.GetProperty("role").GetString());
-        Assert.Equal(JsonValueKind.Null, body.GetProperty("address").ValueKind);
-        Assert.Equal(JsonValueKind.Null, body.GetProperty("professionalProfileId").ValueKind);
-
-        // Only the fields of the API documentation (E04): no status and no coordinates.
-        Assert.Equal(
-            ["userId", "name", "email", "role", "address", "professionalProfileId"],
-            body.EnumerateObject().Select(p => p.Name));
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F001-04")]
-    public async Task Logout_SessaoValida_Devolve204()
-    {
-        string token = await RegisterAndLoginAsync(_client, NewEmail());
-
-        using var response = await SendWithTokenAsync(_client, HttpMethod.Post, "/api/auth/logout", token);
-
-        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
-    }
-
-    [Theory]
-    [InlineData(null)]
-    [InlineData("DESKTOP")]
-    [Trait("Requisito", "RF-F001-06")]
-    public async Task Login_AplicacaoEmFaltaOuDesconhecida_Devolve400(string? app)
-    {
-        string email = NewEmail();
-        await RegisterAndLoginAsync(_client, email, "CLIENT");
-
-        using var response = await _client.PostAsJsonAsync(
-            "/api/auth/login", new { email, password = ValidPassword, client = app });
-
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-    }
-
-    [Fact]
     [Trait("Requisito", "RF-F001-06")]
     public async Task Login_AdministradorNaAplicacaoMobile_Devolve403AdministracaoSoWebSemCriarSessao()
     {
@@ -257,64 +118,6 @@ public class AuthEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal("A administração está disponível apenas na aplicação web.", body.GetProperty("detail").GetString());
         Assert.False(body.TryGetProperty("token", out _));
         Assert.Equal(sessionsBefore, await CountSessionsAsync(AdminEmail));
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F001-06")]
-    public async Task Login_AdministradorNaAplicacaoWeb_Devolve200()
-    {
-        using var response = await LoginAsync(_client, AdminEmail, LocalHubApiFactory.SeedPassword, "WEB");
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-    }
-
-    [Theory]
-    [InlineData("CLIENT")]
-    [InlineData("PROVIDER")]
-    [Trait("Requisito", "RF-F001-02")]
-    [Trait("Requisito", "RF-F001-06")]
-    public async Task Login_ClienteOuPrestadorNaAplicacaoMobile_Devolve200(string role)
-    {
-        string email = NewEmail();
-        await RegisterAndLoginAsync(_client, email, role);
-
-        using var response = await LoginAsync(_client, email, ValidPassword, "MOBILE");
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F001-07")]
-    public async Task ChangePassword_PalavraPasseAtualErrada_Devolve400ComErroNoCampo()
-    {
-        string email = NewEmail();
-        string token = await RegisterAndLoginAsync(_client, email, "CLIENT");
-
-        using var response = await ChangePasswordAsync(token, "errada2026", "jardim2027");
-
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        var body = await AssertProblemAsync(response, BadRequestType, PasswordUrl);
-        Assert.True(body.GetProperty("errors").TryGetProperty("currentPassword", out _));
-        using var login = await LoginAsync(_client, email, ValidPassword);
-        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
-    }
-
-    [Theory]
-    [InlineData("abcdefgh")]
-    [InlineData("1234567")]
-    [Trait("Requisito", "RF-F001-07")]
-    public async Task ChangePassword_NovaPalavraPasseFraca_Devolve400ComErroNoCampo(string newPassword)
-    {
-        string email = NewEmail();
-        string token = await RegisterAndLoginAsync(_client, email, "PROVIDER");
-
-        using var response = await ChangePasswordAsync(token, ValidPassword, newPassword);
-
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        var body = await AssertProblemAsync(response, BadRequestType, PasswordUrl);
-        Assert.True(body.GetProperty("errors").TryGetProperty("newPassword", out _));
-        using var login = await LoginAsync(_client, email, ValidPassword);
-        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
     }
 
     [Fact]

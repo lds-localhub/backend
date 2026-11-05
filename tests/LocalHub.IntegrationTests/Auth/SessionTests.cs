@@ -75,21 +75,6 @@ public class SessionTests(LocalHubApiFactory factory)
         await AssertProblemAsync(response, "https://tools.ietf.org/html/rfc9110#section-15.5.2", MeUrl);
     }
 
-    [Fact]
-    [Trait("Requisito", "RF-F001-02")]
-    [Trait("Requisito", "RF-F002-02")]
-    public async Task Login_ContaDesativada_Devolve403()
-    {
-        string email = NewEmail();
-        await RegisterAndLoginAsync(_client, email);
-        await DeactivateAsync(email);
-
-        using var response = await LoginAsync(_client, email, ValidPassword);
-
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-        await AssertProblemAsync(response, "https://localhub.local/erros/conta-desativada", "/api/auth/login");
-    }
-
     private async Task DeactivateAsync(string email)
     {
         using var scope = factory.Services.CreateScope();

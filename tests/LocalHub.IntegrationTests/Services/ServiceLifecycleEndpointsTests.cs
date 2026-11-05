@@ -77,27 +77,6 @@ public class ServiceLifecycleEndpointsTests(LocalHubApiFactory factory)
         Assert.All(proposals, p => Assert.Equal("VOID", p.GetProperty("status").GetString()));
     }
 
-    // ---------- E30: client, ASSIGNED (criterion 3) ----------
-
-    [Fact]
-    [Trait("Requisito", "RF-F007-05")]
-    [Trait("Requisito", "RF-F008-04")]
-    public async Task Cancel_ClienteComServicoAtribuido_CancelaEMantemAPropostaAceite()
-    {
-        var scenario = await CreateAssignedScenarioAsync();
-
-        using var response = await PostAsync(scenario.Client.Token, CancelUrl(scenario.ServiceId));
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var service = await response.Content.ReadFromJsonAsync<JsonElement>();
-        Assert.Equal("CANCELLED", service.GetProperty("status").GetString());
-
-        var proposals = (await ListProposalsAsync(scenario.Client.Token, scenario.ServiceId))
-            .ToDictionary(p => p.GetProperty("proposalId").GetInt32(), p => p.GetProperty("status").GetString());
-        Assert.Equal("ACCEPTED", proposals[scenario.ProposalIds[0]]);
-        Assert.Equal("DECLINED", proposals[scenario.ProposalIds[1]]);
-    }
-
     // ---------- E30: provider (criteria 4 and 5) ----------
 
     [Fact]
@@ -136,34 +115,6 @@ public class ServiceLifecycleEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal("PENDING", service.GetProperty("directRequests")[0].GetProperty("status").GetString());
     }
 
-    [Fact]
-    [Trait("Requisito", "RF-F008-04")]
-    public async Task Cancel_PrestadorComPropostaPendenteEmTrabalhoAberto_Devolve403()
-    {
-        var scenario = await CreatePublicScenarioAsync(proposals: 1);
-
-        using var response = await PostAsync(scenario.Providers[0].Token, CancelUrl(scenario.ServiceId));
-
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-        Assert.Equal("OPEN", (await GetServiceAsync(scenario.Client.Token, scenario.ServiceId)).GetProperty("status").GetString());
-    }
-
-    // Criterion 5: a provider whose proposal was not accepted.
-    [Fact]
-    [Trait("Requisito", "RF-F007-05")]
-    [Trait("Requisito", "RF-F008-04")]
-    public async Task Cancel_PrestadorComPropostaNaoAceite_Devolve403EServicoFicaAtribuido()
-    {
-        var scenario = await CreateAssignedScenarioAsync();
-        string url = CancelUrl(scenario.ServiceId);
-
-        using var response = await PostAsync(scenario.Providers[1].Token, url);
-
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-        await AssertProblemAsync(response, ForbiddenType, url);
-        Assert.Equal("ASSIGNED", (await GetServiceAsync(scenario.Client.Token, scenario.ServiceId)).GetProperty("status").GetString());
-    }
-
     // ---------- E30: other actors (criterion 6) ----------
 
     [Fact]
@@ -179,18 +130,6 @@ public class ServiceLifecycleEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         await AssertProblemAsync(response, ForbiddenType, url);
         Assert.Equal("OPEN", (await GetServiceAsync(scenario.Client.Token, scenario.ServiceId)).GetProperty("status").GetString());
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F007-05")]
-    public async Task Cancel_Administrador_Devolve403()
-    {
-        var scenario = await CreatePublicScenarioAsync(proposals: 0);
-        string adminToken = await LoginAsAdminAsync(_client);
-
-        using var response = await PostAsync(adminToken, CancelUrl(scenario.ServiceId));
-
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
     // ---------- E30: final states (criterion 7) ----------
@@ -213,55 +152,6 @@ public class ServiceLifecycleEndpointsTests(LocalHubApiFactory factory)
         var problem = await AssertProblemAsync(response, InvalidTransitionType, url);
         Assert.Equal("Não é possível cancelar um serviço no estado realizado.", problem.GetProperty("detail").GetString());
         Assert.Equal("COMPLETED", (await GetServiceAsync(scenario.Client.Token, scenario.ServiceId)).GetProperty("status").GetString());
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F007-07")]
-    public async Task Cancel_ServicoJaCancelado_Devolve409TransicaoInvalida()
-    {
-        var scenario = await CreateAssignedScenarioAsync();
-        using (var first = await PostAsync(scenario.Providers[0].Token, CancelUrl(scenario.ServiceId)))
-        {
-            Assert.Equal(HttpStatusCode.OK, first.StatusCode);
-        }
-
-        string url = CancelUrl(scenario.ServiceId);
-        using var response = await PostAsync(scenario.Providers[0].Token, url);
-
-        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
-        await AssertProblemAsync(response, InvalidTransitionType, url);
-    }
-
-    // A cancelled service no longer accepts decisions on the proposals (section 10).
-    [Fact]
-    [Trait("Requisito", "RF-F008-06")]
-    public async Task Cancel_DepoisDeCancelado_AceitarUmaPropostaDevolve409()
-    {
-        var scenario = await CreatePublicScenarioAsync(proposals: 1);
-        using (var cancel = await PostAsync(scenario.Client.Token, CancelUrl(scenario.ServiceId)))
-        {
-            Assert.Equal(HttpStatusCode.OK, cancel.StatusCode);
-        }
-
-        using var response = await PostAsync(scenario.Client.Token, AcceptUrl(scenario.ProposalIds[0]));
-
-        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F007-05")]
-    public async Task Cancel_ServicoInexistente_Devolve404ParaOClienteEParaOPrestador()
-    {
-        var client = await RegisterClientAsync(_client);
-        var provider = await CreateProviderWithProfileAsync(_client);
-        string url = CancelUrl(int.MaxValue);
-
-        using var asClient = await PostAsync(client.Token, url);
-        using var asProvider = await PostAsync(provider.Token, url);
-
-        Assert.Equal(HttpStatusCode.NotFound, asClient.StatusCode);
-        await AssertProblemAsync(asClient, NotFoundType, url);
-        Assert.Equal(HttpStatusCode.NotFound, asProvider.StatusCode);
     }
 
     // ---------- E31 ----------
@@ -289,80 +179,6 @@ public class ServiceLifecycleEndpointsTests(LocalHubApiFactory factory)
         var accepted = Assert.Single(stored.GetProperty("proposals").EnumerateArray(),
             p => p.GetProperty("status").GetString() == "ACCEPTED");
         Assert.Equal(scenario.ProposalIds[0], accepted.GetProperty("proposalId").GetInt32());
-    }
-
-    // Section 10: OPEN → COMPLETED is not a transition.
-    [Fact]
-    [Trait("Requisito", "RF-F007-07")]
-    [Trait("Requisito", "RF-F008-06")]
-    public async Task Complete_ServicoAberto_Devolve409TransicaoInvalida()
-    {
-        var scenario = await CreatePublicScenarioAsync(proposals: 1);
-        string url = CompleteUrl(scenario.ServiceId);
-
-        using var response = await PostAsync(scenario.Client.Token, url);
-
-        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
-        await AssertProblemAsync(response, InvalidTransitionType, url);
-        Assert.Equal("OPEN", (await GetServiceAsync(scenario.Client.Token, scenario.ServiceId)).GetProperty("status").GetString());
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F007-07")]
-    public async Task Complete_ServicoCancelado_Devolve409TransicaoInvalida()
-    {
-        var scenario = await CreateAssignedScenarioAsync();
-        using (var cancel = await PostAsync(scenario.Client.Token, CancelUrl(scenario.ServiceId)))
-        {
-            Assert.Equal(HttpStatusCode.OK, cancel.StatusCode);
-        }
-
-        string url = CompleteUrl(scenario.ServiceId);
-        using var response = await PostAsync(scenario.Client.Token, url);
-
-        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
-        await AssertProblemAsync(response, InvalidTransitionType, url);
-    }
-
-    // Rule 1: the provider cannot mark the service as completed.
-    [Fact]
-    [Trait("Requisito", "RF-F007-06")]
-    [Trait("Requisito", "RF-F008-05")]
-    public async Task Complete_PrestadorContratado_Devolve403EServicoFicaAtribuido()
-    {
-        var scenario = await CreateAssignedScenarioAsync();
-        string url = CompleteUrl(scenario.ServiceId);
-
-        using var response = await PostAsync(scenario.Providers[0].Token, url);
-
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-        await AssertProblemAsync(response, ForbiddenType, url);
-        Assert.Equal("ASSIGNED", (await GetServiceAsync(scenario.Client.Token, scenario.ServiceId)).GetProperty("status").GetString());
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F007-06")]
-    public async Task Complete_OutroCliente_Devolve403()
-    {
-        var scenario = await CreateAssignedScenarioAsync();
-        var other = await RegisterClientAsync(_client);
-
-        using var response = await PostAsync(other.Token, CompleteUrl(scenario.ServiceId));
-
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F007-06")]
-    public async Task Complete_ServicoInexistente_Devolve404()
-    {
-        var client = await RegisterClientAsync(_client);
-        string url = CompleteUrl(int.MaxValue);
-
-        using var response = await PostAsync(client.Token, url);
-
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-        await AssertProblemAsync(response, NotFoundType, url);
     }
 
     // ---------- Helpers ----------

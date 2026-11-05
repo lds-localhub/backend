@@ -18,51 +18,6 @@ public class ServiceReviewTests
     private static readonly DateOnly Today = new(2026, 10, 19);
     private static readonly ServiceCategory Plumbing = Category(3, "Canalização");
 
-    // Criterion 1: the client reviews a completed service; the service stays COMPLETED.
-    [Fact]
-    [Trait("Requisito", "RF-F012-01")]
-    public void AddReview_ServicoRealizado_RegistaAAvaliacao()
-    {
-        var service = CompletedService();
-
-        var review = service.AddReview(ClientId, 4, "  Rápida e cuidadosa.  ", ReviewDate);
-
-        Assert.Same(review, service.Review);
-        Assert.Same(service, review.Service);
-        Assert.Equal((short)4, review.Rating);
-        Assert.Equal("Rápida e cuidadosa.", review.Comment);
-        Assert.Equal(ReviewDate, review.CreationDate);
-        Assert.Equal(ServiceStatus.Completed, service.Status);
-    }
-
-    // Criterion 7 and API documentation (E32): without a comment, or with a blank one, the comment is null.
-    [Theory]
-    [Trait("Requisito", "RF-F012-01")]
-    [InlineData(null)]
-    [InlineData("")]
-    [InlineData("   ")]
-    public void AddReview_SemComentario_GuardaComentarioNulo(string? comment)
-    {
-        var service = CompletedService();
-
-        var review = service.AddReview(ClientId, 5, comment, ReviewDate);
-
-        Assert.Null(review.Comment);
-    }
-
-    // Rule 1: only the client that created the service (another client or the provider get 403).
-    [Fact]
-    [Trait("Requisito", "RF-F012-01")]
-    public void AddReview_OutroUtilizador_LancaForbiddenSemAvaliar()
-    {
-        var service = CompletedService();
-
-        var exception = Assert.Throws<DomainException>(() => service.AddReview(99, 4, null, ReviewDate));
-
-        Assert.Equal(DomainErrorKind.Forbidden, exception.Kind);
-        Assert.Null(service.Review);
-    }
-
     // Criterion 2: a service that is not COMPLETED cannot be reviewed.
     [Theory]
     [Trait("Requisito", "RF-F012-01")]

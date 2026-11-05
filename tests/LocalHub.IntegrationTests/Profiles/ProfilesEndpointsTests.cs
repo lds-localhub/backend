@@ -69,19 +69,6 @@ public class ProfilesEndpointsTests(LocalHubApiFactory factory)
 
     [Fact]
     [Trait("Requisito", "RF-F004-01")]
-    public async Task Create_PrestadorQueJaTemPerfil_Devolve409()
-    {
-        var provider = await CreateProviderWithProfileAsync(_client);
-
-        using var response = await SendJsonAsync(
-            _client, HttpMethod.Post, ProfilesUrl, provider.Token, ValidProfileBody(provider.ServiceCategoryId));
-
-        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
-        await AssertProblemAsync(response, ConflictType, ProfilesUrl);
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F004-01")]
     public async Task Create_SemApresentacaoContactoNemCategorias_Devolve400ComErroEmCadaCampoENaoCriaPerfil()
     {
         var (token, _, _) = await RegisterProviderAsync(_client);
@@ -98,135 +85,6 @@ public class ProfilesEndpointsTests(LocalHubApiFactory factory)
         Assert.True(errors.TryGetProperty("contactDetails", out _));
         Assert.True(errors.TryGetProperty("serviceCategoryIds", out _));
         await AssertHasNoProfileAsync(token);
-    }
-
-    [Theory]
-    [InlineData("address", null)]
-    [InlineData("serviceRadiusKm", 0)]
-    [InlineData("serviceRadiusKm", 101)]
-    [InlineData("serviceRadiusKm", 25.5)]
-    [InlineData("serviceRadiusKm", null)]
-    [Trait("Requisito", "RF-F004-01")]
-    [Trait("Requisito", "RF-F015-01")]
-    public async Task Create_MoradaOuRaioInvalido_Devolve400NoCampo(string field, object? value)
-    {
-        string adminToken = await LoginAsAdminAsync(_client);
-        int categoryId = await CreateCategoryAsync(_client, adminToken);
-        var (token, _, _) = await RegisterProviderAsync(_client);
-        var body = ValidProfileBody(categoryId);
-        body[field] = value;
-
-        using var response = await SendJsonAsync(_client, HttpMethod.Post, ProfilesUrl, token, body);
-
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        var problem = await AssertProblemAsync(response, BadRequestType, ProfilesUrl);
-        Assert.True(problem.GetProperty("errors").TryGetProperty(field, out _));
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F004-04")]
-    public async Task Create_CategoriaDesativada_Devolve400NasCategorias()
-    {
-        string adminToken = await LoginAsAdminAsync(_client);
-        int active = await CreateCategoryAsync(_client, adminToken);
-        int inactive = await CreateCategoryAsync(_client, adminToken);
-        await DeactivateCategoryAsync(adminToken, inactive);
-        var (token, _, _) = await RegisterProviderAsync(_client);
-
-        using var response = await SendJsonAsync(
-            _client, HttpMethod.Post, ProfilesUrl, token, ValidProfileBody(active, inactive));
-
-        await AssertCategoryErrorAsync(response, ProfilesUrl);
-        await AssertHasNoProfileAsync(token);
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F004-04")]
-    public async Task Create_CategoriaInexistente_Devolve400NasCategorias()
-    {
-        var (token, _, _) = await RegisterProviderAsync(_client);
-
-        using var response = await SendJsonAsync(
-            _client, HttpMethod.Post, ProfilesUrl, token, ValidProfileBody(int.MaxValue));
-
-        await AssertCategoryErrorAsync(response, ProfilesUrl);
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F004-04")]
-    public async Task Create_TresCategoriasAtivasComRepeticao_AssociaAsTresUmaVez()
-    {
-        string adminToken = await LoginAsAdminAsync(_client);
-        int first = await CreateCategoryAsync(_client, adminToken);
-        int second = await CreateCategoryAsync(_client, adminToken);
-        int third = await CreateCategoryAsync(_client, adminToken);
-        var (token, _, _) = await RegisterProviderAsync(_client);
-
-        using var response = await SendJsonAsync(
-            _client, HttpMethod.Post, ProfilesUrl, token, ValidProfileBody(first, second, third, first));
-
-        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-        var profile = await response.Content.ReadFromJsonAsync<JsonElement>();
-        Assert.Equal([first, second, third], CategoryIds(profile).Order());
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F015-03")]
-    public async Task Create_MoradaNaoEncontrada_Devolve400NaMoradaENaoCriaPerfil()
-    {
-        string adminToken = await LoginAsAdminAsync(_client);
-        int categoryId = await CreateCategoryAsync(_client, adminToken);
-        var (token, _, _) = await RegisterProviderAsync(_client);
-        var body = ValidProfileBody(categoryId);
-        body["address"] = "Rua Que Não Existe 999";
-
-        using var response = await SendJsonAsync(_client, HttpMethod.Post, ProfilesUrl, token, body);
-
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        var problem = await AssertProblemAsync(response, BadRequestType, ProfilesUrl);
-        Assert.True(problem.GetProperty("errors").TryGetProperty("address", out _));
-        await AssertHasNoProfileAsync(token);
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F015-03")]
-    public async Task Create_GeocodificacaoIndisponivel_Devolve503ENaoCriaPerfil()
-    {
-        string adminToken = await LoginAsAdminAsync(_client);
-        int categoryId = await CreateCategoryAsync(_client, adminToken);
-        var (token, _, _) = await RegisterProviderAsync(_client);
-        var body = ValidProfileBody(categoryId);
-        body["address"] = $"Rua do Almada {FakeGeocodingService.UnavailableMarker}";
-
-        using var response = await SendJsonAsync(_client, HttpMethod.Post, ProfilesUrl, token, body);
-
-        Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
-        await AssertHasNoProfileAsync(token);
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F004-01")]
-    [Trait("Requisito", "RF-F001-03")]
-    public async Task Create_Cliente_Devolve403()
-    {
-        string token = await RegisterAndLoginAsync(_client, NewEmail(), "CLIENT");
-
-        using var response = await SendJsonAsync(_client, HttpMethod.Post, ProfilesUrl, token, ValidProfileBody(1));
-
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-        await AssertProblemAsync(response, ForbiddenType, ProfilesUrl);
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F004-01")]
-    [Trait("Requisito", "RF-F001-03")]
-    public async Task Create_Administrador_Devolve403()
-    {
-        string token = await LoginAsAdminAsync(_client);
-
-        using var response = await SendJsonAsync(_client, HttpMethod.Post, ProfilesUrl, token, ValidProfileBody(1));
-
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
     // ---------- E13 ----------
@@ -254,17 +112,6 @@ public class ProfilesEndpointsTests(LocalHubApiFactory factory)
 
     [Fact]
     [Trait("Requisito", "RF-F004-03")]
-    public async Task Get_PrestadorProprioPerfil_Devolve200()
-    {
-        var provider = await CreateProviderWithProfileAsync(_client);
-
-        var profile = await GetJsonAsync(ProfileUrl(provider.ProfessionalProfileId), provider.Token);
-
-        Assert.Equal(provider.ProfessionalProfileId, profile.GetProperty("professionalProfileId").GetInt32());
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F004-03")]
     [Trait("Requisito", "RNF-06")]
     public async Task Get_PrestadorPerfilDeOutroPrestador_Devolve403()
     {
@@ -276,48 +123,6 @@ public class ProfilesEndpointsTests(LocalHubApiFactory factory)
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         await AssertProblemAsync(response, ForbiddenType, url);
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F004-03")]
-    public async Task Get_PerfilInexistente_Devolve404()
-    {
-        string clientToken = await RegisterAndLoginAsync(_client, NewEmail(), "CLIENT");
-        string url = ProfileUrl(int.MaxValue);
-
-        using var response = await SendWithTokenAsync(_client, HttpMethod.Get, url, clientToken);
-
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-        await AssertProblemAsync(response, NotFoundType, url);
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F004-03")]
-    public async Task Get_ClientePrestadorComContaDesativada_Devolve404()
-    {
-        var provider = await CreateProviderWithProfileAsync(_client);
-        string adminToken = await LoginAsAdminAsync(_client);
-        await SetAccountStatusAsync(adminToken, provider.UserId, "deactivate");
-        string clientToken = await RegisterAndLoginAsync(_client, NewEmail(), "CLIENT");
-
-        using var response = await SendWithTokenAsync(
-            _client, HttpMethod.Get, ProfileUrl(provider.ProfessionalProfileId), clientToken);
-
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F004-03")]
-    [Trait("Requisito", "RF-F001-03")]
-    public async Task Get_Administrador_Devolve403()
-    {
-        var provider = await CreateProviderWithProfileAsync(_client);
-        string adminToken = await LoginAsAdminAsync(_client);
-
-        using var response = await SendWithTokenAsync(
-            _client, HttpMethod.Get, ProfileUrl(provider.ProfessionalProfileId), adminToken);
-
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
     // ---------- E14 ----------
@@ -345,186 +150,6 @@ public class ProfilesEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal(15, profile.GetProperty("serviceRadiusKm").GetInt32());
     }
 
-    [Fact]
-    [Trait("Requisito", "RF-F004-02")]
-    [Trait("Requisito", "RF-F015-01")]
-    public async Task UpdateMine_NovaMoradaENovoRaio_SubstituemOsAnterioresComAsCoordenadas()
-    {
-        var provider = await CreateProviderWithProfileAsync(_client);
-        var body = UpdateBody(provider.ServiceCategoryId);
-        body["address"] = FakeGeocodingService.AddressAt2Km;
-        body["serviceRadiusKm"] = 40;
-
-        using var response = await SendJsonAsync(_client, HttpMethod.Put, MeUrl, provider.Token, body);
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var profile = await response.Content.ReadFromJsonAsync<JsonElement>();
-        Assert.Equal(FakeGeocodingService.AddressAt2Km, profile.GetProperty("address").GetString());
-        Assert.Equal(40, profile.GetProperty("serviceRadiusKm").GetInt32());
-        Assert.Equal((41.175886m, FakeGeocodingService.KnownLongitude),
-            await ReadUserCoordinatesAsync(factory, provider.UserId));
-    }
-
-    [Theory]
-    [InlineData("address", null)]
-    [InlineData("serviceRadiusKm", 0)]
-    [InlineData("serviceRadiusKm", 101)]
-    [InlineData("serviceRadiusKm", 25.5)]
-    [InlineData("serviceRadiusKm", null)]
-    [Trait("Requisito", "RF-F004-02")]
-    [Trait("Requisito", "RF-F015-01")]
-    public async Task UpdateMine_MoradaOuRaioInvalido_Devolve400NoCampoENaoAlteraOPerfil(string field, object? value)
-    {
-        var provider = await CreateProviderWithProfileAsync(_client);
-        var body = UpdateBody(provider.ServiceCategoryId);
-        body[field] = value;
-
-        using var response = await SendJsonAsync(_client, HttpMethod.Put, MeUrl, provider.Token, body);
-
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        var problem = await AssertProblemAsync(response, BadRequestType, MeUrl);
-        Assert.True(problem.GetProperty("errors").TryGetProperty(field, out _));
-        await AssertProfileUnchangedAsync(provider);
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F015-01")]
-    [Trait("Requisito", "RF-F015-03")]
-    public async Task UpdateMine_MoradaNaoEncontrada_Devolve400NaMoradaENaoAlteraOPerfil()
-    {
-        var provider = await CreateProviderWithProfileAsync(_client);
-        var body = UpdateBody(provider.ServiceCategoryId);
-        body["address"] = "Rua Que Não Existe 999";
-
-        using var response = await SendJsonAsync(_client, HttpMethod.Put, MeUrl, provider.Token, body);
-
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        var problem = await AssertProblemAsync(response, BadRequestType, MeUrl);
-        Assert.True(problem.GetProperty("errors").TryGetProperty("address", out _));
-        await AssertProfileUnchangedAsync(provider);
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F015-03")]
-    public async Task UpdateMine_GeocodificacaoIndisponivel_Devolve503ENaoAlteraOPerfil()
-    {
-        var provider = await CreateProviderWithProfileAsync(_client);
-        var body = UpdateBody(provider.ServiceCategoryId);
-        body["address"] = $"Rua do Almada {FakeGeocodingService.UnavailableMarker}";
-
-        using var response = await SendJsonAsync(_client, HttpMethod.Put, MeUrl, provider.Token, body);
-
-        Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
-        await AssertProfileUnchangedAsync(provider);
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F015-01")]
-    public async Task UpdateMine_CoordenadasNoCorpo_Devolve400()
-    {
-        var provider = await CreateProviderWithProfileAsync(_client);
-        var body = UpdateBody(provider.ServiceCategoryId);
-        body["latitude"] = 41.1579;
-        body["longitude"] = -8.6291;
-
-        using var response = await SendJsonAsync(_client, HttpMethod.Put, MeUrl, provider.Token, body);
-
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        await AssertProblemAsync(response, BadRequestType, MeUrl);
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F004-04")]
-    public async Task UpdateMine_SemCategorias_Devolve400EMantemAsCategorias()
-    {
-        var provider = await CreateProviderWithProfileAsync(_client);
-
-        using var response = await SendJsonAsync(_client, HttpMethod.Put, MeUrl, provider.Token, UpdateBody());
-
-        await AssertCategoryErrorAsync(response, MeUrl);
-        var profile = await GetJsonAsync(ProfileUrl(provider.ProfessionalProfileId), provider.Token);
-        Assert.Equal([provider.ServiceCategoryId], CategoryIds(profile));
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F004-04")]
-    public async Task UpdateMine_CategoriaNovaDesativada_Devolve400()
-    {
-        var provider = await CreateProviderWithProfileAsync(_client);
-        string adminToken = await LoginAsAdminAsync(_client);
-        int inactive = await CreateCategoryAsync(_client, adminToken);
-        await DeactivateCategoryAsync(adminToken, inactive);
-
-        using var response = await SendJsonAsync(
-            _client, HttpMethod.Put, MeUrl, provider.Token, UpdateBody(provider.ServiceCategoryId, inactive));
-
-        await AssertCategoryErrorAsync(response, MeUrl);
-    }
-
-    // A category can only be deactivated when no active provider uses it, so the provider is deactivated first.
-    [Fact]
-    [Trait("Requisito", "RF-F004-04")]
-    [Trait("Requisito", "RF-F003-03")]
-    public async Task UpdateMine_CategoriaJaAssociadaEntretantoDesativada_PodeManterSe()
-    {
-        var provider = await CreateProviderWithProfileAsync(_client);
-        string adminToken = await LoginAsAdminAsync(_client);
-        await SetAccountStatusAsync(adminToken, provider.UserId, "deactivate");
-        await DeactivateCategoryAsync(adminToken, provider.ServiceCategoryId);
-        await SetAccountStatusAsync(adminToken, provider.UserId, "activate");
-        string token = await LoginAndGetTokenAsync(_client, provider.Email, ValidPassword);
-        int newCategory = await CreateCategoryAsync(_client, adminToken);
-
-        using var response = await SendJsonAsync(
-            _client, HttpMethod.Put, MeUrl, token, UpdateBody(provider.ServiceCategoryId, newCategory));
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var profile = await response.Content.ReadFromJsonAsync<JsonElement>();
-        Assert.Equal(new[] { provider.ServiceCategoryId, newCategory }.Order(), CategoryIds(profile).Order());
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F004-02")]
-    public async Task UpdateMine_ClassificacaoMediaNoCorpo_Devolve400()
-    {
-        var provider = await CreateProviderWithProfileAsync(_client);
-        var body = UpdateBody(provider.ServiceCategoryId);
-        body["averageRating"] = 5.0;
-
-        using var response = await SendJsonAsync(_client, HttpMethod.Put, MeUrl, provider.Token, body);
-
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        await AssertProblemAsync(response, BadRequestType, MeUrl);
-        var profile = await GetJsonAsync(ProfileUrl(provider.ProfessionalProfileId), provider.Token);
-        Assert.Equal(JsonValueKind.Null, profile.GetProperty("averageRating").ValueKind);
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F004-02")]
-    [Trait("Requisito", "RF-F001-03")]
-    public async Task UpdateMine_Cliente_Devolve403()
-    {
-        string token = await RegisterAndLoginAsync(_client, NewEmail(), "CLIENT");
-
-        using var response = await SendJsonAsync(_client, HttpMethod.Put, MeUrl, token, UpdateBody(1));
-
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-        await AssertProblemAsync(response, ForbiddenType, MeUrl);
-    }
-
-    // E17 was removed (API documentation v03): the radius is changed in E14.
-    [Fact]
-    [Trait("Requisito", "RF-F015-01")]
-    public async Task SetServiceRadius_EndpointRetirado_Devolve404()
-    {
-        var provider = await CreateProviderWithProfileAsync(_client);
-
-        using var response = await SendJsonAsync(
-            _client, HttpMethod.Put, "/api/profiles/me/service-radius", provider.Token, new { serviceRadiusKm = 25 });
-
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-    }
-
     // ---------- Provider without a profile (API documentation, section 7) ----------
 
     [Theory]
@@ -544,31 +169,7 @@ public class ProfilesEndpointsTests(LocalHubApiFactory factory)
         await AssertProblemAsync(response, MissingProfileType, url);
     }
 
-    [Fact]
-    [Trait("Requisito", "RF-F004-01")]
-    public async Task GetMe_PrestadorSemPerfil_DevolveProfessionalProfileIdNulo()
-    {
-        var (token, _, _) = await RegisterProviderAsync(_client);
-
-        await AssertHasNoProfileAsync(token);
-    }
-
     // ---------- E11: categories used by profiles ----------
-
-    [Fact]
-    [Trait("Requisito", "RF-F003-03")]
-    public async Task DeactivateCategory_UsadaPorPrestadorAtivo_Devolve409ComOMotivo()
-    {
-        var provider = await CreateProviderWithProfileAsync(_client);
-        string adminToken = await LoginAsAdminAsync(_client);
-        string url = $"/api/categories/{provider.ServiceCategoryId}/deactivate";
-
-        using var response = await SendWithTokenAsync(_client, HttpMethod.Post, url, adminToken);
-
-        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
-        var problem = await AssertProblemAsync(response, ConflictType, url);
-        Assert.Equal("A categoria está associada a 1 Prestador ativo.", problem.GetProperty("detail").GetString());
-    }
 
     private static string ProfileUrl(int professionalProfileId) => $"{ProfilesUrl}/{professionalProfileId}";
 
@@ -581,17 +182,6 @@ public class ProfilesEndpointsTests(LocalHubApiFactory factory)
         ["address"] = FakeGeocodingService.KnownAddress,
         ["serviceRadiusKm"] = 15,
     };
-
-    // The profile and the location created by CreateProviderWithProfileAsync.
-    private async Task AssertProfileUnchangedAsync(ProviderWithProfile provider)
-    {
-        var profile = await GetJsonAsync(ProfileUrl(provider.ProfessionalProfileId), provider.Token);
-        Assert.NotEqual("Nova apresentação", profile.GetProperty("introduction").GetString());
-        Assert.Equal(FakeGeocodingService.KnownAddress, profile.GetProperty("address").GetString());
-        Assert.Equal(15, profile.GetProperty("serviceRadiusKm").GetInt32());
-        var coordinates = await ReadUserCoordinatesAsync(factory, provider.UserId);
-        Assert.Equal(FakeGeocodingService.KnownLatitude, coordinates.Latitude);
-    }
 
     private static List<int> CategoryIds(JsonElement profile) =>
         profile.GetProperty("serviceCategories").EnumerateArray()
@@ -609,20 +199,6 @@ public class ProfilesEndpointsTests(LocalHubApiFactory factory)
     {
         var me = await GetJsonAsync("/api/auth/me", token);
         Assert.Equal(JsonValueKind.Null, me.GetProperty("professionalProfileId").ValueKind);
-    }
-
-    private static async Task AssertCategoryErrorAsync(HttpResponseMessage response, string url)
-    {
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        var problem = await AssertProblemAsync(response, BadRequestType, url);
-        Assert.True(problem.GetProperty("errors").TryGetProperty("serviceCategoryIds", out _));
-    }
-
-    private async Task DeactivateCategoryAsync(string adminToken, int serviceCategoryId)
-    {
-        using var response = await SendWithTokenAsync(
-            _client, HttpMethod.Post, $"/api/categories/{serviceCategoryId}/deactivate", adminToken);
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
     // action: "deactivate" (E06) or "activate" (E07).

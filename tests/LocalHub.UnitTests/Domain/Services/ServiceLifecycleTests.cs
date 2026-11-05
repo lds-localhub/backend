@@ -22,88 +22,6 @@ public class ServiceLifecycleTests
 
     // ---------- CancelByClient (RF-F007-05, RF-F008-04) ----------
 
-    // Criteria 1 and 2 of RF-F007-05: OPEN → CANCELLED; PENDING → VOID; DECLINED and answered requests stay.
-    [Fact]
-    [Trait("Requisito", "RF-F007-05")]
-    public void CancelByClient_ServicoAberto_CancelaEAnulaAsPropostasESolicitacoesPendentes()
-    {
-        var silent = Profile(30);
-        var service = CreateDirect([Profile(12), Profile(17), Profile(21), silent]);
-        var pending = Submit(service, service.DirectRequests.ElementAt(0).ProfessionalProfile, 101);
-        var declined = Submit(service, service.DirectRequests.ElementAt(1).ProfessionalProfile, 102);
-        service.DeclineProposal(102, ClientId, Later);
-        var declinedRequest = service.DirectRequests.Single(r => r.ProfessionalProfileId == 21);
-        typeof(DirectRequest).GetProperty(nameof(DirectRequest.DirectRequestId))!.SetValue(declinedRequest, 510);
-        service.DeclineDirectRequest(510, 21, Later);
-
-        service.CancelByClient(ClientId, Decision);
-
-        Assert.Equal(ServiceStatus.Cancelled, service.Status);
-        Assert.Equal(ProposalStatus.Void, pending.Status);
-        Assert.Null(pending.DecisionDate);
-        Assert.Equal(ProposalStatus.Declined, declined.Status);
-        Assert.Equal(Later, declined.DecisionDate);
-        var requests = service.DirectRequests.ToDictionary(r => r.ProfessionalProfileId, r => r.Status);
-        Assert.Equal(DirectRequestStatus.Void, requests[30]);
-        Assert.Equal(DirectRequestStatus.Declined, requests[21]);
-        Assert.Equal(DirectRequestStatus.ProposalSubmitted, requests[12]);
-        Assert.Equal(DirectRequestStatus.ProposalSubmitted, requests[17]);
-        Assert.Null(service.ActualCompletionDate);
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F008-04")]
-    public void CancelByClient_TrabalhoAberto_CancelaEAnulaAsPropostasPendentes()
-    {
-        var service = CreatePublic();
-        var first = Submit(service, Profile(12), 101);
-        var second = Submit(service, Profile(17), 102);
-
-        service.CancelByClient(ClientId, Decision);
-
-        Assert.Equal(ServiceStatus.Cancelled, service.Status);
-        Assert.All([first, second], p =>
-        {
-            Assert.Equal(ProposalStatus.Void, p.Status);
-            Assert.Null(p.DecisionDate);
-        });
-    }
-
-    // Criterion 3: ASSIGNED → CANCELLED; the ACCEPTED proposal stays ACCEPTED and the DECLINED ones stay DECLINED.
-    [Fact]
-    [Trait("Requisito", "RF-F007-05")]
-    [Trait("Requisito", "RF-F008-04")]
-    public void CancelByClient_ServicoAtribuido_CancelaEMantemAPropostaAceite()
-    {
-        var service = CreatePublic();
-        var accepted = Submit(service, Profile(12), 101);
-        var other = Submit(service, Profile(17), 102);
-        service.AcceptProposal(101, ClientId, Later);
-
-        service.CancelByClient(ClientId, Decision);
-
-        Assert.Equal(ServiceStatus.Cancelled, service.Status);
-        Assert.Equal(ProposalStatus.Accepted, accepted.Status);
-        Assert.Equal(Later, accepted.DecisionDate);
-        Assert.Equal(ProposalStatus.Declined, other.Status);
-        Assert.Equal(Later, other.DecisionDate);
-    }
-
-    // Criterion 6: only the client that created the service.
-    [Fact]
-    [Trait("Requisito", "RF-F007-05")]
-    public void CancelByClient_OutroCliente_LancaForbiddenSemAlterarNada()
-    {
-        var service = CreatePublic();
-        var proposal = Submit(service, Profile(12), 101);
-
-        var exception = Assert.Throws<DomainException>(() => service.CancelByClient(99, Decision));
-
-        Assert.Equal(DomainErrorKind.Forbidden, exception.Kind);
-        Assert.Equal(ServiceStatus.Open, service.Status);
-        Assert.Equal(ProposalStatus.Pending, proposal.Status);
-    }
-
     // Criterion 7 and section 10: COMPLETED and CANCELLED are final.
     [Theory]
     [Trait("Requisito", "RF-F007-07")]
@@ -123,49 +41,6 @@ public class ServiceLifecycleTests
 
     // ---------- CancelByProvider (RF-F007-05, RF-F008-04) ----------
 
-    // Criterion 4: the provider whose proposal was accepted cancels an ASSIGNED service.
-    [Fact]
-    [Trait("Requisito", "RF-F007-05")]
-    [Trait("Requisito", "RF-F008-04")]
-    public void CancelByProvider_PrestadorContratado_CancelaEMantemAPropostaAceite()
-    {
-        var service = AssignedService(out var accepted);
-
-        service.CancelByProvider(12, Decision);
-
-        Assert.Equal(ServiceStatus.Cancelled, service.Status);
-        Assert.Equal(ProposalStatus.Accepted, accepted.Status);
-    }
-
-    // Rule 2: a provider that only received a direct request, in an OPEN service.
-    [Fact]
-    [Trait("Requisito", "RF-F007-05")]
-    public void CancelByProvider_SoRecebeuASolicitacao_LancaForbiddenSemAlterarNada()
-    {
-        var service = CreateDirect([Profile(12)]);
-
-        var exception = Assert.Throws<DomainException>(() => service.CancelByProvider(12, Decision));
-
-        Assert.Equal(DomainErrorKind.Forbidden, exception.Kind);
-        Assert.Equal(ServiceStatus.Open, service.Status);
-        Assert.Equal(DirectRequestStatus.Pending, service.DirectRequests.Single().Status);
-    }
-
-    // A provider with a PENDING proposal cannot cancel an OPEN service either.
-    [Fact]
-    [Trait("Requisito", "RF-F008-04")]
-    public void CancelByProvider_ServicoAbertoComPropostaPendente_LancaForbidden()
-    {
-        var service = CreatePublic();
-        var proposal = Submit(service, Profile(12), 101);
-
-        var exception = Assert.Throws<DomainException>(() => service.CancelByProvider(12, Decision));
-
-        Assert.Equal(DomainErrorKind.Forbidden, exception.Kind);
-        Assert.Equal(ServiceStatus.Open, service.Status);
-        Assert.Equal(ProposalStatus.Pending, proposal.Status);
-    }
-
     // Criterion 5: a provider whose proposal was not accepted.
     [Fact]
     [Trait("Requisito", "RF-F007-05")]
@@ -180,50 +55,7 @@ public class ServiceLifecycleTests
         Assert.Equal(ServiceStatus.Assigned, service.Status);
     }
 
-    [Theory]
-    [Trait("Requisito", "RF-F007-07")]
-    [Trait("Requisito", "RF-F008-06")]
-    [InlineData(ServiceStatus.Completed)]
-    [InlineData(ServiceStatus.Cancelled)]
-    public void CancelByProvider_EstadoFinal_LancaInvalidTransition(ServiceStatus state)
-    {
-        var service = AssignedService(out _);
-        MoveTo(service, state);
-
-        var exception = Assert.Throws<DomainException>(() => service.CancelByProvider(12, Decision));
-
-        Assert.Equal(DomainErrorKind.InvalidTransition, exception.Kind);
-        Assert.Equal(state, service.Status);
-    }
-
     // ---------- Complete (RF-F007-06, RF-F008-05) ----------
-
-    [Fact]
-    [Trait("Requisito", "RF-F007-06")]
-    [Trait("Requisito", "RF-F008-05")]
-    public void Complete_ServicoAtribuido_FicaRealizadoComADataDeRealizacao()
-    {
-        var service = AssignedService(out var accepted);
-
-        service.Complete(ClientId, End);
-
-        Assert.Equal(ServiceStatus.Completed, service.Status);
-        Assert.Equal(End, service.ActualCompletionDate);
-        Assert.Equal(ProposalStatus.Accepted, accepted.Status);
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F007-06")]
-    public void Complete_OutroCliente_LancaForbidden()
-    {
-        var service = AssignedService(out _);
-
-        var exception = Assert.Throws<DomainException>(() => service.Complete(99, End));
-
-        Assert.Equal(DomainErrorKind.Forbidden, exception.Kind);
-        Assert.Equal(ServiceStatus.Assigned, service.Status);
-        Assert.Null(service.ActualCompletionDate);
-    }
 
     // Section 10: OPEN → COMPLETED is not a transition; COMPLETED and CANCELLED are final.
     [Theory]

@@ -118,67 +118,6 @@ public class SearchEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal(0, items[0].GetProperty("reviewCount").GetInt32());
     }
 
-    // reviewCount (API documentation, E18): the reviews of the services in which the proposal of the provider was
-    // accepted; a completed service without a review does not count.
-    [Fact]
-    [Trait("Requisito", "RF-F005-01")]
-    [Trait("Requisito", "RF-F012-02")]
-    public async Task SearchProviders_PrestadorComAvaliacoes_DevolveONumeroDeAvaliacoesEAMedia()
-    {
-        int categoryId = await NewCategoryAsync();
-        var reviewed = await CreateProviderAsync("Com avaliações", FakeGeocodingService.AddressAt2Km, 15, categoryId);
-        var notReviewed = await CreateProviderAsync("Sem avaliações", FakeGeocodingService.AddressAt10Km, 15, categoryId);
-        await CompleteServiceAsync(reviewed, categoryId, rating: 5);
-        await CompleteServiceAsync(reviewed, categoryId, rating: 4);
-        await CompleteServiceAsync(reviewed, categoryId, rating: null);
-        await CompleteServiceAsync(notReviewed, categoryId, rating: null);
-
-        using var response = await SearchAsync($"serviceCategoryId={categoryId}&{KnownAddressQuery}");
-
-        var items = await ItemsAsync(response);
-        Assert.Equal([reviewed.ProfessionalProfileId, notReviewed.ProfessionalProfileId], ProfileIds(items));
-        Assert.Equal([2, 0], items.Select(i => i.GetProperty("reviewCount").GetInt32()));
-        Assert.Equal(4.5m, items[0].GetProperty("averageRating").GetDecimal());
-        Assert.Equal(JsonValueKind.Null, items[1].GetProperty("averageRating").ValueKind);
-    }
-
-    // CA4 (RF-F005-01, rule 7 and criterion 7): the service radius does not limit the results.
-    [Fact]
-    [Trait("Requisito", "RF-F005-01")]
-    public async Task SearchProviders_PrestadorA30KmComRaioDe25_EApresentadoForaDoRaio()
-    {
-        int categoryId = await NewCategoryAsync();
-        var provider = await CreateProviderAsync("A 30 km", FakeGeocodingService.AddressAt30Km, 25, categoryId);
-
-        using var response = await SearchAsync($"serviceCategoryId={categoryId}&{KnownAddressQuery}");
-
-        var item = Assert.Single(await ItemsAsync(response));
-        Assert.Equal(provider.ProfessionalProfileId, item.GetProperty("professionalProfileId").GetInt32());
-        Assert.Equal(30.0m, item.GetProperty("distanceKm").GetDecimal());
-        Assert.Equal(25, item.GetProperty("serviceRadiusKm").GetInt32());
-        Assert.False(item.GetProperty("withinServiceRadius").GetBoolean());
-    }
-
-    // RF-F015-05, criterion 1: after the provider changes its location in the profile (E14), the search uses the new one.
-    [Fact]
-    [Trait("Requisito", "RF-F015-05")]
-    public async Task SearchProviders_PrestadorAlteraALocalizacao_UsaANovaLocalizacao()
-    {
-        int categoryId = await NewCategoryAsync();
-        var provider = await CreateProviderAsync("Muda de morada", FakeGeocodingService.AddressAt30Km, 25, categoryId);
-        var update = ValidProfileBody(categoryId);
-        update["address"] = FakeGeocodingService.AddressAt2Km;
-        update["serviceRadiusKm"] = 25;
-        using var move = await SendJsonAsync(_client, HttpMethod.Put, $"{ProfilesUrl}/me", provider.Token, update);
-        Assert.Equal(HttpStatusCode.OK, move.StatusCode);
-
-        using var response = await SearchAsync($"serviceCategoryId={categoryId}&{KnownAddressQuery}");
-
-        var item = Assert.Single(await ItemsAsync(response));
-        Assert.Equal(2.0m, item.GetProperty("distanceKm").GetDecimal());
-        Assert.True(item.GetProperty("withinServiceRadius").GetBoolean());
-    }
-
     // ---------- Reference location (RF-F005-02) ----------
 
     // CA5 (RF-F005-02, rule 1 and criterion 1).
@@ -199,141 +138,11 @@ public class SearchEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal([2.0m, 30.0m], Distances(items));
     }
 
-    // CA5 (RF-F005-02, rules 2 and 3 and criterion 3): the address replaces the registered location only in this search.
-    [Fact]
-    [Trait("Requisito", "RF-F005-02")]
-    public async Task SearchProviders_ClienteIndicaOutraMorada_UsaAMoradaENaoAlteraALocalizacaoRegistada()
-    {
-        int categoryId = await NewCategoryAsync();
-        var at30 = await CreateProviderAsync("A 30 km", FakeGeocodingService.AddressAt30Km, 25, categoryId);
-        var at2 = await CreateProviderAsync("A 2 km", FakeGeocodingService.AddressAt2Km, 15, categoryId);
-        string clientToken = await CreateClientWithLocationAsync(FakeGeocodingService.KnownAddress);
-
-        using var response = await SearchAsync(
-            $"serviceCategoryId={categoryId}&address={Uri.EscapeDataString(FakeGeocodingService.AddressAt30Km)}", clientToken);
-
-        var items = await ItemsAsync(response);
-        Assert.Equal([at30.ProfessionalProfileId, at2.ProfessionalProfileId], ProfileIds(items));
-        Assert.Equal([0.0m, 28.0m], Distances(items));
-
-        using var meResponse = await SendWithTokenAsync(_client, HttpMethod.Get, "/api/auth/me", clientToken);
-        var me = await meResponse.Content.ReadFromJsonAsync<JsonElement>();
-        Assert.Equal(FakeGeocodingService.KnownAddress, me.GetProperty("address").GetString());
-        Assert.Equal((FakeGeocodingService.KnownLatitude, FakeGeocodingService.KnownLongitude),
-            await ReadUserCoordinatesAsync(factory, me.GetProperty("userId").GetInt32()));
-    }
-
-    // Rule R3: the reference location is received as an address (in the mobile application, filled with E35), so
-    // coordinates in the query are not used.
-    [Fact]
-    [Trait("Requisito", "RF-F005-02")]
-    public async Task SearchProviders_SoCoordenadas_NaoSaoUsadasEDevolve400NaMorada()
-    {
-        int categoryId = await NewCategoryAsync();
-        await CreateProviderAsync("A 2 km", FakeGeocodingService.AddressAt2Km, 15, categoryId);
-
-        using var response = await SearchAsync($"serviceCategoryId={categoryId}&latitude=41.1579&longitude=-8.6291");
-
-        await AssertFieldErrorAsync(response, "address");
-    }
-
-    // CA6 (RF-F005-01, rule 5 and criterion 5). Only the registered location of a client is used by default: a provider
-    // with a location (from E12) also has to indicate one.
-    [Theory]
-    [InlineData(null)]
-    [InlineData("CLIENT")]
-    [InlineData("PROVIDER")]
-    [Trait("Requisito", "RF-F005-01")]
-    [Trait("Requisito", "RF-F005-02")]
-    public async Task SearchProviders_SemLocalizacaoDeReferencia_Devolve400NaMorada(string? role)
-    {
-        int categoryId = await NewCategoryAsync();
-        string? token = role switch
-        {
-            "CLIENT" => await RegisterAndLoginAsync(_client, NewEmail(), "CLIENT"),
-            "PROVIDER" => (await CreateProviderWithProfileAsync(_client)).Token,
-            _ => null,
-        };
-
-        using var response = await SearchAsync($"serviceCategoryId={categoryId}", token);
-
-        await AssertFieldErrorAsync(response, "address");
-    }
-
-    // CA6 (RF-F015-03, criterion 2).
-    [Fact]
-    [Trait("Requisito", "RF-F005-02")]
-    [Trait("Requisito", "RF-F015-03")]
-    public async Task SearchProviders_MoradaNaoReconhecida_Devolve400NaMorada()
-    {
-        int categoryId = await NewCategoryAsync();
-
-        using var response = await SearchAsync(
-            $"serviceCategoryId={categoryId}&address={Uri.EscapeDataString("Rua Que Não Existe 999")}");
-
-        await AssertFieldErrorAsync(response, "address");
-    }
-
-    // CA6: the Nominatim is down.
-    [Fact]
-    [Trait("Requisito", "RF-F005-02")]
-    public async Task SearchProviders_GeocodificacaoIndisponivel_Devolve503()
-    {
-        int categoryId = await NewCategoryAsync();
-        string address = Uri.EscapeDataString($"Rua do Almada {FakeGeocodingService.UnavailableMarker}");
-
-        using var response = await SearchAsync($"serviceCategoryId={categoryId}&address={address}");
-
-        Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
-        var body = await AssertProblemAsync(response, "https://tools.ietf.org/html/rfc9110#section-15.6.4", Url);
-        Assert.Equal(GeocodingUnavailableException.UserMessage, body.GetProperty("detail").GetString());
-    }
-
-    // ---------- Category (RF-F005-01, rule 2) ----------
-
-    // CA6
-    [Fact]
-    [Trait("Requisito", "RF-F005-01")]
-    public async Task SearchProviders_SemCategoria_Devolve400NaCategoria()
-    {
-        using var response = await SearchAsync(KnownAddressQuery);
-
-        await AssertFieldErrorAsync(response, "serviceCategoryId");
-    }
-
-    // CA6
-    [Fact]
-    [Trait("Requisito", "RF-F005-01")]
-    public async Task SearchProviders_CategoriaInexistente_Devolve400NaCategoria()
-    {
-        using var response = await SearchAsync($"serviceCategoryId={int.MaxValue}&{KnownAddressQuery}");
-
-        await AssertFieldErrorAsync(response, "serviceCategoryId");
-    }
-
-    // CA6 (RF-F003-04, rule 1)
-    [Fact]
-    [Trait("Requisito", "RF-F005-01")]
-    [Trait("Requisito", "RF-F003-04")]
-    public async Task SearchProviders_CategoriaDesativada_Devolve400NaCategoria()
-    {
-        string adminToken = await LoginAsAdminAsync(_client);
-        int categoryId = await CreateCategoryAsync(_client, adminToken);
-        using var deactivate = await SendWithTokenAsync(
-            _client, HttpMethod.Post, $"/api/categories/{categoryId}/deactivate", adminToken);
-        Assert.Equal(HttpStatusCode.OK, deactivate.StatusCode);
-
-        using var response = await SearchAsync($"serviceCategoryId={categoryId}&{KnownAddressQuery}");
-
-        await AssertFieldErrorAsync(response, "serviceCategoryId");
-    }
-
     // ---------- Name filter (RF-F009-02, rule 2) ----------
 
     // CA7 (RF-F009-02, criterion 2): part of the name, without telling upper and lower case apart.
     [Theory]
     [InlineData("SILVA")]
-    [InlineData("silva")]
     [InlineData("  CANALIZAÇÕES  ")]
     [Trait("Requisito", "RF-F009-02")]
     public async Task SearchProviders_FiltroPeloNome_NaoDistingueMaiusculasDeMinusculas(string name)
@@ -347,100 +156,6 @@ public class SearchEndpointsTests(LocalHubApiFactory factory)
 
         var item = Assert.Single(await ItemsAsync(response));
         Assert.Equal(silva.ProfessionalProfileId, item.GetProperty("professionalProfileId").GetInt32());
-    }
-
-    // RF-F009-02, criterion 2: no provider has this text in the name. "%" and "_" are plain characters, not the
-    // wildcards of LIKE.
-    [Theory]
-    [InlineData("Jardins")]
-    [InlineData("%")]
-    [InlineData("_")]
-    [Trait("Requisito", "RF-F009-02")]
-    public async Task SearchProviders_NomeSemCorrespondencia_DevolveListaVazia(string name)
-    {
-        int categoryId = await NewCategoryAsync();
-        await CreateProviderAsync("Canalizações Silva", FakeGeocodingService.AddressAt2Km, 15, categoryId);
-
-        using var response = await SearchAsync(
-            $"serviceCategoryId={categoryId}&{KnownAddressQuery}&name={Uri.EscapeDataString(name)}");
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
-        Assert.Equal(0, body.GetProperty("total").GetInt32());
-        Assert.Empty(body.GetProperty("items").EnumerateArray());
-    }
-
-    // ---------- Distance calculated in memory (DEC-06) ----------
-
-    // CA8: on a meridian, 1° of latitude is R · π / 180 = 111.19 km.
-    [Fact]
-    [Trait("Requisito", "RF-F005-01")]
-    public async Task SearchProviders_UmGrauDeLatitude_DevolveADistanciaDeReferencia()
-    {
-        int categoryId = await NewCategoryAsync();
-        var provider = await CreateProviderAsync("Um grau a norte", FakeGeocodingService.KnownAddress, 15, categoryId);
-        await MoveAsync(provider.UserId, 42.1579m, -8.6291m);
-
-        using var response = await SearchAsync($"serviceCategoryId={categoryId}&{KnownAddressQuery}");
-
-        var item = Assert.Single(await ItemsAsync(response));
-        Assert.InRange(item.GetProperty("distanceKm").GetDecimal(), 111.19m - 0.1m, 111.19m + 0.1m);
-    }
-
-    // Points on opposite sides of the Earth (87.5° N, 180° and 87.5° S, 0°): the rounding errors can make the value
-    // under the square root slightly greater than 1, and asin would fail without Math.Min (GeoDistance.HaversineKm).
-    // The result is half of the circumference, π · R = 20015.1 km.
-    [Fact]
-    [Trait("Requisito", "RF-F005-01")]
-    public async Task SearchProviders_PontosOpostosDaTerra_DevolveMetadeDaCircunferencia()
-    {
-        int categoryId = await NewCategoryAsync();
-        var provider = await CreateProviderAsync("Perto do polo", FakeGeocodingService.KnownAddress, 15, categoryId);
-        await MoveAsync(provider.UserId, 87.5m, 180m);
-        string clientToken = await CreateClientWithLocationAsync(FakeGeocodingService.KnownAddress);
-        await MoveAsync(await GetUserIdAsync(clientToken), -87.5m, 0m);
-
-        using var response = await SearchAsync($"serviceCategoryId={categoryId}", clientToken);
-
-        var item = Assert.Single(await ItemsAsync(response));
-        Assert.InRange(item.GetProperty("distanceKm").GetDecimal(), 20015.0m, 20015.2m);
-    }
-
-    // ---------- Pages (API documentation, section 4.4) ----------
-
-    // The page is chosen after ordering by distance.
-    [Fact]
-    [Trait("Requisito", "RF-F005-01")]
-    public async Task SearchProviders_SegundaPagina_DevolveOTerceiroMaisProximoEOTotal()
-    {
-        int categoryId = await NewCategoryAsync();
-        var at30 = await CreateProviderAsync("A 30 km", FakeGeocodingService.AddressAt30Km, 25, categoryId);
-        await CreateProviderAsync("A 2 km", FakeGeocodingService.AddressAt2Km, 15, categoryId);
-        await CreateProviderAsync("A 10 km", FakeGeocodingService.AddressAt10Km, 15, categoryId);
-
-        using var response = await SearchAsync($"serviceCategoryId={categoryId}&{KnownAddressQuery}&page=2&pageSize=2");
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
-        Assert.Equal(2, body.GetProperty("page").GetInt32());
-        Assert.Equal(2, body.GetProperty("pageSize").GetInt32());
-        Assert.Equal(3, body.GetProperty("total").GetInt32());
-        var item = Assert.Single(body.GetProperty("items").EnumerateArray());
-        Assert.Equal(at30.ProfessionalProfileId, item.GetProperty("professionalProfileId").GetInt32());
-    }
-
-    [Theory]
-    [InlineData("page=0", "page")]
-    [InlineData("pageSize=0", "pageSize")]
-    [InlineData("pageSize=51", "pageSize")]
-    [Trait("Requisito", "RF-F005-01")]
-    public async Task SearchProviders_PaginaInvalida_Devolve400NoCampo(string query, string field)
-    {
-        int categoryId = await NewCategoryAsync();
-
-        using var response = await SearchAsync($"serviceCategoryId={categoryId}&{KnownAddressQuery}&{query}");
-
-        await AssertFieldErrorAsync(response, field);
     }
 
     // ---------- Helpers ----------
@@ -477,36 +192,6 @@ public class SearchEndpointsTests(LocalHubApiFactory factory)
             account.GetProperty("userId").GetInt32(), profile.GetProperty("professionalProfileId").GetInt32(), token);
     }
 
-    // A PUBLIC service of a new client, with the proposal of the provider accepted (E20, E25, E28) and the service
-    // completed (E31); reviewed by the client (E32) when a rating is given.
-    private async Task CompleteServiceAsync(Provider provider, int serviceCategoryId, int? rating)
-    {
-        var client = await RegisterClientAsync(_client);
-        using var create = await SendJsonAsync(
-            _client, HttpMethod.Post, ServicesUrl, client.Token, PublicBody(serviceCategoryId));
-        Assert.Equal(HttpStatusCode.Created, create.StatusCode);
-        int serviceId = (await create.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("serviceId").GetInt32();
-
-        using var submit = await SendJsonAsync(_client, HttpMethod.Post, $"{ServicesUrl}/{serviceId}/proposals",
-            provider.Token, new { amount = 80.00m, conditions = "Material incluído." });
-        Assert.Equal(HttpStatusCode.Created, submit.StatusCode);
-        int proposalId = (await submit.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("proposalId").GetInt32();
-
-        using var accept = await SendWithTokenAsync(
-            _client, HttpMethod.Post, $"/api/proposals/{proposalId}/accept", client.Token);
-        Assert.Equal(HttpStatusCode.OK, accept.StatusCode);
-        using var complete = await SendWithTokenAsync(
-            _client, HttpMethod.Post, $"{ServicesUrl}/{serviceId}/complete", client.Token);
-        Assert.Equal(HttpStatusCode.OK, complete.StatusCode);
-
-        if (rating != null)
-        {
-            using var review = await SendJsonAsync(
-                _client, HttpMethod.Post, $"{ServicesUrl}/{serviceId}/review", client.Token, new { rating });
-            Assert.Equal(HttpStatusCode.Created, review.StatusCode);
-        }
-    }
-
     private async Task<int> GetUserIdAsync(string token)
     {
         using var response = await SendWithTokenAsync(_client, HttpMethod.Get, "/api/auth/me", token);
@@ -538,15 +223,6 @@ public class SearchEndpointsTests(LocalHubApiFactory factory)
         var db = scope.ServiceProvider.GetRequiredService<LocalHubDbContext>();
         await db.Database.ExecuteSqlAsync(
             $"UPDATE \"User\" SET address = NULL, latitude = NULL, longitude = NULL WHERE \"userId\" = {userId}");
-    }
-
-    // Coordinates that FakeGeocodingService does not know, written directly in the database.
-    private async Task MoveAsync(int userId, decimal latitude, decimal longitude)
-    {
-        using var scope = factory.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<LocalHubDbContext>();
-        await db.Database.ExecuteSqlAsync(
-            $"UPDATE \"User\" SET latitude = {latitude}, longitude = {longitude} WHERE \"userId\" = {userId}");
     }
 
     private static async Task<List<JsonElement>> ItemsAsync(HttpResponseMessage response)

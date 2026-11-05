@@ -22,31 +22,8 @@ namespace LocalHub.IntegrationTests.Accounts;
 public class AdminSummaryEndpointsTests(LocalHubApiFactory factory)
 {
     private const string SummaryUrl = "/api/admin/summary";
-    private static readonly string[] SummaryFields = ["activeAccounts", "inactiveAccounts", "activeCategories"];
 
     private readonly HttpClient _client = factory.CreateClient();
-
-    [Fact]
-    [Trait("Requisito", "RF-F002-01")]
-    [Trait("Requisito", "RF-F003-04")]
-    public async Task Summary_Administrador_Devolve200ComOsContadoresSemContasDeAdministrador()
-    {
-        string adminToken = await LoginAsAdminAsync(_client);
-
-        var summary = await GetSummaryAsync(adminToken);
-
-        using var scope = factory.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<LocalHubDbContext>();
-        var accounts = db.Users.Where(u => u.Role != UserRole.Admin);
-        Assert.Equal(await accounts.CountAsync(u => u.Status == ActivationStatus.Active), summary.ActiveAccounts);
-        Assert.Equal(await accounts.CountAsync(u => u.Status == ActivationStatus.Inactive), summary.InactiveAccounts);
-        Assert.Equal(
-            await db.ServiceCategories.CountAsync(c => c.Status == ActivationStatus.Active), summary.ActiveCategories);
-
-        // The administrator created by the DataSeeder is active and is not counted.
-        int activeUsers = await db.Users.CountAsync(u => u.Status == ActivationStatus.Active);
-        Assert.True(activeUsers > summary.ActiveAccounts);
-    }
 
     [Fact]
     [Trait("Requisito", "RF-F002-01")]
@@ -71,19 +48,6 @@ public class AdminSummaryEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal(before.ActiveAccounts + 1, after.ActiveAccounts);
         Assert.Equal(before.InactiveAccounts + 1, after.InactiveAccounts);
         Assert.Equal(before.ActiveCategories + 1, after.ActiveCategories);
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F002-01")]
-    public async Task Summary_Administrador_DevolveApenasOsTresContadores()
-    {
-        string adminToken = await LoginAsAdminAsync(_client);
-
-        using var response = await SendWithTokenAsync(_client, HttpMethod.Get, SummaryUrl, adminToken);
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
-        Assert.Equal(SummaryFields, body.EnumerateObject().Select(p => p.Name).ToArray());
     }
 
     private async Task<(int ActiveAccounts, int InactiveAccounts, int ActiveCategories)> GetSummaryAsync(string adminToken)

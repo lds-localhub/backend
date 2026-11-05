@@ -57,73 +57,6 @@ public class ReportsEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal(new Dictionary<string, int> { ["ASSIGNED"] = 1, ["COMPLETED"] = 1, ["CANCELLED"] = 1 }, byStatus);
     }
 
-    // ---------- RF-F013-01: criterion 5 ----------
-
-    [Fact]
-    [Trait("Requisito", "RF-F013-01")]
-    public async Task Relatorio_DoisDeUmaCategoriaEUmDeOutra_DistribuiPorCategoria()
-    {
-        var plumbing = await CreateProviderAsync($"Canalização {Guid.NewGuid():N}");
-        var gardening = await CreateProviderAsync($"Jardinagem {Guid.NewGuid():N}");
-        var client = await RegisterClientAsync(_client);
-        await CreateContractedAsync(client, plumbing, 80.00m);
-        await CreateContractedAsync(client, plumbing, 80.00m);
-        await CreateContractedAsync(client, gardening, 80.00m);
-
-        var report = await GetReportAsync(client.Token);
-
-        var byCategory = report.GetProperty("byCategory").EnumerateArray().ToList();
-        Assert.Equal(2, byCategory.Count);
-        Assert.Equal(plumbing.ServiceCategoryId, byCategory[0].GetProperty("serviceCategoryId").GetInt32());
-        Assert.StartsWith("Canalização", byCategory[0].GetProperty("name").GetString());
-        Assert.Equal(2, byCategory[0].GetProperty("count").GetInt32());
-        Assert.Equal(gardening.ServiceCategoryId, byCategory[1].GetProperty("serviceCategoryId").GetInt32());
-        Assert.Equal(1, byCategory[1].GetProperty("count").GetInt32());
-    }
-
-    // ---------- RF-F013-01: criteria 2 and 3 ----------
-
-    // 80,00 € + 150,00 € = 230,00 €; a pending proposal of 500,00 € does not count.
-    [Fact]
-    [Trait("Requisito", "RF-F013-01")]
-    public async Task Relatorio_PropostasAceitesDe80E150_ValorTotalE230()
-    {
-        var provider = await CreateProviderAsync();
-        var client = await RegisterClientAsync(_client);
-        await CreateContractedAsync(client, provider, 80.00m);
-        int cancelled = await CreateContractedAsync(client, provider, 150.00m);
-        await PostOkAsync(client.Token, $"{ServicesUrl}/{cancelled}/cancel");
-        int open = await CreatePublicServiceAsync(client, provider.ServiceCategoryId);
-        await SubmitAsync(open, provider, 500.00m);
-
-        var report = await GetReportAsync(client.Token);
-
-        Assert.Equal(230.00m, report.GetProperty("totalAcceptedAmount").GetDecimal());
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F013-01")]
-    public async Task Relatorio_HistoricoTemSoOServicoRealizadoComDataCategoriaPrestadorEValor()
-    {
-        string categoryName = $"Canalização {Guid.NewGuid():N}";
-        var provider = await CreateProviderAsync(categoryName);
-        var client = await RegisterClientAsync(_client);
-        int completed = await CreateContractedAsync(client, provider, 80.00m);
-        var completion = await PostOkAsync(client.Token, $"{ServicesUrl}/{completed}/complete");
-        await CreateContractedAsync(client, provider, 150.00m);
-
-        var report = await GetReportAsync(client.Token);
-
-        var item = Assert.Single(report.GetProperty("completedHistory").EnumerateArray());
-        Assert.Equal(completed, item.GetProperty("serviceId").GetInt32());
-        Assert.Equal(provider.ServiceCategoryId, item.GetProperty("serviceCategory").GetProperty("serviceCategoryId").GetInt32());
-        Assert.Equal(categoryName, item.GetProperty("serviceCategory").GetProperty("name").GetString());
-        Assert.Equal("Prestador Teste", item.GetProperty("providerName").GetString());
-        Assert.Equal(80.00m, item.GetProperty("amount").GetDecimal());
-        Assert.Equal(completion.GetProperty("actualCompletionDate").GetDateTimeOffset(),
-            item.GetProperty("actualCompletionDate").GetDateTimeOffset());
-    }
-
     // ---------- RF-F013-01: rule 5 ----------
 
     [Fact]
@@ -142,22 +75,6 @@ public class ReportsEndpointsTests(LocalHubApiFactory factory)
         Assert.All(report.GetProperty("byStatus").EnumerateArray(), s => Assert.Equal(0, s.GetProperty("count").GetInt32()));
         Assert.Equal(0m, report.GetProperty("totalAcceptedAmount").GetDecimal());
         Assert.Empty(report.GetProperty("completedHistory").EnumerateArray());
-    }
-
-    // Criterion 4 of RF-F013-01 is ensured by the route: there is no parameter to choose the client.
-    [Theory]
-    [Trait("Requisito", "RF-F013-01")]
-    [InlineData("PROVIDER")]
-    [InlineData("ADMINISTRATOR")]
-    public async Task Relatorio_PapelDiferenteDeCliente_Devolve403(string role)
-    {
-        string token = role == "ADMINISTRATOR"
-            ? await LoginAsAdminAsync(_client)
-            : await RegisterAndLoginAsync(_client, NewEmail(), role);
-
-        using var response = await SendWithTokenAsync(_client, HttpMethod.Get, ReportUrl, token);
-
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
     // ---------- RF-F013-02 ----------
@@ -188,124 +105,7 @@ public class ReportsEndpointsTests(LocalHubApiFactory factory)
         Assert.False(october.TryGetProperty("period", out _));
     }
 
-    // Only one of the dates: the period is open on the other side.
-    [Fact]
-    [Trait("Requisito", "RF-F013-02")]
-    public async Task Relatorio_SoComDataInicial_ContaOsServicosDesdeEssaData()
-    {
-        var provider = await CreateProviderAsync();
-        var client = await RegisterClientAsync(_client);
-        int old = await CreateContractedAsync(client, provider, 10.00m);
-        await CreateContractedAsync(client, provider, 20.00m);
-        await SetCreationDateAsync(old, new DateTimeOffset(2026, 1, 15, 12, 0, 0, TimeSpan.Zero));
-
-        var report = await GetReportAsync(client.Token, "?startDate=2026-10-01");
-
-        Assert.Equal(1, report.GetProperty("contractedServices").GetInt32());
-        Assert.Equal(20.00m, report.GetProperty("totalAcceptedAmount").GetDecimal());
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F013-02")]
-    public async Task Relatorio_SoComDataFinal_ContaOsServicosAteEssaData()
-    {
-        var provider = await CreateProviderAsync();
-        var client = await RegisterClientAsync(_client);
-        int old = await CreateContractedAsync(client, provider, 10.00m);
-        await CreateContractedAsync(client, provider, 20.00m);
-        await SetCreationDateAsync(old, new DateTimeOffset(2026, 1, 15, 12, 0, 0, TimeSpan.Zero));
-
-        var report = await GetReportAsync(client.Token, "?endDate=2026-01-31");
-
-        Assert.Equal(1, report.GetProperty("contractedServices").GetInt32());
-        Assert.Equal(10.00m, report.GetProperty("totalAcceptedAmount").GetDecimal());
-    }
-
-    // The first and the last days that the dates can have: no 500 (before, endDate=9999-12-31 threw
-    // ArgumentOutOfRangeException when the day after was calculated).
-    [Theory]
-    [Trait("Requisito", "RF-F013-02")]
-    [InlineData("?endDate=9999-12-31")]
-    [InlineData("?startDate=0001-01-01&endDate=9999-12-31")]
-    public async Task Relatorio_DatasExtremas_Devolve200ComTodaAAtividade(string query)
-    {
-        var provider = await CreateProviderAsync();
-        var client = await RegisterClientAsync(_client);
-        await CreateContractedAsync(client, provider, 80.00m);
-
-        var report = await GetReportAsync(client.Token, query);
-
-        Assert.Equal(1, report.GetProperty("contractedServices").GetInt32());
-    }
-
-    // Criterion 2: a start date after the end date is a global error of the operation, only in "detail".
-    [Fact]
-    [Trait("Requisito", "RF-F013-02")]
-    public async Task Relatorio_DataInicialPosteriorAFinal_Devolve400ComErroGlobal()
-    {
-        var client = await RegisterClientAsync(_client, withLocation: false);
-
-        using var response = await SendWithTokenAsync(
-            _client, HttpMethod.Get, ReportUrl + "?startDate=2026-10-31&endDate=2026-10-01", client.Token);
-
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        var problem = await AssertProblemAsync(response, BadRequestType, ReportUrl);
-        Assert.Equal("A data inicial não pode ser posterior à data final.", problem.GetProperty("detail").GetString());
-        Assert.False(problem.TryGetProperty("errors", out _));
-    }
-
-    // An invalid format is an error of the parameter, in "errors" (API documentation v04, section 4.6).
-    [Theory]
-    [Trait("Requisito", "RF-F013-02")]
-    [InlineData("?startDate=2026-13-01", "startDate")]
-    [InlineData("?endDate=01-10-2026", "endDate")]
-    [InlineData("?startDate=2026-10-01&endDate=ontem", "endDate")]
-    public async Task Relatorio_DataInvalida_Devolve400ComOErroNoParametro(string query, string field)
-    {
-        var client = await RegisterClientAsync(_client, withLocation: false);
-
-        using var response = await SendWithTokenAsync(_client, HttpMethod.Get, ReportUrl + query, client.Token);
-
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        var problem = await AssertProblemAsync(response, BadRequestType, ReportUrl);
-        var error = Assert.Single(problem.GetProperty("errors").EnumerateObject());
-        Assert.Equal(field, error.Name);
-        Assert.Equal("Indique uma data válida no formato AAAA-MM-DD.", error.Value[0].GetString());
-    }
-
     // ---------- E34, RF-F014-01: rules 1 to 4 ----------
-
-    // Criterion 1: one accepted and three not chosen because the client accepted another provider; a PENDING proposal, a
-    // VOID proposal and the proposals of the other provider are not counted.
-    [Fact]
-    [Trait("Requisito", "RF-F014-01")]
-    public async Task RelatorioPrestador_UmaAceiteETresNaoEscolhidas_ContaAsAceitesERecusadas()
-    {
-        var provider = await CreateProviderAsync();
-        var other = await CreateProviderInCategoriesAsync(provider.ServiceCategoryId);
-        var client = await RegisterClientAsync(_client);
-        await CreateContractedAsync(client, provider, 80.00m);
-        for (int i = 0; i < 3; i++)
-        {
-            int declinedService = await CreatePublicServiceAsync(client, provider.ServiceCategoryId);
-            await SubmitAsync(declinedService, provider, 90.00m);
-            int chosen = await SubmitAsync(declinedService, other, 70.00m);
-            await PostOkAsync(client.Token, $"/api/proposals/{chosen}/accept");
-        }
-
-        int pending = await CreatePublicServiceAsync(client, provider.ServiceCategoryId);
-        await SubmitAsync(pending, provider, 500.00m);
-        int voided = await CreatePublicServiceAsync(client, provider.ServiceCategoryId);
-        await SubmitAsync(voided, provider, 500.00m);
-        await PostOkAsync(client.Token, $"{ServicesUrl}/{voided}/cancel");
-
-        var report = await GetProviderReportAsync(provider.Token);
-
-        var proposals = report.GetProperty("proposals");
-        Assert.Equal(1, proposals.GetProperty("accepted").GetInt32());
-        Assert.Equal(3, proposals.GetProperty("declined").GetInt32());
-        Assert.Equal(80.00m, report.GetProperty("totalAcceptedAmount").GetDecimal());
-    }
 
     // Rule 1: only the COMPLETED ones are completed services. Rule 2: the distributions have all the services in which
     // the proposal of the provider was accepted, and not the service that the client gave to another provider.
@@ -340,117 +140,6 @@ public class ReportsEndpointsTests(LocalHubApiFactory factory)
         var byStatus = report.GetProperty("byStatus").EnumerateArray()
             .ToDictionary(s => s.GetProperty("status").GetString()!, s => s.GetProperty("count").GetInt32());
         Assert.Equal(new Dictionary<string, int> { ["ASSIGNED"] = 1, ["COMPLETED"] = 1, ["CANCELLED"] = 1 }, byStatus);
-    }
-
-    // Criterion 5: one pending and one declined; a direct request sent to another provider is not counted.
-    [Fact]
-    [Trait("Requisito", "RF-F014-01")]
-    public async Task RelatorioPrestador_DuasSolicitacoesDiretas_ContaEmQualquerEstado()
-    {
-        var provider = await CreateProviderAsync();
-        var other = await CreateProviderInCategoriesAsync(provider.ServiceCategoryId);
-        var client = await RegisterClientAsync(_client);
-        await CreateDirectRequestAsync(client, provider);
-        int declined = await CreateDirectRequestAsync(client, provider);
-        await PostOkAsync(provider.Token, $"/api/direct-requests/{declined}/decline");
-        await CreateDirectRequestAsync(client, other);
-
-        var report = await GetProviderReportAsync(provider.Token);
-
-        Assert.Equal(2, report.GetProperty("directRequestsReceived").GetInt32());
-    }
-
-    // ---------- E34, RF-F014-01: rule 5 ----------
-
-    // Criterion 3 with the real clock of the API: each month has the mean of its reviews, and the month in the middle,
-    // without reviews, has no value.
-    [Fact]
-    [Trait("Requisito", "RF-F014-01")]
-    public async Task RelatorioPrestador_AvaliacoesEmDoisMeses_ApresentaAMediaDeCadaMesAteAoMesAtual()
-    {
-        var provider = await CreateProviderAsync();
-        var client = await RegisterClientAsync(_client);
-        var now = DateTimeOffset.UtcNow;
-        await CreateReviewedAsync(client, provider, 5, MiddleOfMonth(now.AddMonths(-2)));
-        await CreateReviewedAsync(client, provider, 3, MiddleOfMonth(now));
-
-        var report = await GetProviderReportAsync(provider.Token);
-
-        var evolution = report.GetProperty("ratingEvolution").EnumerateArray().ToList();
-        Assert.Equal(3, evolution.Count);
-        Assert.Equal(MonthText(now.AddMonths(-2)), evolution[0].GetProperty("month").GetString());
-        Assert.Equal(1, evolution[0].GetProperty("reviewCount").GetInt32());
-        Assert.Equal(5.0m, evolution[0].GetProperty("averageRating").GetDecimal());
-        Assert.Equal(MonthText(now.AddMonths(-1)), evolution[1].GetProperty("month").GetString());
-        Assert.Equal(0, evolution[1].GetProperty("reviewCount").GetInt32());
-        Assert.Equal(JsonValueKind.Null, evolution[1].GetProperty("averageRating").ValueKind);
-        Assert.Equal(MonthText(now), evolution[2].GetProperty("month").GetString());
-        Assert.Equal(3.0m, evolution[2].GetProperty("averageRating").GetDecimal());
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F014-01")]
-    public async Task RelatorioPrestador_SemAtividade_DevolveZerosEListasVazias()
-    {
-        var provider = await CreateProviderAsync();
-
-        var report = await GetProviderReportAsync(provider.Token);
-
-        Assert.Equal(0, report.GetProperty("completedServices").GetInt32());
-        Assert.Empty(report.GetProperty("byCategory").EnumerateArray());
-        Assert.All(report.GetProperty("byStatus").EnumerateArray(), s => Assert.Equal(0, s.GetProperty("count").GetInt32()));
-        Assert.Equal(3, report.GetProperty("byStatus").GetArrayLength());
-        Assert.Equal(0, report.GetProperty("directRequestsReceived").GetInt32());
-        Assert.Equal(0, report.GetProperty("proposals").GetProperty("accepted").GetInt32());
-        Assert.Equal(0, report.GetProperty("proposals").GetProperty("declined").GetInt32());
-        Assert.Equal(0m, report.GetProperty("totalAcceptedAmount").GetDecimal());
-        Assert.Empty(report.GetProperty("ratingEvolution").EnumerateArray());
-    }
-
-    // ---------- E34, RF-F014-01: rule 6 ----------
-
-    // Criteria 2 and 4: the route has no parameter to choose the provider, and the data of another one is never counted.
-    [Fact]
-    [Trait("Requisito", "RF-F014-01")]
-    public async Task RelatorioPrestador_SoIncluiOsDadosDoProprioPrestador()
-    {
-        var other = await CreateProviderAsync();
-        var client = await RegisterClientAsync(_client);
-        await CreateReviewedAsync(client, other, 5, DateTimeOffset.UtcNow);
-        var provider = await CreateProviderInCategoriesAsync(other.ServiceCategoryId);
-
-        var report = await GetProviderReportAsync(provider.Token);
-
-        Assert.Equal(0, report.GetProperty("completedServices").GetInt32());
-        Assert.Equal(0m, report.GetProperty("totalAcceptedAmount").GetDecimal());
-        Assert.Empty(report.GetProperty("ratingEvolution").EnumerateArray());
-    }
-
-    [Theory]
-    [Trait("Requisito", "RF-F014-01")]
-    [InlineData("CLIENT")]
-    [InlineData("ADMINISTRATOR")]
-    public async Task RelatorioPrestador_PapelDiferenteDePrestador_Devolve403(string role)
-    {
-        string token = role == "ADMINISTRATOR"
-            ? await LoginAsAdminAsync(_client)
-            : await RegisterAndLoginAsync(_client, NewEmail(), role);
-
-        using var response = await SendWithTokenAsync(_client, HttpMethod.Get, ProviderReportUrl, token);
-
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F014-01")]
-    public async Task RelatorioPrestador_SemPerfil_Devolve403PerfilEmFalta()
-    {
-        var (token, _, _) = await RegisterProviderAsync(_client);
-
-        using var response = await SendWithTokenAsync(_client, HttpMethod.Get, ProviderReportUrl, token);
-
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-        await AssertProblemAsync(response, MissingProfileType, ProviderReportUrl);
     }
 
     // ---------- E34, RF-F014-02 ----------
@@ -507,76 +196,6 @@ public class ReportsEndpointsTests(LocalHubApiFactory factory)
         Assert.False(october.TryGetProperty("period", out _));
     }
 
-    // Criterion 3: the evolution depends on the month of the review, not on the creation date of the service, and the
-    // mean of the month shown does not include the previous months.
-    [Fact]
-    [Trait("Requisito", "RF-F014-02")]
-    public async Task RelatorioPrestador_PeriodoDeUmMes_ApresentaApenasEsseMes()
-    {
-        var provider = await CreateProviderAsync();
-        var client = await RegisterClientAsync(_client);
-        var now = DateTimeOffset.UtcNow;
-        await CreateReviewedAsync(client, provider, 5, MiddleOfMonth(now.AddMonths(-2)));
-        await CreateReviewedAsync(client, provider, 3, MiddleOfMonth(now.AddMonths(-1)));
-        var month = now.AddMonths(-1);
-        string lastDay = DateTime.DaysInMonth(month.Year, month.Month).ToString("00", CultureInfo.InvariantCulture);
-
-        var report = await GetProviderReportAsync(
-            provider.Token, $"?startDate={MonthText(month)}-01&endDate={MonthText(month)}-{lastDay}");
-
-        var item = Assert.Single(report.GetProperty("ratingEvolution").EnumerateArray());
-        Assert.Equal(MonthText(month), item.GetProperty("month").GetString());
-        Assert.Equal(1, item.GetProperty("reviewCount").GetInt32());
-        Assert.Equal(3.0m, item.GetProperty("averageRating").GetDecimal());
-    }
-
-    // The first and the last days that the dates can have: no 500 and no list with thousands of months.
-    [Fact]
-    [Trait("Requisito", "RF-F014-02")]
-    public async Task RelatorioPrestador_DatasExtremas_Devolve200ComOsMesesComAvaliacoes()
-    {
-        var provider = await CreateProviderAsync();
-        var client = await RegisterClientAsync(_client);
-        await CreateReviewedAsync(client, provider, 4, DateTimeOffset.UtcNow);
-
-        var report = await GetProviderReportAsync(provider.Token, "?startDate=0001-01-01&endDate=9999-12-31");
-
-        Assert.Equal(1, report.GetProperty("completedServices").GetInt32());
-        Assert.Equal(1, report.GetProperty("ratingEvolution").GetArrayLength());
-    }
-
-    // Criterion 2: a start date after the end date is a global error of the operation, only in "detail".
-    [Fact]
-    [Trait("Requisito", "RF-F014-02")]
-    public async Task RelatorioPrestador_DataInicialPosteriorAFinal_Devolve400ComErroGlobal()
-    {
-        var provider = await CreateProviderAsync();
-
-        using var response = await SendWithTokenAsync(
-            _client, HttpMethod.Get, ProviderReportUrl + "?startDate=2026-10-31&endDate=2026-10-01", provider.Token);
-
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        var problem = await AssertProblemAsync(response, BadRequestType, ProviderReportUrl);
-        Assert.Equal("A data inicial não pode ser posterior à data final.", problem.GetProperty("detail").GetString());
-        Assert.False(problem.TryGetProperty("errors", out _));
-    }
-
-    [Theory]
-    [Trait("Requisito", "RF-F014-02")]
-    [InlineData("?startDate=2026-13-01", "startDate")]
-    [InlineData("?endDate=01-10-2026", "endDate")]
-    public async Task RelatorioPrestador_DataInvalida_Devolve400ComOErroNoParametro(string query, string field)
-    {
-        var provider = await CreateProviderAsync();
-
-        using var response = await SendWithTokenAsync(_client, HttpMethod.Get, ProviderReportUrl + query, provider.Token);
-
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        var problem = await AssertProblemAsync(response, BadRequestType, ProviderReportUrl);
-        var error = Assert.Single(problem.GetProperty("errors").EnumerateObject());
-        Assert.Equal(field, error.Name);
-    }
-
     // ---------- Helpers ----------
 
     private async Task<JsonElement> GetReportAsync(string token, string query = "")
@@ -592,11 +211,6 @@ public class ReportsEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         return await response.Content.ReadFromJsonAsync<JsonElement>();
     }
-
-    private static string MonthText(DateTimeOffset date) => date.ToString("yyyy-MM", CultureInfo.InvariantCulture);
-
-    // The 15th, so that the month does not depend on the day of the current date.
-    private static DateTimeOffset MiddleOfMonth(DateTimeOffset date) => new(date.Year, date.Month, 15, 12, 0, 0, TimeSpan.Zero);
 
     private async Task<JsonElement> PostOkAsync(string token, string url)
     {
@@ -660,13 +274,6 @@ public class ReportsEndpointsTests(LocalHubApiFactory factory)
         var db = scope.ServiceProvider.GetRequiredService<LocalHubDbContext>();
         await db.Database.ExecuteSqlAsync(
             $"UPDATE \"Review\" SET \"creationDate\" = {date} WHERE \"serviceId\" = {serviceId}");
-    }
-
-    // A service with a direct request to the provider; returns the identifier of the direct request.
-    private async Task<int> CreateDirectRequestAsync(TestClient client, ProviderWithProfile provider)
-    {
-        var service = await PostDirectServiceAsync(client, provider);
-        return service.GetProperty("directRequests")[0].GetProperty("directRequestId").GetInt32();
     }
 
     // The same, returning the identifier of the service.

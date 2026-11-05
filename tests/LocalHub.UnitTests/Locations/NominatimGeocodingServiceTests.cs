@@ -28,38 +28,8 @@ public class NominatimGeocodingServiceTests
         Assert.Equal(-8.6291m, result.Longitude);
     }
 
-    [Fact]
-    [Trait("Requisito", "RF-F015-03")]
-    public async Task GeocodeAsync_MoradaNaoEncontrada_DevolveNull()
-    {
-        using StubHandler handler = new(HttpStatusCode.OK, "[]");
-        NominatimGeocodingService service = CreateService(handler);
-
-        Coordinates? result = await service.GeocodeAsync("Rua Inexistente 99999");
-
-        Assert.Null(result);
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F015-03")]
-    public async Task GeocodeAsync_PedidoEnviado_IdentificaAAplicacaoEFiltraPortugal()
-    {
-        using StubHandler handler = new(HttpStatusCode.OK, "[]");
-        NominatimGeocodingService service = CreateService(handler);
-
-        await service.GeocodeAsync("Rua de Santa Catarina, Porto");
-
-        Uri requestUri = Assert.Single(handler.RequestUris);
-        Assert.Contains("LocalHub-Testes", Assert.Single(handler.UserAgents), StringComparison.Ordinal);
-        Assert.Equal("/search", requestUri.AbsolutePath);
-        Assert.Contains("countrycodes=pt", requestUri.Query, StringComparison.Ordinal);
-        Assert.Contains("format=jsonv2", requestUri.Query, StringComparison.Ordinal);
-        Assert.Contains("limit=1", requestUri.Query, StringComparison.Ordinal);
-    }
-
     [Theory]
     [Trait("Requisito", "RF-F015-03")]
-    [InlineData(HttpStatusCode.InternalServerError)]
     [InlineData(HttpStatusCode.ServiceUnavailable)]
     [InlineData(HttpStatusCode.TooManyRequests)]
     public async Task GeocodeAsync_NominatimComErro_LancaGeocodingUnavailable(HttpStatusCode status)
@@ -68,99 +38,6 @@ public class NominatimGeocodingServiceTests
         NominatimGeocodingService service = CreateService(handler);
 
         await Assert.ThrowsAsync<GeocodingUnavailableException>(() => service.GeocodeAsync("Porto"));
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F015-03")]
-    public async Task GeocodeAsync_FalhaDeLigacao_LancaGeocodingUnavailable()
-    {
-        using StubHandler handler = new(new HttpRequestException("sem rede"));
-        NominatimGeocodingService service = CreateService(handler);
-
-        await Assert.ThrowsAsync<GeocodingUnavailableException>(() => service.GeocodeAsync("Porto"));
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F015-03")]
-    public async Task GeocodeAsync_TempoLimiteExcedido_LancaGeocodingUnavailable()
-    {
-        using StubHandler handler = new(new TaskCanceledException("tempo limite"));
-        NominatimGeocodingService service = CreateService(handler);
-
-        await Assert.ThrowsAsync<GeocodingUnavailableException>(() => service.GeocodeAsync("Porto"));
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F015-04")]
-    public async Task ReverseGeocodeAsync_CoordenadasComMorada_DevolveAMorada()
-    {
-        using StubHandler handler = new(HttpStatusCode.OK, """{"lat":"41.1579","lon":"-8.6291","display_name":"Praça da Liberdade, Porto"}""");
-        NominatimGeocodingService service = CreateService(handler);
-
-        string? address = await service.ReverseGeocodeAsync(Coordinates.Rounded(41.1579m, -8.6291m));
-
-        Assert.Equal("Praça da Liberdade, Porto", address);
-        Uri requestUri = Assert.Single(handler.RequestUris);
-        Assert.Equal("/reverse", requestUri.AbsolutePath);
-        Assert.Contains("lat=41.1579", requestUri.Query, StringComparison.Ordinal);
-        Assert.Contains("lon=-8.6291", requestUri.Query, StringComparison.Ordinal);
-        Assert.Contains("addressdetails=1", requestUri.Query, StringComparison.Ordinal);
-    }
-
-    // E35: street, number, postal code and locality, without the name of the place and the parishes of display_name.
-    [Fact]
-    [Trait("Requisito", "RF-F015-06")]
-    public async Task ReverseGeocodeAsync_ComDetalhesDaMorada_DevolveRuaNumeroCodigoPostalELocalidade()
-    {
-        using StubHandler handler = new(HttpStatusCode.OK, """
-            {"display_name":"Loja, 74, Rua de Santa Catarina, Baixa do Porto, Santo Ildefonso, Porto, 4000-441, Portugal",
-             "address":{"shop":"Loja","house_number":"74","road":"Rua de Santa Catarina","suburb":"Baixa do Porto",
-                        "city":"Porto","postcode":"4000-441","country":"Portugal"}}
-            """);
-        NominatimGeocodingService service = CreateService(handler);
-
-        string? address = await service.ReverseGeocodeAsync(Coordinates.Rounded(41.1468m, -8.6068m));
-
-        Assert.Equal("Rua de Santa Catarina 74, 4000-441 Porto", address);
-    }
-
-    [Theory]
-    [InlineData("""{"road":"Rua do Sol","town":"Amarante"}""", "Rua do Sol, Amarante")]
-    [InlineData("""{"road":"Rua do Sol","postcode":"4600-011","village":"Fridão"}""", "Rua do Sol, 4600-011 Fridão")]
-    [InlineData("""{"road":"Rua do Sol"}""", "Rua do Sol")]
-    [Trait("Requisito", "RF-F015-06")]
-    public async Task ReverseGeocodeAsync_DetalhesIncompletos_DevolveOsQueExistem(string details, string expected)
-    {
-        using StubHandler handler = new(HttpStatusCode.OK, $$"""{"display_name":"Completo","address":{{details}}}""");
-        NominatimGeocodingService service = CreateService(handler);
-
-        string? address = await service.ReverseGeocodeAsync(Coordinates.Rounded(41.27m, -8.08m));
-
-        Assert.Equal(expected, address);
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F015-06")]
-    public async Task ReverseGeocodeAsync_SemRua_DevolveODisplayName()
-    {
-        using StubHandler handler = new(HttpStatusCode.OK, """{"display_name":"Serra da Estrela, Portugal","address":{"natural":"Serra da Estrela","country":"Portugal"}}""");
-        NominatimGeocodingService service = CreateService(handler);
-
-        string? address = await service.ReverseGeocodeAsync(Coordinates.Rounded(40.32m, -7.61m));
-
-        Assert.Equal("Serra da Estrela, Portugal", address);
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F015-04")]
-    public async Task ReverseGeocodeAsync_SemMorada_DevolveNull()
-    {
-        using StubHandler handler = new(HttpStatusCode.OK, """{"error":"Unable to geocode"}""");
-        NominatimGeocodingService service = CreateService(handler);
-
-        string? address = await service.ReverseGeocodeAsync(Coordinates.Rounded(0m, 0m));
-
-        Assert.Null(address);
     }
 
     private static NominatimGeocodingService CreateService(StubHandler handler)

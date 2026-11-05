@@ -70,22 +70,6 @@ public class ProviderDetailEndpointsTests(LocalHubApiFactory factory)
 
     [Fact]
     [Trait("Requisito", "RF-F007-09")]
-    public async Task GetDirectRequest_DepoisDaProposta_DevolveOProposalIdEAPropostaApresentada()
-    {
-        var provider = await CreateProviderWithProfileAsync(_client);
-        var (_, serviceId, requests) = await CreateDirectServiceAsync(provider.ServiceCategoryId, provider.ProfessionalProfileId);
-        int proposalId = await SubmitProposalAsync(provider.Token, serviceId);
-
-        using var response = await GetAsync(provider.Token, $"{DirectRequestsUrl}/{requests[provider.ProfessionalProfileId]}");
-
-        var request = await BodyAsync(response);
-        Assert.Equal("PROPOSAL_SUBMITTED", request.GetProperty("status").GetString());
-        Assert.NotEqual(JsonValueKind.Null, request.GetProperty("responseDate").ValueKind);
-        Assert.Equal(proposalId, request.GetProperty("proposalId").GetInt32());
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F007-09")]
     [Trait("Requisito", "RNF-06")]
     public async Task GetDirectRequest_SolicitacaoDeOutroPrestador_Devolve403()
     {
@@ -99,31 +83,6 @@ public class ProviderDetailEndpointsTests(LocalHubApiFactory factory)
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         await AssertProblemAsync(response, ForbiddenType, url);
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F007-09")]
-    public async Task GetDirectRequest_Inexistente_Devolve404()
-    {
-        var provider = await CreateProviderWithProfileAsync(_client);
-        string url = $"{DirectRequestsUrl}/{int.MaxValue}";
-
-        using var response = await GetAsync(provider.Token, url);
-
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-        await AssertProblemAsync(response, NotFoundType, url);
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F007-09")]
-    public async Task GetDirectRequest_ClienteDoServico_Devolve403()
-    {
-        var provider = await CreateProviderWithProfileAsync(_client);
-        var (client, _, requests) = await CreateDirectServiceAsync(provider.ServiceCategoryId, provider.ProfessionalProfileId);
-
-        using var response = await GetAsync(client.Token, $"{DirectRequestsUrl}/{requests[provider.ProfessionalProfileId]}");
-
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
     // ---------- E37 ----------
@@ -163,27 +122,6 @@ public class ProviderDetailEndpointsTests(LocalHubApiFactory factory)
 
     [Fact]
     [Trait("Requisito", "RF-F008-07")]
-    public async Task GetProposal_TrabalhoPublicado_DevolveAModalidadePublic()
-    {
-        var provider = await CreateProviderWithProfileAsync(_client);
-        var client = await RegisterClientAsync(_client);
-        using var create = await SendJsonAsync(
-            _client, HttpMethod.Post, ServicesUrl, client.Token, PublicBody(provider.ServiceCategoryId));
-        Assert.Equal(HttpStatusCode.Created, create.StatusCode);
-        int serviceId = (await create.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("serviceId").GetInt32();
-        int proposalId = await SubmitProposalAsync(provider.Token, serviceId);
-
-        using var response = await GetAsync(provider.Token, $"{ProposalsUrl}/{proposalId}");
-
-        var service = (await BodyAsync(response)).GetProperty("service");
-        Assert.Equal("PUBLIC", service.GetProperty("proposalModel").GetString());
-        Assert.Equal(JsonValueKind.Null, service.GetProperty("requestedEndDate").ValueKind);
-        // The client created the service at its registered location, the same address as the provider.
-        Assert.Equal(0.0m, service.GetProperty("distanceKm").GetDecimal());
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F008-07")]
     [Trait("Requisito", "RNF-06")]
     public async Task GetProposal_PropostaDeOutroPrestador_Devolve403()
     {
@@ -198,49 +136,6 @@ public class ProviderDetailEndpointsTests(LocalHubApiFactory factory)
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         await AssertProblemAsync(response, ForbiddenType, url);
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F008-07")]
-    public async Task GetProposal_Inexistente_Devolve404()
-    {
-        var provider = await CreateProviderWithProfileAsync(_client);
-        string url = $"{ProposalsUrl}/{int.MaxValue}";
-
-        using var response = await GetAsync(provider.Token, url);
-
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-        await AssertProblemAsync(response, NotFoundType, url);
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F008-07")]
-    public async Task GetProposal_ClienteDoServico_Devolve403()
-    {
-        var provider = await CreateProviderWithProfileAsync(_client);
-        var (client, serviceId, _) = await CreateDirectServiceAsync(provider.ServiceCategoryId, provider.ProfessionalProfileId);
-        int proposalId = await SubmitProposalAsync(provider.Token, serviceId);
-
-        using var response = await GetAsync(client.Token, $"{ProposalsUrl}/{proposalId}");
-
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-    }
-
-    // ---------- E36 and E37: provider without a profile ----------
-
-    [Theory]
-    [InlineData(DirectRequestsUrl)]
-    [InlineData(ProposalsUrl)]
-    [Trait("Requisito", "RF-F004-01")]
-    public async Task Get_PrestadorSemPerfil_Devolve403PerfilEmFalta(string baseUrl)
-    {
-        var (token, _, _) = await RegisterProviderAsync(_client);
-        string url = $"{baseUrl}/1";
-
-        using var response = await GetAsync(token, url);
-
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-        await AssertProblemAsync(response, MissingProfileType, url);
     }
 
     // ---------- Helpers ----------

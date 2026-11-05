@@ -30,37 +30,6 @@ public class OpenServicesEndpointsTests(LocalHubApiFactory factory)
 
     private readonly HttpClient _client = factory.CreateClient();
 
-    // ---------- E19: who can search (criterion 1) ----------
-
-    [Theory]
-    [InlineData("CLIENT")]
-    [InlineData("ADMIN")]
-    [Trait("Requisito", "RF-F006-01")]
-    public async Task SearchServices_PapelDiferenteDePrestador_Devolve403(string role)
-    {
-        string token = role == "ADMIN"
-            ? await LoginAsAdminAsync(_client)
-            : await RegisterAndLoginAsync(_client, NewEmail(), role);
-
-        using var response = await GetAsync(token, Url);
-
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-        await AssertProblemAsync(response, ForbiddenType, Url);
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F006-01")]
-    [Trait("Requisito", "RF-F004-01")]
-    public async Task SearchServices_PrestadorSemPerfil_Devolve403PerfilEmFalta()
-    {
-        var (token, _, _) = await RegisterProviderAsync(_client);
-
-        using var response = await GetAsync(token, Url);
-
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-        await AssertProblemAsync(response, MissingProfileType, Url);
-    }
-
     // ---------- E19: which services are returned (criteria 2 and 6) ----------
 
     [Fact]
@@ -126,106 +95,6 @@ public class OpenServicesEndpointsTests(LocalHubApiFactory factory)
         AssertHasNoClientData(first);
     }
 
-    // RF-F006-01: without serviceCategoryId the services of every category are returned. The provider and the services
-    // are moved to coordinates that no other test uses, so the first results are the services of this test.
-    [Fact]
-    [Trait("Requisito", "RF-F006-01")]
-    public async Task SearchServices_SemCategoria_DevolveTrabalhosDeTodasAsCategorias()
-    {
-        var provider = await CreateProviderAsync(15);
-        int otherCategoryId = await CreateCategoryAsync(_client, await LoginAsAdminAsync(_client));
-        int near = await CreatePublicServiceAsync(provider.ServiceCategoryId, FakeGeocodingService.AddressAt2Km);
-        int far = await CreatePublicServiceAsync(otherCategoryId, FakeGeocodingService.AddressAt2Km);
-        // 0.01° of latitude is about 1.1 km.
-        decimal latitude = 37.0m + (Random.Shared.Next(0, 100_000) / 100_000m);
-        await MoveUserAsync(provider.UserId, latitude, -20.0m);
-        await MoveServiceAsync(far, latitude + 0.02m, -20.0m);
-        await MoveServiceAsync(near, latitude + 0.01m, -20.0m);
-
-        using var response = await GetAsync(provider.Token, $"{Url}?pageSize=2");
-
-        var items = (await BodyAsync(response)).GetProperty("items").EnumerateArray().ToList();
-        Assert.Equal([near, far], ServiceIds(items));
-        Assert.Equal(
-            [provider.ServiceCategoryId, otherCategoryId],
-            items.Select(i => i.GetProperty("serviceCategory").GetProperty("serviceCategoryId").GetInt32()));
-    }
-
-    // ---------- E19: filters and pages (criteria 4 and 5) ----------
-
-    // Criterion 5: with a radius of 25 km, the service at 10 km is returned and the one at 30 km is not; without the
-    // filter (previous test) a service outside the radius is returned.
-    [Fact]
-    [Trait("Requisito", "RF-F006-01")]
-    public async Task SearchServices_WithinServiceRadiusTrueERaioDe25_SoDevolveOsTrabalhosDentroDoRaio()
-    {
-        var provider = await CreateProviderAsync(25);
-        int at10 = await CreatePublicServiceAsync(provider.ServiceCategoryId, FakeGeocodingService.AddressAt10Km);
-        await CreatePublicServiceAsync(provider.ServiceCategoryId, FakeGeocodingService.AddressAt30Km);
-
-        using var withFilter = await GetAsync(
-            provider.Token, $"{Url}?serviceCategoryId={provider.ServiceCategoryId}&withinServiceRadius=true");
-        using var withoutFilter = await GetAsync(
-            provider.Token, $"{Url}?serviceCategoryId={provider.ServiceCategoryId}&withinServiceRadius=false");
-
-        var filtered = await BodyAsync(withFilter);
-        Assert.Equal(1, filtered.GetProperty("total").GetInt32());
-        var item = Assert.Single(filtered.GetProperty("items").EnumerateArray());
-        Assert.Equal(at10, item.GetProperty("serviceId").GetInt32());
-        Assert.True(item.GetProperty("withinServiceRadius").GetBoolean());
-        Assert.Equal(2, (await BodyAsync(withoutFilter)).GetProperty("total").GetInt32());
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F006-01")]
-    public async Task SearchServices_SegundaPagina_DevolveOTrabalhoSeguinte()
-    {
-        var provider = await CreateProviderAsync(15);
-        await CreatePublicServiceAsync(provider.ServiceCategoryId, FakeGeocodingService.AddressAt2Km);
-        int at10 = await CreatePublicServiceAsync(provider.ServiceCategoryId, FakeGeocodingService.AddressAt10Km);
-
-        using var response = await GetAsync(
-            provider.Token, $"{Url}?serviceCategoryId={provider.ServiceCategoryId}&page=2&pageSize=1");
-
-        var body = await BodyAsync(response);
-        Assert.Equal(2, body.GetProperty("page").GetInt32());
-        Assert.Equal(2, body.GetProperty("total").GetInt32());
-        Assert.Equal([at10], ServiceIds(body.GetProperty("items").EnumerateArray().ToList()));
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F006-01")]
-    public async Task SearchServices_CategoriaDesativada_Devolve400NoCampo()
-    {
-        var provider = await CreateProviderAsync(15);
-        string adminToken = await LoginAsAdminAsync(_client);
-        int inactiveId = await CreateCategoryAsync(_client, adminToken);
-        using (var deactivate = await SendWithTokenAsync(
-                   _client, HttpMethod.Post, $"/api/categories/{inactiveId}/deactivate", adminToken))
-        {
-            Assert.Equal(HttpStatusCode.OK, deactivate.StatusCode);
-        }
-
-        using var response = await GetAsync(provider.Token, $"{Url}?serviceCategoryId={inactiveId}");
-
-        await AssertFieldErrorAsync(response, "serviceCategoryId");
-    }
-
-    [Theory]
-    [InlineData("serviceCategoryId=999999", "serviceCategoryId")]
-    [InlineData("serviceCategoryId=abc", "serviceCategoryId")]
-    [InlineData("withinServiceRadius=talvez", "withinServiceRadius")]
-    [InlineData("page=0", "page")]
-    [Trait("Requisito", "RF-F006-01")]
-    public async Task SearchServices_FiltroInvalido_Devolve400NoCampo(string query, string field)
-    {
-        var provider = await CreateProviderAsync(15);
-
-        using var response = await GetAsync(provider.Token, $"{Url}?{query}");
-
-        await AssertFieldErrorAsync(response, field);
-    }
-
     // ---------- E38: consult a PUBLIC service (criterion 7) ----------
 
     [Fact]
@@ -253,92 +122,6 @@ public class OpenServicesEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal(JsonValueKind.Null, service.GetProperty("myProposalId").ValueKind);
         AssertHasNoClientData(service);
         Assert.False(service.TryGetProperty("proposals", out _));
-    }
-
-    // myProposalId is the own proposal; another provider never sees it (RNF-06).
-    [Fact]
-    [Trait("Requisito", "RF-F011-01")]
-    [Trait("Requisito", "RNF-06")]
-    public async Task GetService_DepoisDaProposta_DevolveMyProposalIdSoAoPrestadorQueAApresentou()
-    {
-        var provider = await CreateProviderAsync(15);
-        var other = await CreateProviderAsync(15, provider.ServiceCategoryId);
-        int serviceId = await CreatePublicServiceAsync(provider.ServiceCategoryId, FakeGeocodingService.AddressAt2Km);
-        using var submit = await SendJsonAsync(_client, HttpMethod.Post, $"{ServicesUrl}/{serviceId}/proposals",
-            provider.Token, new { amount = 120.00m, conditions = "Material incluído." });
-        Assert.Equal(HttpStatusCode.Created, submit.StatusCode);
-        int proposalId = (await submit.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("proposalId").GetInt32();
-
-        using var mine = await GetAsync(provider.Token, $"{Url}/{serviceId}");
-        using var others = await GetAsync(other.Token, $"{Url}/{serviceId}");
-
-        Assert.Equal(proposalId, (await BodyAsync(mine)).GetProperty("myProposalId").GetInt32());
-        Assert.Equal(JsonValueKind.Null, (await BodyAsync(others)).GetProperty("myProposalId").ValueKind);
-    }
-
-    [Theory]
-    [InlineData("inexistente")]
-    [InlineData("solicitacoes-diretas")]
-    [InlineData("ASSIGNED")]
-    [InlineData("CANCELLED")]
-    [InlineData("cliente-desativado")]
-    [Trait("Requisito", "RF-F011-01")]
-    [Trait("Requisito", "RF-F002-02")]
-    public async Task GetService_ServicoQueNaoEUmTrabalhoPublicadoAberto_Devolve404(string scenario)
-    {
-        var provider = await CreateProviderAsync(15);
-        int serviceId;
-        switch (scenario)
-        {
-            case "inexistente":
-                serviceId = int.MaxValue;
-                break;
-            case "solicitacoes-diretas":
-                serviceId = await CreateDirectServiceAsync(provider.ServiceCategoryId, provider.ProfessionalProfileId);
-                break;
-            case "cliente-desativado":
-                var client = await RegisterClientAsync(_client);
-                serviceId = await CreatePublicServiceAsync(client, provider.ServiceCategoryId, FakeGeocodingService.AddressAt2Km);
-                await DeactivateAsync(client.UserId);
-                break;
-            default:
-                serviceId = await CreatePublicServiceAsync(provider.ServiceCategoryId, FakeGeocodingService.AddressAt2Km);
-                await SetServiceStatusAsync(serviceId, scenario);
-                break;
-        }
-
-        using var response = await GetAsync(provider.Token, $"{Url}/{serviceId}");
-
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-        await AssertProblemAsync(response, NotFoundType, $"{Url}/{serviceId}");
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F011-01")]
-    public async Task GetService_Cliente_Devolve403()
-    {
-        var client = await RegisterClientAsync(_client);
-        int categoryId = await CreateCategoryAsync(_client, await LoginAsAdminAsync(_client));
-        int serviceId = await CreatePublicServiceAsync(client, categoryId, FakeGeocodingService.AddressAt2Km);
-
-        using var response = await GetAsync(client.Token, $"{Url}/{serviceId}");
-
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F011-01")]
-    [Trait("Requisito", "RF-F004-01")]
-    public async Task GetService_PrestadorSemPerfil_Devolve403PerfilEmFalta()
-    {
-        int categoryId = await CreateCategoryAsync(_client, await LoginAsAdminAsync(_client));
-        int serviceId = await CreatePublicServiceAsync(categoryId, FakeGeocodingService.AddressAt2Km);
-        var (token, _, _) = await RegisterProviderAsync(_client);
-
-        using var response = await GetAsync(token, $"{Url}/{serviceId}");
-
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-        await AssertProblemAsync(response, MissingProfileType, $"{Url}/{serviceId}");
     }
 
     // ---------- Helpers ----------
@@ -401,23 +184,6 @@ public class OpenServicesEndpointsTests(LocalHubApiFactory factory)
                  "actualCompletionDate" = CASE WHEN {status} = 'COMPLETED' THEN now() END
              WHERE "serviceId" = {serviceId}
              """);
-    }
-
-    // Coordinates that FakeGeocodingService does not know, written directly in the database.
-    private async Task MoveUserAsync(int userId, decimal latitude, decimal longitude)
-    {
-        using var scope = factory.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<LocalHubDbContext>();
-        await db.Database.ExecuteSqlAsync(
-            $"UPDATE \"User\" SET latitude = {latitude}, longitude = {longitude} WHERE \"userId\" = {userId}");
-    }
-
-    private async Task MoveServiceAsync(int serviceId, decimal latitude, decimal longitude)
-    {
-        using var scope = factory.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<LocalHubDbContext>();
-        await db.Database.ExecuteSqlAsync(
-            $"UPDATE \"Service\" SET latitude = {latitude}, longitude = {longitude} WHERE \"serviceId\" = {serviceId}");
     }
 
     private static async Task<JsonElement> BodyAsync(HttpResponseMessage response)

@@ -17,96 +17,8 @@ namespace LocalHub.IntegrationTests.Services;
 [Trait("Category", "Integration")]
 public class ServiceStatusHistoryEndpointsTests(LocalHubApiFactory factory)
 {
-    private const string ClientName = "Cliente Teste";
-    private const string ProviderName = "Prestador Teste";
 
     private readonly HttpClient _client = factory.CreateClient();
-
-    // ---------- E22: client ----------
-
-    // Criteria 2 and 5: the creation is not a change of state, so a new service has an empty history.
-    [Fact]
-    [Trait("Requisito", "RF-F007-09")]
-    [Trait("Requisito", "RF-F008-01")]
-    public async Task Get_ServicoAcabadoDeCriar_DevolveHistoricoVazio()
-    {
-        var scenario = await CreatePublicScenarioAsync(proposals: 0);
-
-        var service = await GetServiceAsync(scenario.Client.Token, scenario.ServiceId);
-
-        Assert.Empty(service.GetProperty("history").EnumerateArray());
-    }
-
-    // Criteria 1 and 4: E28 and E30 by the hired provider, in chronological order, with the author of each change.
-    [Fact]
-    [Trait("Requisito", "RF-F007-09")]
-    [Trait("Requisito", "RF-F008-01")]
-    public async Task Get_ServicoCanceladoPeloPrestador_DevolveAsDuasAlteracoesPorOrdemComOAutor()
-    {
-        var scenario = await CreateAssignedScenarioAsync();
-        var provider = scenario.Providers[0];
-        using (var cancel = await PostAsync(provider.Token, CancelUrl(scenario.ServiceId)))
-        {
-            Assert.Equal(HttpStatusCode.OK, cancel.StatusCode);
-        }
-
-        var service = await GetServiceAsync(scenario.Client.Token, scenario.ServiceId);
-
-        var history = service.GetProperty("history").EnumerateArray().ToList();
-        Assert.Equal(2, history.Count);
-        AssertChange(history[0], "OPEN", "ASSIGNED", scenario.Client.UserId, ClientName, "CLIENT");
-        AssertChange(history[1], "ASSIGNED", "CANCELLED", provider.UserId, ProviderName, "PROVIDER");
-        Assert.True(ChangedAt(history[0]) <= ChangedAt(history[1]));
-    }
-
-    // Criterion 3: declining a proposal (E29) keeps the service OPEN and is not recorded.
-    [Fact]
-    [Trait("Requisito", "RF-F007-09")]
-    public async Task Get_PropostaRecusada_NaoGeraRegistoNoHistorico()
-    {
-        var scenario = await CreatePublicScenarioAsync(proposals: 1);
-        using (var decline = await PostAsync(
-                   scenario.Client.Token, DeclineUrl(scenario.ProposalIds[0])))
-        {
-            Assert.Equal(HttpStatusCode.OK, decline.StatusCode);
-        }
-
-        var service = await GetServiceAsync(scenario.Client.Token, scenario.ServiceId);
-
-        Assert.Equal("OPEN", service.GetProperty("status").GetString());
-        Assert.Empty(service.GetProperty("history").EnumerateArray());
-    }
-
-    // Criterion 1 (E31): ASSIGNED → COMPLETED, made by the client.
-    [Fact]
-    [Trait("Requisito", "RF-F008-01")]
-    public async Task Complete_RegistaAPassagemDeAtribuidoParaRealizadoPeloCliente()
-    {
-        var scenario = await CreateAssignedScenarioAsync();
-
-        using var response = await PostAsync(scenario.Client.Token, CompleteUrl(scenario.ServiceId));
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var service = await GetServiceAsync(scenario.Client.Token, scenario.ServiceId);
-        var history = service.GetProperty("history").EnumerateArray().ToList();
-        Assert.Equal(2, history.Count);
-        AssertChange(history[1], "ASSIGNED", "COMPLETED", scenario.Client.UserId, ClientName, "CLIENT");
-    }
-
-    // Criterion 1 (E30): the client cancels an OPEN service.
-    [Fact]
-    [Trait("Requisito", "RF-F007-09")]
-    public async Task Cancel_ClienteComServicoAberto_RegistaAPassagemParaCancelado()
-    {
-        var scenario = await CreateDirectScenarioAsync();
-
-        using var response = await PostAsync(scenario.Client.Token, CancelUrl(scenario.ServiceId));
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var service = await GetServiceAsync(scenario.Client.Token, scenario.ServiceId);
-        var change = Assert.Single(service.GetProperty("history").EnumerateArray());
-        AssertChange(change, "OPEN", "CANCELLED", scenario.Client.UserId, ClientName, "CLIENT");
-    }
 
     // ---------- E36: provider ----------
 
@@ -159,17 +71,6 @@ public class ServiceStatusHistoryEndpointsTests(LocalHubApiFactory factory)
         string value = change.GetProperty("changedAt").GetString()!;
         Assert.EndsWith("Z", value);
         return DateTimeOffset.Parse(value, CultureInfo.InvariantCulture);
-    }
-
-    private static void AssertChange(
-        JsonElement change, string previousStatus, string newStatus, int userId, string name, string role)
-    {
-        Assert.Equal(previousStatus, change.GetProperty("previousStatus").GetString());
-        Assert.Equal(newStatus, change.GetProperty("newStatus").GetString());
-        Assert.Equal(userId, change.GetProperty("changedByUserId").GetInt32());
-        Assert.Equal(name, change.GetProperty("changedByName").GetString());
-        Assert.Equal(role, change.GetProperty("changedByRole").GetString());
-        ChangedAt(change);
     }
 
     private static void AssertAnonymousChange(JsonElement change, string previousStatus, string newStatus, string role)

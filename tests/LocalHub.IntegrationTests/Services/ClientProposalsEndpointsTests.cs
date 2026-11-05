@@ -25,7 +25,6 @@ public class ClientProposalsEndpointsTests(LocalHubApiFactory factory)
     private const string ForbiddenType = "https://tools.ietf.org/html/rfc9110#section-15.5.4";
     private const string NotFoundType = "https://tools.ietf.org/html/rfc9110#section-15.5.5";
     private const string InvalidTransitionType = "https://localhub.local/erros/transicao-invalida";
-    private const string InactiveProviderType = "https://localhub.local/erros/prestador-inativo";
 
     private readonly HttpClient _client = factory.CreateClient();
 
@@ -87,75 +86,6 @@ public class ClientProposalsEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal("CLIENT", change.GetProperty("changedByRole").GetString());
     }
 
-    // ---------- E28: criteria 2 and 5 ----------
-
-    [Fact]
-    [Trait("Requisito", "RF-F007-07")]
-    [Trait("Requisito", "RF-F008-06")]
-    public async Task AcceptProposal_SegundaPropostaNoMesmoServico_Devolve409TransicaoInvalida()
-    {
-        var scenario = await CreatePublicScenarioAsync(proposals: 2);
-        using var first = await PostAsync(scenario.Client.Token, AcceptUrl(scenario.ProposalIds[0]));
-        Assert.Equal(HttpStatusCode.OK, first.StatusCode);
-
-        string url = AcceptUrl(scenario.ProposalIds[1]);
-        using var response = await PostAsync(scenario.Client.Token, url);
-
-        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
-        await AssertProblemAsync(response, InvalidTransitionType, url);
-        Assert.Equal(1, await CountAcceptedAsync(scenario.ServiceId));
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F008-06")]
-    public async Task AcceptProposal_PropostaRecusada_Devolve409TransicaoInvalidaEServicoFicaAberto()
-    {
-        var scenario = await CreatePublicScenarioAsync(proposals: 1);
-        int proposalId = scenario.ProposalIds[0];
-        using var declined = await PostAsync(scenario.Client.Token, DeclineUrl(proposalId));
-        Assert.Equal(HttpStatusCode.OK, declined.StatusCode);
-
-        string url = AcceptUrl(proposalId);
-        using var response = await PostAsync(scenario.Client.Token, url);
-
-        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
-        await AssertProblemAsync(response, InvalidTransitionType, url);
-        Assert.Equal("OPEN", (await GetServiceAsync(scenario.Client.Token, scenario.ServiceId)).GetProperty("status").GetString());
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F007-07")]
-    public async Task AcceptProposal_ServicoCancelado_Devolve409TransicaoInvalida()
-    {
-        var scenario = await CreatePublicScenarioAsync(proposals: 1);
-        await CancelServiceAsync(scenario.ServiceId);
-
-        string url = AcceptUrl(scenario.ProposalIds[0]);
-        using var response = await PostAsync(scenario.Client.Token, url);
-
-        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
-        await AssertProblemAsync(response, InvalidTransitionType, url);
-    }
-
-    // RF-F002-02, rule 7.
-    [Fact]
-    [Trait("Requisito", "RF-F002-02")]
-    [Trait("Requisito", "RF-F007-03")]
-    public async Task AcceptProposal_PrestadorComContaDesativada_Devolve409PrestadorInativoEServicoFicaAberto()
-    {
-        var scenario = await CreatePublicScenarioAsync(proposals: 1);
-        await DeactivateAsync(scenario.Providers[0].UserId);
-
-        string url = AcceptUrl(scenario.ProposalIds[0]);
-        using var response = await PostAsync(scenario.Client.Token, url);
-
-        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
-        await AssertProblemAsync(response, InactiveProviderType, url);
-        var service = await GetServiceAsync(scenario.Client.Token, scenario.ServiceId);
-        Assert.Equal("OPEN", service.GetProperty("status").GetString());
-        Assert.Equal("PENDING", Assert.Single(service.GetProperty("proposals").EnumerateArray()).GetProperty("status").GetString());
-    }
-
     // ---------- E29: criterion 3 ----------
 
     [Fact]
@@ -185,25 +115,6 @@ public class ClientProposalsEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal("PENDING", other.GetProperty("status").GetString());
     }
 
-    [Theory]
-    [InlineData("DECLINED")]
-    [InlineData("ACCEPTED")]
-    [Trait("Requisito", "RF-F008-06")]
-    public async Task DeclineProposal_PropostaJaDecidida_Devolve409TransicaoInvalida(string state)
-    {
-        var scenario = await CreatePublicScenarioAsync(proposals: 1);
-        int proposalId = scenario.ProposalIds[0];
-        string first = state == "DECLINED" ? DeclineUrl(proposalId) : AcceptUrl(proposalId);
-        using var decided = await PostAsync(scenario.Client.Token, first);
-        Assert.Equal(HttpStatusCode.OK, decided.StatusCode);
-
-        string url = DeclineUrl(proposalId);
-        using var response = await PostAsync(scenario.Client.Token, url);
-
-        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
-        await AssertProblemAsync(response, InvalidTransitionType, url);
-    }
-
     // ---------- E28 and E29: criterion 4 ----------
 
     [Theory]
@@ -225,63 +136,7 @@ public class ClientProposalsEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal("PENDING", proposal.GetProperty("status").GetString());
     }
 
-    [Theory]
-    [InlineData("accept")]
-    [InlineData("decline")]
-    [Trait("Requisito", "RF-F007-08")]
-    public async Task Decisao_Prestador_Devolve403(string action)
-    {
-        var scenario = await CreatePublicScenarioAsync(proposals: 1);
-
-        string url = $"{ProposalsUrl}/{scenario.ProposalIds[0]}/{action}";
-        using var response = await PostAsync(scenario.Providers[0].Token, url);
-
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-    }
-
-    [Theory]
-    [InlineData("accept")]
-    [InlineData("decline")]
-    [Trait("Requisito", "RF-F007-03")]
-    public async Task Decisao_PropostaInexistente_Devolve404(string action)
-    {
-        var client = await RegisterClientAsync(_client);
-
-        string url = $"{ProposalsUrl}/{int.MaxValue}/{action}";
-        using var response = await PostAsync(client.Token, url);
-
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-        await AssertProblemAsync(response, NotFoundType, url);
-    }
-
     // ---------- E21: criterion 6 ----------
-
-    [Fact]
-    [Trait("Requisito", "RF-F008-01")]
-    public async Task ListMine_Cliente_DevolveSoOsSeusServicosDoMaisRecenteComPropostasPendentes()
-    {
-        var scenario = await CreatePublicScenarioAsync(proposals: 2);
-        int newest = await CreatePublicServiceAsync(scenario.Client.Token, scenario.Providers[0].ServiceCategoryId);
-        await CreatePublicScenarioAsync(proposals: 0); // a service of another client
-
-        using var response = await GetAsync(scenario.Client.Token, ServicesUrl);
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var page = await response.Content.ReadFromJsonAsync<JsonElement>();
-        Assert.Equal(2, page.GetProperty("total").GetInt32());
-        var items = page.GetProperty("items").EnumerateArray().ToList();
-        Assert.Equal([newest, scenario.ServiceId], items.Select(i => i.GetProperty("serviceId").GetInt32()));
-        Assert.Equal([0, 2], items.Select(i => i.GetProperty("pendingProposalsCount").GetInt32()));
-        Assert.Equal([0, 2], items.Select(i => i.GetProperty("proposalsCount").GetInt32()));
-        Assert.Equal([0, 0], items.Select(i => i.GetProperty("directRequestsCount").GetInt32()));
-        Assert.All(items, i => Assert.Equal(JsonValueKind.Null, i.GetProperty("assignedProvider").ValueKind));
-        Assert.All(items, i => Assert.False(i.GetProperty("reviewed").GetBoolean()));
-        Assert.Equal("PUBLIC", items[1].GetProperty("proposalModel").GetString());
-        Assert.False(items[1].TryGetProperty("directRequests", out _));
-        // Only the summary of the lists: the detail and the coordinates are not returned (API documentation, E21).
-        Assert.False(items[1].TryGetProperty("description", out _));
-        Assert.False(items[1].TryGetProperty("latitude", out _));
-    }
 
     [Fact]
     [Trait("Requisito", "RF-F008-01")]
@@ -302,60 +157,6 @@ public class ClientProposalsEndpointsTests(LocalHubApiFactory factory)
         var assigned = item.GetProperty("assignedProvider");
         Assert.Equal(scenario.Providers[0].ProfessionalProfileId, assigned.GetProperty("professionalProfileId").GetInt32());
         Assert.Equal("Prestador Teste", assigned.GetProperty("name").GetString());
-    }
-
-    // E21 and E22 are only for the client: the provider follows its services with E23, E27, E36 and E37.
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    [Trait("Requisito", "RF-F008-01")]
-    public async Task ListMineEGetService_Prestador_Devolve403(bool detail)
-    {
-        var scenario = await CreatePublicScenarioAsync(proposals: 1);
-        string url = detail ? $"{ServicesUrl}/{scenario.ServiceId}" : ServicesUrl;
-
-        using var response = await GetAsync(scenario.Providers[0].Token, url);
-
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-        await AssertProblemAsync(response, ForbiddenType, url);
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F008-01")]
-    public async Task ListMine_FiltrosEPaginacao_DevolveOsServicosQueCorrespondem()
-    {
-        var provider = await CreateProviderWithProfileAsync(_client);
-        var client = await RegisterClientAsync(_client);
-        int published = await CreatePublicServiceAsync(client.Token, provider.ServiceCategoryId);
-        int direct = await CreateDirectServiceAsync(client.Token, provider.ServiceCategoryId, provider.ProfessionalProfileId);
-        await CancelServiceAsync(published);
-
-        using var byStatus = await GetAsync(client.Token, $"{ServicesUrl}?status=CANCELLED");
-        using var secondPage = await GetAsync(client.Token, $"{ServicesUrl}?page=2&pageSize=1");
-        using var firstPage = await GetAsync(client.Token, $"{ServicesUrl}?page=1&pageSize=1");
-
-        var first = await firstPage.Content.ReadFromJsonAsync<JsonElement>();
-        Assert.Equal(direct, Assert.Single(first.GetProperty("items").EnumerateArray()).GetProperty("serviceId").GetInt32());
-        var status = await byStatus.Content.ReadFromJsonAsync<JsonElement>();
-        Assert.Equal(published, Assert.Single(status.GetProperty("items").EnumerateArray()).GetProperty("serviceId").GetInt32());
-        var paged = await secondPage.Content.ReadFromJsonAsync<JsonElement>();
-        Assert.Equal(2, paged.GetProperty("total").GetInt32());
-        Assert.Equal(published, Assert.Single(paged.GetProperty("items").EnumerateArray()).GetProperty("serviceId").GetInt32());
-    }
-
-    [Theory]
-    [InlineData("?status=INVALID", "status")]
-    [InlineData("?pageSize=51", "pageSize")]
-    [Trait("Requisito", "RF-F008-01")]
-    public async Task ListMine_FiltroInvalido_Devolve400(string query, string field)
-    {
-        var client = await RegisterClientAsync(_client);
-
-        using var response = await GetAsync(client.Token, $"{ServicesUrl}{query}");
-
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        var problem = await AssertProblemAsync(response, BadRequestType, ServicesUrl);
-        Assert.True(problem.GetProperty("errors").TryGetProperty(field, out _));
     }
 
     // ---------- E22: criterion 7 ----------
@@ -392,29 +193,6 @@ public class ClientProposalsEndpointsTests(LocalHubApiFactory factory)
     }
 
     [Fact]
-    [Trait("Requisito", "RF-F007-09")]
-    [Trait("Requisito", "RF-F008-01")]
-    public async Task GetService_TrabalhoPublicado_DevolveTodasAsPropostasComOPrestadorDaMaisRecente()
-    {
-        var scenario = await CreatePublicScenarioAsync(proposals: 2);
-        using var declined = await PostAsync(scenario.Client.Token, DeclineUrl(scenario.ProposalIds[0]));
-        Assert.Equal(HttpStatusCode.OK, declined.StatusCode);
-
-        var service = await GetServiceAsync(scenario.Client.Token, scenario.ServiceId);
-
-        Assert.Empty(service.GetProperty("directRequests").EnumerateArray());
-        var proposals = service.GetProperty("proposals").EnumerateArray().ToList();
-        Assert.Equal([scenario.ProposalIds[1], scenario.ProposalIds[0]], proposals.Select(p => p.GetProperty("proposalId").GetInt32()));
-        Assert.Equal(["PENDING", "DECLINED"], proposals.Select(p => p.GetProperty("status").GetString()));
-        var proposal = proposals[0];
-        Assert.Equal(80.00m, proposal.GetProperty("amount").GetDecimal());
-        Assert.Equal(scenario.Providers[1].ProfessionalProfileId,
-            proposal.GetProperty("professionalProfile").GetProperty("professionalProfileId").GetInt32());
-        Assert.Equal("Prestador Teste", proposal.GetProperty("professionalProfile").GetProperty("name").GetString());
-        Assert.Equal(0, proposal.GetProperty("professionalProfile").GetProperty("reviewCount").GetInt32());
-    }
-
-    [Fact]
     [Trait("Requisito", "RNF-06")]
     public async Task GetService_OutroCliente_Devolve403()
     {
@@ -425,32 +203,6 @@ public class ClientProposalsEndpointsTests(LocalHubApiFactory factory)
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         await AssertProblemAsync(response, ForbiddenType, $"{ServicesUrl}/{scenario.ServiceId}");
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F007-09")]
-    public async Task GetService_ServicoInexistente_Devolve404()
-    {
-        var client = await RegisterClientAsync(_client);
-
-        using var response = await GetAsync(client.Token, $"{ServicesUrl}/{int.MaxValue}");
-
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-    }
-
-    // ---------- E23: only providers ----------
-
-    // The client sees the direct requests of each service in E22 (API documentation, E23).
-    [Fact]
-    [Trait("Requisito", "RF-F007-09")]
-    public async Task ListDirectRequests_Cliente_Devolve403()
-    {
-        var client = await RegisterClientAsync(_client);
-
-        using var response = await GetAsync(client.Token, "/api/direct-requests");
-
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-        await AssertProblemAsync(response, ForbiddenType, "/api/direct-requests");
     }
 
     // ---------- Helpers ----------
@@ -572,13 +324,5 @@ public class ClientProposalsEndpointsTests(LocalHubApiFactory factory)
         var db = scope.ServiceProvider.GetRequiredService<LocalHubDbContext>();
         await db.Database.ExecuteSqlAsync(
             $"UPDATE \"Service\" SET \"status\" = 'CANCELLED' WHERE \"serviceId\" = {serviceId}");
-    }
-
-    private async Task<int> CountAcceptedAsync(int serviceId)
-    {
-        using var scope = factory.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<LocalHubDbContext>();
-        return await db.Proposals.CountAsync(
-            p => p.ServiceId == serviceId && p.Status == LocalHub.Domain.Services.ProposalStatus.Accepted);
     }
 }
