@@ -78,7 +78,7 @@ public record ProviderSummary(int ProfessionalProfileId, string Name, decimal? A
     // The profile must be loaded with its provider.
     public static ProviderSummary From(ProfessionalProfile profile, IReadOnlyDictionary<int, int> reviewCounts)
     {
-        reviewCounts.TryGetValue(profile.ProfessionalProfileId, out int reviewCount);
+        int reviewCount = reviewCounts.GetValueOrDefault(profile.ProfessionalProfileId);
         return new ProviderSummary(
             profile.ProfessionalProfileId, profile.ServiceProvider.Name, profile.AverageRating, reviewCount);
     }

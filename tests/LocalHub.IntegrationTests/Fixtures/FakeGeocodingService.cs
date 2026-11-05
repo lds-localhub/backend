@@ -41,7 +41,7 @@ public class FakeGeocodingService : IGeocodingService
             throw new GeocodingUnavailableException();
         }
 
-        return Task.FromResult<Coordinates?>(Addresses.TryGetValue(address, out var point) ? point : null);
+        return Task.FromResult<Coordinates?>(Addresses.GetValueOrDefault(address));
     }
 
     public Task<string?> ReverseGeocodeAsync(Coordinates coordinates, CancellationToken cancellationToken = default)
