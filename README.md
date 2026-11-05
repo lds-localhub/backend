@@ -129,20 +129,39 @@ No ambiente Development, o documento OpenAPI está disponível em
 
 ## Collection Postman
 
-`postman/m3-collection-postman-v01.json` tem uma pasta por funcionalidade, com um pedido por endpoint e
-verificações do código HTTP e dos campos principais (Plano de Testes do backend v01, secção 12). Com a API em
-execução, importar o ficheiro no Postman e executar a collection por ordem, ou, com o Postman CLI:
+Collection v1 (I060), no formato Postman Collection v2.1:
 
-```powershell
-postman collection run postman/m3-collection-postman-v01.json --env-var "adminPassword=<palavra-passe>"
-```
+| Ficheiro | Conteúdo |
+|---|---|
+| `postman/m3-collection-postman-v01.json` | 195 pedidos, em pastas por funcionalidade (F001 a F015), com pelo menos um pedido para cada um dos 39 endpoints em vigor da Documentação da API v04 (E01 a E41, exceto E17 e E26, retirados). O nome de cada pedido começa pelo endpoint (Exx). Cada pedido testa o código de estado e a estrutura da resposta (os erros, em Problem Details) e tem um exemplo de resposta. |
+| `postman/m3-ambiente-postman-v01.json` | Ambiente local: `baseUrl`, `adminEmail` e as variáveis `adminPassword` e `refPassword`, vazias (indicadas na execução). |
 
-O pedido de início de sessão (E02) guarda o token na variável `token`, usada pelos pedidos protegidos. Cada
-execução regista contas novas com e-mails fictícios (`@localhub.test`), por isso pode ser repetida.
+Os ficheiros não contêm palavras-passe reais, tokens nem outros segredos (RNF-04): os tokens e a palavra-passe
+temporária dos exemplos de resposta estão substituídos por marcadores.
 
-Os pedidos da gestão de contas (F002) iniciam sessão com o Administrador `ana.almeida@localhub.test`. A
-palavra-passe não está na collection: é a de `Seed:DefaultPassword` (ou a dos scripts de `database/`, se a base de
-dados foi criada com eles) e é indicada na execução, na variável `adminPassword`, como no comando acima. As
+Ordem de execução — a collection completa, pela ordem das pastas, sobre a base de dados de referência:
+
+1. Repor a base de referência: `psql -U postgres -d postgres -f database/repor-base-dados.sql`.
+2. Arrancar a API em Development (`dotnet run --project src/LocalHub.Api`, em `http://localhost:5041`).
+3. Executar com o [Postman CLI](https://learning.postman.com/docs/postman-cli/postman-cli-installation/), ou importar os dois ficheiros no Postman e usar o Collection Runner:
+
+   ```powershell
+   postman collection run postman/m3-collection-postman-v01.json -e postman/m3-ambiente-postman-v01.json `
+       --env-var "adminPassword=<palavra-passe>" --env-var "refPassword=<palavra-passe>"
+   ```
+
+   `adminPassword` é a palavra-passe do Administrador `ana.almeida@localhub.test` e `refPassword` a das restantes
+   contas do conjunto de referência (ambas fictícias, em `database/README.md`).
+
+A primeira pasta, «Dados de referência (I057)», só consulta dados: inicia sessão com contas do conjunto de
+referência e confirma valores conhecidos (perfil 1, avaliações, serviço 1, relatórios da Carla Costa e do Hugo
+Henriques). O pedido de início de sessão (E02) guarda o token na variável `token`, usada pelos pedidos protegidos. As
+restantes pastas registam contas novas com e-mails fictícios aleatórios (`@localhub.test`), por isso a collection
+pode ser repetida sem repor a base.
+
+Os pedidos da gestão de contas (F002) iniciam sessão com o Administrador `ana.almeida@localhub.test`, com a
+palavra-passe indicada na execução, na variável `adminPassword`, como no comando acima. A F001 também altera e repõe a
+palavra-passe da conta criada (E40) e a F002 redefine a palavra-passe da conta de Prestador criada (E41). As
 pastas F003 e F004 também a usam, para criar as categorias. A pasta F005 (pesquisa de Prestadores) usa o perfil e a
 categoria criados na F004 e o Cliente da F001, com a localização da F015, por isso só funciona depois dessas pastas.
 A pasta F009 e F010 (criar serviço) usa o Cliente da F001 e a localização definida na F015, e o perfil criado na
