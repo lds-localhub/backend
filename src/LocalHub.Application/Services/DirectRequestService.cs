@@ -160,8 +160,7 @@ public class DirectRequestService
             throw new NotFoundException("Solicitação direta não encontrada.");
         }
 
-        var utcNow = _timeProvider.GetUtcNow();
-        var now = utcNow.AddTicks(-(utcNow.Ticks % TimeSpan.TicksPerMicrosecond));
+        var now = _timeProvider.GetUtcNow();
         var request = service.DeclineDirectRequest(directRequestId, profileId, now);
         await _db.SaveChangesAsync(cancellationToken);
 

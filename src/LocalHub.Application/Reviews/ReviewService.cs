@@ -44,7 +44,7 @@ public class ReviewService
             throw new NotFoundException("Serviço não encontrado.");
         }
 
-        var review = service.AddReview(_currentUser.UserId, request.Rating!.Value, request.Comment, Now());
+        var review = service.AddReview(_currentUser.UserId, request.Rating!.Value, request.Comment, _timeProvider.GetUtcNow());
 
         // RF-F012-01, rule 6: the review is of the provider whose proposal was accepted.
         var provider = service.Proposals.Single().ProfessionalProfile;
@@ -122,13 +122,5 @@ public class ReviewService
             .ToListAsync(cancellationToken);
 
         return new PagedResult<ReviewListItem>(page.Page, page.PageSize, total, items);
-    }
-
-    // PostgreSQL keeps microseconds (timestamptz), so the instant is truncated before it is used: the creationDate
-    // returned now is the same that will be read from the database later (E15).
-    private DateTimeOffset Now()
-    {
-        var utcNow = _timeProvider.GetUtcNow();
-        return utcNow.AddTicks(-(utcNow.Ticks % TimeSpan.TicksPerMicrosecond));
     }
 }

@@ -58,10 +58,7 @@ public class ServiceWorkflowService
             throw new NotFoundException("Utilizador não encontrado.");
         }
 
-        // PostgreSQL keeps microseconds (timestamptz), so the instant is truncated before it is used: the creationDate
-        // returned now is the same that will be read from the database later (E21, E22).
-        var utcNow = _timeProvider.GetUtcNow();
-        var now = utcNow.AddTicks(-(utcNow.Ticks % TimeSpan.TicksPerMicrosecond));
+        var now = _timeProvider.GetUtcNow();
         var profileIds = request.ProfessionalProfileIds?.Distinct().ToList() ?? new List<int>();
 
         var errors = new FieldErrors();
@@ -153,8 +150,7 @@ public class ServiceWorkflowService
         // Optional: a missing or blank text is not saved.
         string? obs = string.IsNullOrWhiteSpace(request.Obs) ? null : request.Obs;
 
-        var utcNow = _timeProvider.GetUtcNow();
-        var now = utcNow.AddTicks(-(utcNow.Ticks % TimeSpan.TicksPerMicrosecond));
+        var now = _timeProvider.GetUtcNow();
         var proposal = service.SubmitProposal(provider, request.Amount!.Value, request.Conditions!, obs, now);
 
         try
@@ -357,7 +353,7 @@ public class ServiceWorkflowService
         int serviceId = await FindServiceIdOfProposalAsync(proposalId, cancellationToken);
 
         var service = await FindOwnServiceAsync(_db.Services, serviceId, cancellationToken);
-        var proposal = service.AcceptProposal(proposalId, _currentUser.UserId, Now());
+        var proposal = service.AcceptProposal(proposalId, _currentUser.UserId, _timeProvider.GetUtcNow());
         await SaveDecisionAsync(cancellationToken);
 
         return ProposalDecisionResponse.From(proposal);
@@ -369,7 +365,7 @@ public class ServiceWorkflowService
         int serviceId = await FindServiceIdOfProposalAsync(proposalId, cancellationToken);
 
         var service = await FindOwnServiceAsync(_db.Services, serviceId, cancellationToken);
-        var proposal = service.DeclineProposal(proposalId, _currentUser.UserId, Now());
+        var proposal = service.DeclineProposal(proposalId, _currentUser.UserId, _timeProvider.GetUtcNow());
         await SaveDecisionAsync(cancellationToken);
 
         return ProposalDecisionResponse.From(proposal);
@@ -380,7 +376,7 @@ public class ServiceWorkflowService
     public async Task<ServiceStatusResponse> CancelAsClientAsync(int serviceId, CancellationToken cancellationToken)
     {
         var service = await FindOwnServiceAsync(_db.Services, serviceId, cancellationToken);
-        service.CancelByClient(_currentUser.UserId, Now());
+        service.CancelByClient(_currentUser.UserId, _timeProvider.GetUtcNow());
         await SaveDecisionAsync(cancellationToken);
 
         return ServiceStatusResponse.From(service);
@@ -405,7 +401,7 @@ public class ServiceWorkflowService
             throw new NotFoundException("Serviço não encontrado.");
         }
 
-        service.CancelByProvider(profileId.Value, Now());
+        service.CancelByProvider(profileId.Value, _timeProvider.GetUtcNow());
         await SaveDecisionAsync(cancellationToken);
 
         return ServiceStatusResponse.From(service);
@@ -415,7 +411,7 @@ public class ServiceWorkflowService
     public async Task<CompletedServiceResponse> CompleteAsync(int serviceId, CancellationToken cancellationToken)
     {
         var service = await FindOwnServiceAsync(_db.Services, serviceId, cancellationToken);
-        service.Complete(_currentUser.UserId, Now());
+        service.Complete(_currentUser.UserId, _timeProvider.GetUtcNow());
         await SaveDecisionAsync(cancellationToken);
 
         return CompletedServiceResponse.From(service);
@@ -475,13 +471,6 @@ public class ServiceWorkflowService
             .ToList();
         var reviewCounts = await _db.CountReviewsAsync(profileIds, cancellationToken);
         return ClientServiceResponse.From(service, reviewCounts);
-    }
-
-    // PostgreSQL keeps microseconds (timestamptz), so the instant is truncated before it is used.
-    private DateTimeOffset Now()
-    {
-        var utcNow = _timeProvider.GetUtcNow();
-        return utcNow.AddTicks(-(utcNow.Ticks % TimeSpan.TicksPerMicrosecond));
     }
 
     // Rule R1: a second accepted proposal in the same service is refused by the index UX_Proposal_serviceId_accepted.

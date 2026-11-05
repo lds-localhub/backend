@@ -79,9 +79,15 @@ public class ServicesEndpointsTests(LocalHubApiFactory factory)
         });
         Assert.Equal((1, 2), await CountSavedAsync(client.UserId));
 
-        // The creationDate returned is the one saved (PostgreSQL keeps microseconds), so E21 and E22 return it too.
-        var returned = DateTimeOffset.Parse(service.GetProperty("creationDate").GetString()!, CultureInfo.InvariantCulture);
-        Assert.Equal(await ReadCreationDateAsync(serviceId), returned);
+        // The instants are returned to the second (API documentation, section 4.3): the creationDate returned is the one
+        // saved, and E22 returns the same one.
+        string returned = service.GetProperty("creationDate").GetString()!;
+        var saved = await ReadCreationDateAsync(serviceId);
+        Assert.Equal(saved.AddTicks(-(saved.Ticks % TimeSpan.TicksPerSecond)),
+            DateTimeOffset.Parse(returned, CultureInfo.InvariantCulture));
+        using var detail = await SendWithTokenAsync(_client, HttpMethod.Get, $"{ServicesUrl}/{serviceId}", client.Token);
+        var consulted = await detail.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(returned, consulted.GetProperty("creationDate").GetString());
     }
 
     [Fact]
