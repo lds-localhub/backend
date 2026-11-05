@@ -86,7 +86,7 @@ public class ServiceProposalTests
         Assert.Empty(service.Proposals);
     }
 
-    // ---------- SubmitProposal: published job (RF-F011-02) ----------
+    // ---------- SubmitProposal: PUBLIC service (RF-F011-02) ----------
 
     [Fact]
     [Trait("Requisito", "RF-F011-02")]

@@ -53,7 +53,7 @@ public static class ServiceRequests
             ["professionalProfileIds"] = professionalProfileIds,
         };
 
-    // A valid body of E20 for a published job, with a single date, at the registered address of RegisterClientAsync.
+    // A valid body of E20 for a PUBLIC service, with a single date, at the registered address of RegisterClientAsync.
     public static Dictionary<string, object?> PublicBody(int serviceCategoryId) => new()
     {
         ["proposalModel"] = "PUBLIC",

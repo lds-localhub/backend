@@ -178,7 +178,7 @@ public class ProviderDetailEndpointsTests(LocalHubApiFactory factory)
         var service = (await BodyAsync(response)).GetProperty("service");
         Assert.Equal("PUBLIC", service.GetProperty("proposalModel").GetString());
         Assert.Equal(JsonValueKind.Null, service.GetProperty("requestedEndDate").ValueKind);
-        // The client created the job at its registered location, the same address as the provider.
+        // The client created the service at its registered location, the same address as the provider.
         Assert.Equal(0.0m, service.GetProperty("distanceKm").GetDecimal());
     }
 

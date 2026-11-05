@@ -6,7 +6,7 @@ using LocalHub.Domain.Profiles;
 namespace LocalHub.Domain.Services;
 
 /// <summary>
-/// Represents a service requested by a client, with direct requests to chosen providers (F009) or published as a job
+/// Represents a service requested by a client, with direct requests to chosen providers (F009) or public,
 /// without recipients (F010). Both modalities share the same life cycle (Requirements Specification v04, section 10).
 /// </summary>
 public class Service

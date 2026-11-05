@@ -18,7 +18,7 @@ using static LocalHub.IntegrationTests.Fixtures.UserLocations;
 
 namespace LocalHub.IntegrationTests.Services;
 
-// F009 and F010: E20 (create a service with direct requests or a published job), and the use of the categories by
+// F009 and F010: E20 (create a service with direct requests or a PUBLIC service), and the use of the categories by
 // the services in E11. The 401 cases are in AccessControlTests.
 [Collection(ApiTestGroup.Name)]
 [Trait("Category", "Integration")]

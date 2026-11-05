@@ -228,8 +228,8 @@ Content-Type: application/json
   "professionalProfileIds": [{{createProfile.response.body.professionalProfileId}}]
 }
 
-### E20 - Publish a job with another address (geocoded by Nominatim; the client's location does not change)
-# @name publishJob
+### E20 - Create a PUBLIC service with another address (geocoded by Nominatim; the client's location does not change)
+# @name publicService
 POST {{LocalHub.Api_HostAddress}}/api/services
 Authorization: Bearer {{login2.response.body.token}}
 Content-Type: application/json
@@ -243,7 +243,7 @@ Content-Type: application/json
   "location": "Rua de Costa Cabral 500, Porto"
 }
 
-### E20 - Published job with professionalProfileIds and a date in the past (expect 400 with both fields)
+### E20 - PUBLIC service with professionalProfileIds and a date in the past (expect 400 with both fields)
 POST {{LocalHub.Api_HostAddress}}/api/services
 Authorization: Bearer {{login2.response.body.token}}
 Content-Type: application/json
@@ -351,23 +351,23 @@ Authorization: Bearer {{loginProvider.response.body.token}}
 GET {{LocalHub.Api_HostAddress}}/api/reports/provider?startDate=2026-10-31&endDate=2026-10-01
 Authorization: Bearer {{loginProvider.response.body.token}}
 
-### E19 - Search the published jobs of "Canalização" (category 1), ordered by the distance to the provider's location
+### E19 - Search the PUBLIC services of "Canalização" (category 1), ordered by the distance to the provider's location
 GET {{LocalHub.Api_HostAddress}}/api/search/services?serviceCategoryId=1
 Authorization: Bearer {{loginProvider.response.body.token}}
 
-### E19 - Only the jobs inside the service radius of the profile
+### E19 - Only the services inside the service radius of the profile
 GET {{LocalHub.Api_HostAddress}}/api/search/services?withinServiceRadius=true
 Authorization: Bearer {{loginProvider.response.body.token}}
 
-### E19 - A client cannot search published jobs (expect 403)
+### E19 - A client cannot search PUBLIC services (expect 403)
 GET {{LocalHub.Api_HostAddress}}/api/search/services
 Authorization: Bearer {{login2.response.body.token}}
 
-### E38 - The published job created above, with myProposalId (null while the provider has no proposal)
-GET {{LocalHub.Api_HostAddress}}/api/search/services/{{publishJob.response.body.serviceId}}
+### E38 - The PUBLIC service created above, with myProposalId (null while the provider has no proposal)
+GET {{LocalHub.Api_HostAddress}}/api/search/services/{{publicService.response.body.serviceId}}
 Authorization: Bearer {{loginProvider.response.body.token}}
 
-### E38 - A service with direct requests is not a published job (expect 404)
+### E38 - A service with direct requests is not a PUBLIC service (expect 404)
 GET {{LocalHub.Api_HostAddress}}/api/search/services/{{createDirectService.response.body.serviceId}}
 Authorization: Bearer {{loginProvider.response.body.token}}
 

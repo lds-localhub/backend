@@ -11,7 +11,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace LocalHub.Api.Controllers;
 
-// F007 to F012: the services with direct requests, the published jobs and their reviews.
+// F007 to F012: the services with direct requests, the PUBLIC services and their reviews.
 [ApiController]
 [Route("api/services")]
 public class ServicesController : ControllerBase
@@ -63,7 +63,7 @@ public class ServicesController : ControllerBase
     }
 
     // E22: only the client that created the service (providers and administrators get 403). The provider consults the
-    // service through its direct request (E36), its proposal (E37) or the published job (E38).
+    // service through its direct request (E36), its proposal (E37) or the PUBLIC service (E38).
     [HttpGet("{serviceId:int}")]
     [Authorize(Roles = "CLIENT")]
     public async Task<ActionResult<ClientServiceResponse>> Get(int serviceId, CancellationToken cancellationToken)

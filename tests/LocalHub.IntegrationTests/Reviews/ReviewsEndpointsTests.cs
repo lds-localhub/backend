@@ -190,8 +190,8 @@ public class ReviewsEndpointsTests(LocalHubApiFactory factory)
     {
         var client = await RegisterClientAsync(_client);
         var provider = await CreateProviderWithProfileAsync(_client);
-        int open = await PublishJobAsync(client.Token, provider.ServiceCategoryId);
-        int cancelled = await PublishJobAsync(client.Token, provider.ServiceCategoryId);
+        int open = await CreatePublicServiceAsync(client.Token, provider.ServiceCategoryId);
+        int cancelled = await CreatePublicServiceAsync(client.Token, provider.ServiceCategoryId);
         using (var cancel = await PostAsync(client.Token, $"{ServicesUrl}/{cancelled}/cancel"))
         {
             Assert.Equal(HttpStatusCode.OK, cancel.StatusCode);
@@ -484,18 +484,18 @@ public class ReviewsEndpointsTests(LocalHubApiFactory factory)
         return (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("reviewId").GetInt32();
     }
 
-    private async Task<int> PublishJobAsync(string clientToken, int serviceCategoryId)
+    private async Task<int> CreatePublicServiceAsync(string clientToken, int serviceCategoryId)
     {
         using var response = await SendJsonAsync(_client, HttpMethod.Post, ServicesUrl, clientToken, PublicBody(serviceCategoryId));
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         return (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("serviceId").GetInt32();
     }
 
-    // A published job of a new client, with the proposal of the provider accepted (ASSIGNED).
+    // A PUBLIC service of a new client, with the proposal of the provider accepted (ASSIGNED).
     private async Task<TestService> CreateAssignedServiceAsync(ProviderWithProfile provider)
     {
         var client = await RegisterClientAsync(_client);
-        int serviceId = await PublishJobAsync(client.Token, provider.ServiceCategoryId);
+        int serviceId = await CreatePublicServiceAsync(client.Token, provider.ServiceCategoryId);
 
         using var submit = await SendJsonAsync(_client, HttpMethod.Post, $"{ServicesUrl}/{serviceId}/proposals",
             provider.Token, new { amount = 80.00m, conditions = "Material incluído." });

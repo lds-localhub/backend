@@ -256,7 +256,7 @@ public class ServiceLifecycleTests
 
     // ---------- Helpers ----------
 
-    // A published job with the proposal of the profile 12 accepted and the proposal of the profile 17 declined.
+    // A PUBLIC service with the proposal of the profile 12 accepted and the proposal of the profile 17 declined.
     private static Service AssignedService(out Proposal accepted)
     {
         var service = CreatePublic();

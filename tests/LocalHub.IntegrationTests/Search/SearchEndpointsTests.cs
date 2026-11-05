@@ -477,7 +477,7 @@ public class SearchEndpointsTests(LocalHubApiFactory factory)
             account.GetProperty("userId").GetInt32(), profile.GetProperty("professionalProfileId").GetInt32(), token);
     }
 
-    // A published job of a new client, with the proposal of the provider accepted (E20, E25, E28) and the service
+    // A PUBLIC service of a new client, with the proposal of the provider accepted (E20, E25, E28) and the service
     // completed (E31); reviewed by the client (E32) when a rating is given.
     private async Task CompleteServiceAsync(Provider provider, int serviceCategoryId, int? rating)
     {

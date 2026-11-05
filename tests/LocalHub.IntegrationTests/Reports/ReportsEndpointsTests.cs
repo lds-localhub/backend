@@ -43,9 +43,9 @@ public class ReportsEndpointsTests(LocalHubApiFactory factory)
         await PostOkAsync(client.Token, $"{ServicesUrl}/{completed}/complete");
         int cancelled = await CreateContractedAsync(client, provider, 80.00m);
         await PostOkAsync(client.Token, $"{ServicesUrl}/{cancelled}/cancel");
-        int open = await CreateJobAsync(client, provider.ServiceCategoryId);
+        int open = await CreatePublicServiceAsync(client, provider.ServiceCategoryId);
         await SubmitAsync(open, provider, 80.00m);
-        int cancelledOpen = await CreateJobAsync(client, provider.ServiceCategoryId);
+        int cancelledOpen = await CreatePublicServiceAsync(client, provider.ServiceCategoryId);
         await SubmitAsync(cancelledOpen, provider, 80.00m);
         await PostOkAsync(client.Token, $"{ServicesUrl}/{cancelledOpen}/cancel");
 
@@ -93,7 +93,7 @@ public class ReportsEndpointsTests(LocalHubApiFactory factory)
         await CreateContractedAsync(client, provider, 80.00m);
         int cancelled = await CreateContractedAsync(client, provider, 150.00m);
         await PostOkAsync(client.Token, $"{ServicesUrl}/{cancelled}/cancel");
-        int open = await CreateJobAsync(client, provider.ServiceCategoryId);
+        int open = await CreatePublicServiceAsync(client, provider.ServiceCategoryId);
         await SubmitAsync(open, provider, 500.00m);
 
         var report = await GetReportAsync(client.Token);
@@ -287,15 +287,15 @@ public class ReportsEndpointsTests(LocalHubApiFactory factory)
         await CreateContractedAsync(client, provider, 80.00m);
         for (int i = 0; i < 3; i++)
         {
-            int declinedJob = await CreateJobAsync(client, provider.ServiceCategoryId);
-            await SubmitAsync(declinedJob, provider, 90.00m);
-            int chosen = await SubmitAsync(declinedJob, other, 70.00m);
+            int declinedService = await CreatePublicServiceAsync(client, provider.ServiceCategoryId);
+            await SubmitAsync(declinedService, provider, 90.00m);
+            int chosen = await SubmitAsync(declinedService, other, 70.00m);
             await PostOkAsync(client.Token, $"/api/proposals/{chosen}/accept");
         }
 
-        int pending = await CreateJobAsync(client, provider.ServiceCategoryId);
+        int pending = await CreatePublicServiceAsync(client, provider.ServiceCategoryId);
         await SubmitAsync(pending, provider, 500.00m);
-        int voided = await CreateJobAsync(client, provider.ServiceCategoryId);
+        int voided = await CreatePublicServiceAsync(client, provider.ServiceCategoryId);
         await SubmitAsync(voided, provider, 500.00m);
         await PostOkAsync(client.Token, $"{ServicesUrl}/{voided}/cancel");
 
@@ -470,11 +470,11 @@ public class ReportsEndpointsTests(LocalHubApiFactory factory)
         await PostOkAsync(client.Token, $"{ServicesUrl}/{firstOfOctober}/complete");
         int november = await CreateContractedAsync(client, provider, 40.00m);
 
-        int declinedInOctober = await CreateJobAsync(client, provider.ServiceCategoryId);
+        int declinedInOctober = await CreatePublicServiceAsync(client, provider.ServiceCategoryId);
         await SubmitAsync(declinedInOctober, provider, 90.00m);
         int chosen = await SubmitAsync(declinedInOctober, other, 70.00m);
         await PostOkAsync(client.Token, $"/api/proposals/{chosen}/accept");
-        int declinedInSeptember = await CreateJobAsync(client, provider.ServiceCategoryId);
+        int declinedInSeptember = await CreatePublicServiceAsync(client, provider.ServiceCategoryId);
         await SubmitAsync(declinedInSeptember, provider, 90.00m);
         chosen = await SubmitAsync(declinedInSeptember, other, 70.00m);
         await PostOkAsync(client.Token, $"/api/proposals/{chosen}/accept");
@@ -623,7 +623,7 @@ public class ReportsEndpointsTests(LocalHubApiFactory factory)
         return new ProviderWithProfile(token, userId, email, profile.GetProperty("professionalProfileId").GetInt32(), categoryIds[0]);
     }
 
-    private async Task<int> CreateJobAsync(TestClient client, int serviceCategoryId)
+    private async Task<int> CreatePublicServiceAsync(TestClient client, int serviceCategoryId)
     {
         using var response = await SendJsonAsync(_client, HttpMethod.Post, ServicesUrl, client.Token, PublicBody(serviceCategoryId));
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
@@ -638,10 +638,10 @@ public class ReportsEndpointsTests(LocalHubApiFactory factory)
         return (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("proposalId").GetInt32();
     }
 
-    // A published job of the client with the proposal of the provider accepted (ASSIGNED).
+    // A PUBLIC service of the client with the proposal of the provider accepted (ASSIGNED).
     private async Task<int> CreateContractedAsync(TestClient client, ProviderWithProfile provider, decimal amount)
     {
-        int serviceId = await CreateJobAsync(client, provider.ServiceCategoryId);
+        int serviceId = await CreatePublicServiceAsync(client, provider.ServiceCategoryId);
         int proposalId = await SubmitAsync(serviceId, provider, amount);
         await PostOkAsync(client.Token, $"/api/proposals/{proposalId}/accept");
         return serviceId;

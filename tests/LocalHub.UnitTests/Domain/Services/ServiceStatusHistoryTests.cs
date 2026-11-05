@@ -207,7 +207,7 @@ public class ServiceStatusHistoryTests
         Assert.Equal(changedByUserId, record.ChangedBy.UserId);
     }
 
-    // A published job with the proposal of the profile 12 (provider 52) accepted and the proposal of the profile 17
+    // A PUBLIC service with the proposal of the profile 12 (provider 52) accepted and the proposal of the profile 17
     // declined.
     private static Service AssignedService(out Proposal accepted)
     {

@@ -402,7 +402,7 @@ public class ServiceLifecycleEndpointsTests(LocalHubApiFactory factory)
         return proposals;
     }
 
-    // A published job with two proposals: the first one accepted (ASSIGNED) and the second one DECLINED.
+    // A PUBLIC service with two proposals: the first one accepted (ASSIGNED) and the second one DECLINED.
     private async Task<Scenario> CreateAssignedScenarioAsync()
     {
         var scenario = await CreatePublicScenarioAsync(proposals: 2);
@@ -422,7 +422,7 @@ public class ServiceLifecycleEndpointsTests(LocalHubApiFactory factory)
         return new Scenario(client, serviceId, providers, await SubmitAllAsync(serviceId, providers.Take(proposals)));
     }
 
-    // A published job; the first "proposals" providers of the category submit a proposal.
+    // A PUBLIC service; the first "proposals" providers of the category submit a proposal.
     private async Task<Scenario> CreatePublicScenarioAsync(int proposals)
     {
         var providers = await CreateProvidersAsync(Math.Max(proposals, 1));

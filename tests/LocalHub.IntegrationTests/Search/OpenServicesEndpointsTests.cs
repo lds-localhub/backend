@@ -16,11 +16,11 @@ using static LocalHub.IntegrationTests.Fixtures.ServiceRequests;
 namespace LocalHub.IntegrationTests.Search;
 
 // F006: E19 GET /api/search/services and E38 GET /api/search/services/{serviceId}, with the geocoding replaced by
-// FakeGeocodingService. The provider is at KnownAddress and the jobs at 2, 10 and 30 km to the north of it. Each test
-// uses its own category, so it only finds the jobs that it creates. The 401 cases are in AccessControlTests.
+// FakeGeocodingService. The provider is at KnownAddress and the services at 2, 10 and 30 km to the north of it. Each
+// test uses its own category, so it only finds the services that it creates. The 401 cases are in AccessControlTests.
 [Collection(ApiTestGroup.Name)]
 [Trait("Category", "Integration")]
-public class PublishedJobsEndpointsTests(LocalHubApiFactory factory)
+public class OpenServicesEndpointsTests(LocalHubApiFactory factory)
 {
     private const string Url = "/api/search/services";
     private const string BadRequestType = "https://tools.ietf.org/html/rfc9110#section-15.5.1";
@@ -36,7 +36,7 @@ public class PublishedJobsEndpointsTests(LocalHubApiFactory factory)
     [InlineData("CLIENT")]
     [InlineData("ADMIN")]
     [Trait("Requisito", "RF-F006-01")]
-    public async Task SearchJobs_PapelDiferenteDePrestador_Devolve403(string role)
+    public async Task SearchServices_PapelDiferenteDePrestador_Devolve403(string role)
     {
         string token = role == "ADMIN"
             ? await LoginAsAdminAsync(_client)
@@ -51,7 +51,7 @@ public class PublishedJobsEndpointsTests(LocalHubApiFactory factory)
     [Fact]
     [Trait("Requisito", "RF-F006-01")]
     [Trait("Requisito", "RF-F004-01")]
-    public async Task SearchJobs_PrestadorSemPerfil_Devolve403PerfilEmFalta()
+    public async Task SearchServices_PrestadorSemPerfil_Devolve403PerfilEmFalta()
     {
         var (token, _, _) = await RegisterProviderAsync(_client);
 
@@ -61,25 +61,25 @@ public class PublishedJobsEndpointsTests(LocalHubApiFactory factory)
         await AssertProblemAsync(response, MissingProfileType, Url);
     }
 
-    // ---------- E19: which jobs are returned (criteria 2 and 6) ----------
+    // ---------- E19: which services are returned (criteria 2 and 6) ----------
 
     [Fact]
     [Trait("Requisito", "RF-F006-01")]
     [Trait("Requisito", "RF-F002-02")]
-    public async Task SearchJobs_SoDevolveTrabalhosPublicadosAbertosDeClientesAtivos()
+    public async Task SearchServices_SoDevolveTrabalhosPublicadosAbertosDeClientesAtivos()
     {
         var provider = await CreateProviderAsync(15);
-        int eligible = await CreateJobAsync(provider.ServiceCategoryId, FakeGeocodingService.AddressAt2Km);
-        int assigned = await CreateJobAsync(provider.ServiceCategoryId, FakeGeocodingService.AddressAt2Km);
+        int eligible = await CreatePublicServiceAsync(provider.ServiceCategoryId, FakeGeocodingService.AddressAt2Km);
+        int assigned = await CreatePublicServiceAsync(provider.ServiceCategoryId, FakeGeocodingService.AddressAt2Km);
         await SetServiceStatusAsync(assigned, "ASSIGNED");
-        int completed = await CreateJobAsync(provider.ServiceCategoryId, FakeGeocodingService.AddressAt2Km);
+        int completed = await CreatePublicServiceAsync(provider.ServiceCategoryId, FakeGeocodingService.AddressAt2Km);
         await SetServiceStatusAsync(completed, "COMPLETED");
-        int cancelled = await CreateJobAsync(provider.ServiceCategoryId, FakeGeocodingService.AddressAt2Km);
+        int cancelled = await CreatePublicServiceAsync(provider.ServiceCategoryId, FakeGeocodingService.AddressAt2Km);
         await SetServiceStatusAsync(cancelled, "CANCELLED");
         var deactivatedClient = await RegisterClientAsync(_client);
-        await CreateJobAsync(deactivatedClient, provider.ServiceCategoryId, FakeGeocodingService.AddressAt2Km);
+        await CreatePublicServiceAsync(deactivatedClient, provider.ServiceCategoryId, FakeGeocodingService.AddressAt2Km);
         await DeactivateAsync(deactivatedClient.UserId);
-        // A service with direct requests to the provider itself is not a published job either.
+        // A service with direct requests to the provider itself is not a PUBLIC service either.
         await CreateDirectServiceAsync(provider.ServiceCategoryId, provider.ProfessionalProfileId);
 
         using var response = await GetAsync(provider.Token, $"{Url}?serviceCategoryId={provider.ServiceCategoryId}");
@@ -94,13 +94,13 @@ public class PublishedJobsEndpointsTests(LocalHubApiFactory factory)
     [Fact]
     [Trait("Requisito", "RF-F006-01")]
     [Trait("Requisito", "RNF-06")]
-    public async Task SearchJobs_TrabalhosA2_10E30Km_DevolveOrdenadosPorDistanciaSemDadosDoCliente()
+    public async Task SearchServices_TrabalhosA2_10E30Km_DevolveOrdenadosPorDistanciaSemDadosDoCliente()
     {
         var provider = await CreateProviderAsync(15);
         // Created out of order, so the order of the results can only come from the distance.
-        int at30 = await CreateJobAsync(provider.ServiceCategoryId, FakeGeocodingService.AddressAt30Km);
-        int at2 = await CreateJobAsync(provider.ServiceCategoryId, FakeGeocodingService.AddressAt2Km);
-        int at10 = await CreateJobAsync(provider.ServiceCategoryId, FakeGeocodingService.AddressAt10Km);
+        int at30 = await CreatePublicServiceAsync(provider.ServiceCategoryId, FakeGeocodingService.AddressAt30Km);
+        int at2 = await CreatePublicServiceAsync(provider.ServiceCategoryId, FakeGeocodingService.AddressAt2Km);
+        int at10 = await CreatePublicServiceAsync(provider.ServiceCategoryId, FakeGeocodingService.AddressAt10Km);
 
         using var response = await GetAsync(provider.Token, $"{Url}?serviceCategoryId={provider.ServiceCategoryId}");
 
@@ -126,16 +126,16 @@ public class PublishedJobsEndpointsTests(LocalHubApiFactory factory)
         AssertHasNoClientData(first);
     }
 
-    // RF-F006-01: without serviceCategoryId the jobs of every category are returned. The provider and the jobs are
-    // moved to coordinates that no other test uses, so the first results are the jobs of this test.
+    // RF-F006-01: without serviceCategoryId the services of every category are returned. The provider and the services
+    // are moved to coordinates that no other test uses, so the first results are the services of this test.
     [Fact]
     [Trait("Requisito", "RF-F006-01")]
-    public async Task SearchJobs_SemCategoria_DevolveTrabalhosDeTodasAsCategorias()
+    public async Task SearchServices_SemCategoria_DevolveTrabalhosDeTodasAsCategorias()
     {
         var provider = await CreateProviderAsync(15);
         int otherCategoryId = await CreateCategoryAsync(_client, await LoginAsAdminAsync(_client));
-        int near = await CreateJobAsync(provider.ServiceCategoryId, FakeGeocodingService.AddressAt2Km);
-        int far = await CreateJobAsync(otherCategoryId, FakeGeocodingService.AddressAt2Km);
+        int near = await CreatePublicServiceAsync(provider.ServiceCategoryId, FakeGeocodingService.AddressAt2Km);
+        int far = await CreatePublicServiceAsync(otherCategoryId, FakeGeocodingService.AddressAt2Km);
         // 0.01° of latitude is about 1.1 km.
         decimal latitude = 37.0m + (Random.Shared.Next(0, 100_000) / 100_000m);
         await MoveUserAsync(provider.UserId, latitude, -20.0m);
@@ -153,15 +153,15 @@ public class PublishedJobsEndpointsTests(LocalHubApiFactory factory)
 
     // ---------- E19: filters and pages (criteria 4 and 5) ----------
 
-    // Criterion 5: with a radius of 25 km, the job at 10 km is returned and the one at 30 km is not; without the
-    // filter (previous test) a job outside the radius is returned.
+    // Criterion 5: with a radius of 25 km, the service at 10 km is returned and the one at 30 km is not; without the
+    // filter (previous test) a service outside the radius is returned.
     [Fact]
     [Trait("Requisito", "RF-F006-01")]
-    public async Task SearchJobs_WithinServiceRadiusTrueERaioDe25_SoDevolveOsTrabalhosDentroDoRaio()
+    public async Task SearchServices_WithinServiceRadiusTrueERaioDe25_SoDevolveOsTrabalhosDentroDoRaio()
     {
         var provider = await CreateProviderAsync(25);
-        int at10 = await CreateJobAsync(provider.ServiceCategoryId, FakeGeocodingService.AddressAt10Km);
-        await CreateJobAsync(provider.ServiceCategoryId, FakeGeocodingService.AddressAt30Km);
+        int at10 = await CreatePublicServiceAsync(provider.ServiceCategoryId, FakeGeocodingService.AddressAt10Km);
+        await CreatePublicServiceAsync(provider.ServiceCategoryId, FakeGeocodingService.AddressAt30Km);
 
         using var withFilter = await GetAsync(
             provider.Token, $"{Url}?serviceCategoryId={provider.ServiceCategoryId}&withinServiceRadius=true");
@@ -178,11 +178,11 @@ public class PublishedJobsEndpointsTests(LocalHubApiFactory factory)
 
     [Fact]
     [Trait("Requisito", "RF-F006-01")]
-    public async Task SearchJobs_SegundaPagina_DevolveOTrabalhoSeguinte()
+    public async Task SearchServices_SegundaPagina_DevolveOTrabalhoSeguinte()
     {
         var provider = await CreateProviderAsync(15);
-        await CreateJobAsync(provider.ServiceCategoryId, FakeGeocodingService.AddressAt2Km);
-        int at10 = await CreateJobAsync(provider.ServiceCategoryId, FakeGeocodingService.AddressAt10Km);
+        await CreatePublicServiceAsync(provider.ServiceCategoryId, FakeGeocodingService.AddressAt2Km);
+        int at10 = await CreatePublicServiceAsync(provider.ServiceCategoryId, FakeGeocodingService.AddressAt10Km);
 
         using var response = await GetAsync(
             provider.Token, $"{Url}?serviceCategoryId={provider.ServiceCategoryId}&page=2&pageSize=1");
@@ -195,7 +195,7 @@ public class PublishedJobsEndpointsTests(LocalHubApiFactory factory)
 
     [Fact]
     [Trait("Requisito", "RF-F006-01")]
-    public async Task SearchJobs_CategoriaDesativada_Devolve400NoCampo()
+    public async Task SearchServices_CategoriaDesativada_Devolve400NoCampo()
     {
         var provider = await CreateProviderAsync(15);
         string adminToken = await LoginAsAdminAsync(_client);
@@ -217,7 +217,7 @@ public class PublishedJobsEndpointsTests(LocalHubApiFactory factory)
     [InlineData("withinServiceRadius=talvez", "withinServiceRadius")]
     [InlineData("page=0", "page")]
     [Trait("Requisito", "RF-F006-01")]
-    public async Task SearchJobs_FiltroInvalido_Devolve400NoCampo(string query, string field)
+    public async Task SearchServices_FiltroInvalido_Devolve400NoCampo(string query, string field)
     {
         var provider = await CreateProviderAsync(15);
 
@@ -226,44 +226,44 @@ public class PublishedJobsEndpointsTests(LocalHubApiFactory factory)
         await AssertFieldErrorAsync(response, field);
     }
 
-    // ---------- E38: consult a published job (criterion 7) ----------
+    // ---------- E38: consult a PUBLIC service (criterion 7) ----------
 
     [Fact]
     [Trait("Requisito", "RF-F011-01")]
     [Trait("Requisito", "RNF-06")]
-    public async Task GetJob_TrabalhoPublicadoAberto_Devolve200ComODetalheESemDadosDoCliente()
+    public async Task GetService_TrabalhoPublicadoAberto_Devolve200ComODetalheESemDadosDoCliente()
     {
         var provider = await CreateProviderAsync(15);
-        int serviceId = await CreateJobAsync(provider.ServiceCategoryId, FakeGeocodingService.AddressAt10Km);
+        int serviceId = await CreatePublicServiceAsync(provider.ServiceCategoryId, FakeGeocodingService.AddressAt10Km);
 
         using var response = await GetAsync(provider.Token, $"{Url}/{serviceId}");
 
-        var job = await BodyAsync(response);
-        Assert.Equal(serviceId, job.GetProperty("serviceId").GetInt32());
-        Assert.Equal(provider.ServiceCategoryId, job.GetProperty("serviceCategory").GetProperty("serviceCategoryId").GetInt32());
-        Assert.Equal("Substituir torneira", job.GetProperty("title").GetString());
-        Assert.Equal("Substituir a torneira da cozinha que pinga.", job.GetProperty("description").GetString());
-        Assert.Equal(FakeGeocodingService.AddressAt10Km, job.GetProperty("location").GetString());
-        Assert.Equal(10.0m, job.GetProperty("distanceKm").GetDecimal());
-        Assert.True(job.GetProperty("withinServiceRadius").GetBoolean());
+        var service = await BodyAsync(response);
+        Assert.Equal(serviceId, service.GetProperty("serviceId").GetInt32());
+        Assert.Equal(provider.ServiceCategoryId, service.GetProperty("serviceCategory").GetProperty("serviceCategoryId").GetInt32());
+        Assert.Equal("Substituir torneira", service.GetProperty("title").GetString());
+        Assert.Equal("Substituir a torneira da cozinha que pinga.", service.GetProperty("description").GetString());
+        Assert.Equal(FakeGeocodingService.AddressAt10Km, service.GetProperty("location").GetString());
+        Assert.Equal(10.0m, service.GetProperty("distanceKm").GetDecimal());
+        Assert.True(service.GetProperty("withinServiceRadius").GetBoolean());
         Assert.Equal(Today.AddDays(1).ToString(IsoDate, CultureInfo.InvariantCulture),
-            job.GetProperty("requestedStartDate").GetString());
-        Assert.Equal(JsonValueKind.Null, job.GetProperty("requestedEndDate").ValueKind);
-        Assert.EndsWith("Z", job.GetProperty("creationDate").GetString(), StringComparison.Ordinal);
-        Assert.Equal(JsonValueKind.Null, job.GetProperty("myProposalId").ValueKind);
-        AssertHasNoClientData(job);
-        Assert.False(job.TryGetProperty("proposals", out _));
+            service.GetProperty("requestedStartDate").GetString());
+        Assert.Equal(JsonValueKind.Null, service.GetProperty("requestedEndDate").ValueKind);
+        Assert.EndsWith("Z", service.GetProperty("creationDate").GetString(), StringComparison.Ordinal);
+        Assert.Equal(JsonValueKind.Null, service.GetProperty("myProposalId").ValueKind);
+        AssertHasNoClientData(service);
+        Assert.False(service.TryGetProperty("proposals", out _));
     }
 
     // myProposalId is the own proposal; another provider never sees it (RNF-06).
     [Fact]
     [Trait("Requisito", "RF-F011-01")]
     [Trait("Requisito", "RNF-06")]
-    public async Task GetJob_DepoisDaProposta_DevolveMyProposalIdSoAoPrestadorQueAApresentou()
+    public async Task GetService_DepoisDaProposta_DevolveMyProposalIdSoAoPrestadorQueAApresentou()
     {
         var provider = await CreateProviderAsync(15);
         var other = await CreateProviderAsync(15, provider.ServiceCategoryId);
-        int serviceId = await CreateJobAsync(provider.ServiceCategoryId, FakeGeocodingService.AddressAt2Km);
+        int serviceId = await CreatePublicServiceAsync(provider.ServiceCategoryId, FakeGeocodingService.AddressAt2Km);
         using var submit = await SendJsonAsync(_client, HttpMethod.Post, $"{ServicesUrl}/{serviceId}/proposals",
             provider.Token, new { amount = 120.00m, conditions = "Material incluído." });
         Assert.Equal(HttpStatusCode.Created, submit.StatusCode);
@@ -284,7 +284,7 @@ public class PublishedJobsEndpointsTests(LocalHubApiFactory factory)
     [InlineData("cliente-desativado")]
     [Trait("Requisito", "RF-F011-01")]
     [Trait("Requisito", "RF-F002-02")]
-    public async Task GetJob_ServicoQueNaoEUmTrabalhoPublicadoAberto_Devolve404(string scenario)
+    public async Task GetService_ServicoQueNaoEUmTrabalhoPublicadoAberto_Devolve404(string scenario)
     {
         var provider = await CreateProviderAsync(15);
         int serviceId;
@@ -298,11 +298,11 @@ public class PublishedJobsEndpointsTests(LocalHubApiFactory factory)
                 break;
             case "cliente-desativado":
                 var client = await RegisterClientAsync(_client);
-                serviceId = await CreateJobAsync(client, provider.ServiceCategoryId, FakeGeocodingService.AddressAt2Km);
+                serviceId = await CreatePublicServiceAsync(client, provider.ServiceCategoryId, FakeGeocodingService.AddressAt2Km);
                 await DeactivateAsync(client.UserId);
                 break;
             default:
-                serviceId = await CreateJobAsync(provider.ServiceCategoryId, FakeGeocodingService.AddressAt2Km);
+                serviceId = await CreatePublicServiceAsync(provider.ServiceCategoryId, FakeGeocodingService.AddressAt2Km);
                 await SetServiceStatusAsync(serviceId, scenario);
                 break;
         }
@@ -315,11 +315,11 @@ public class PublishedJobsEndpointsTests(LocalHubApiFactory factory)
 
     [Fact]
     [Trait("Requisito", "RF-F011-01")]
-    public async Task GetJob_Cliente_Devolve403()
+    public async Task GetService_Cliente_Devolve403()
     {
         var client = await RegisterClientAsync(_client);
         int categoryId = await CreateCategoryAsync(_client, await LoginAsAdminAsync(_client));
-        int serviceId = await CreateJobAsync(client, categoryId, FakeGeocodingService.AddressAt2Km);
+        int serviceId = await CreatePublicServiceAsync(client, categoryId, FakeGeocodingService.AddressAt2Km);
 
         using var response = await GetAsync(client.Token, $"{Url}/{serviceId}");
 
@@ -329,10 +329,10 @@ public class PublishedJobsEndpointsTests(LocalHubApiFactory factory)
     [Fact]
     [Trait("Requisito", "RF-F011-01")]
     [Trait("Requisito", "RF-F004-01")]
-    public async Task GetJob_PrestadorSemPerfil_Devolve403PerfilEmFalta()
+    public async Task GetService_PrestadorSemPerfil_Devolve403PerfilEmFalta()
     {
         int categoryId = await CreateCategoryAsync(_client, await LoginAsAdminAsync(_client));
-        int serviceId = await CreateJobAsync(categoryId, FakeGeocodingService.AddressAt2Km);
+        int serviceId = await CreatePublicServiceAsync(categoryId, FakeGeocodingService.AddressAt2Km);
         var (token, _, _) = await RegisterProviderAsync(_client);
 
         using var response = await GetAsync(token, $"{Url}/{serviceId}");
@@ -359,11 +359,11 @@ public class PublishedJobsEndpointsTests(LocalHubApiFactory factory)
         return new ProviderWithProfile(token, userId, email, profile.GetProperty("professionalProfileId").GetInt32(), categoryId);
     }
 
-    // A published job (E20) at the address given, by a new client.
-    private async Task<int> CreateJobAsync(int serviceCategoryId, string address) =>
-        await CreateJobAsync(await RegisterClientAsync(_client), serviceCategoryId, address);
+    // A PUBLIC service (E20) at the address given, by a new client.
+    private async Task<int> CreatePublicServiceAsync(int serviceCategoryId, string address) =>
+        await CreatePublicServiceAsync(await RegisterClientAsync(_client), serviceCategoryId, address);
 
-    private async Task<int> CreateJobAsync(TestClient client, int serviceCategoryId, string address)
+    private async Task<int> CreatePublicServiceAsync(TestClient client, int serviceCategoryId, string address)
     {
         var body = PublicBody(serviceCategoryId);
         body["location"] = address;
@@ -430,11 +430,11 @@ public class PublishedJobsEndpointsTests(LocalHubApiFactory factory)
         items.Select(i => i.GetProperty("serviceId").GetInt32()).ToList();
 
     // RF-F006-01 and RF-F011-01: neither the Client nor its contacts.
-    private static void AssertHasNoClientData(JsonElement job)
+    private static void AssertHasNoClientData(JsonElement service)
     {
         foreach (string field in new[] { "clientId", "client", "clientName", "email", "contactDetails" })
         {
-            Assert.False(job.TryGetProperty(field, out _), $"O trabalho não pode ter o campo {field}.");
+            Assert.False(service.TryGetProperty(field, out _), $"O trabalho não pode ter o campo {field}.");
         }
     }
 

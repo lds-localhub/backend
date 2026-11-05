@@ -99,7 +99,7 @@ public class ServiceReviewTests
 
     private static Service CompletedService() => ServiceIn(ServiceStatus.Completed);
 
-    // A published job with the proposal of the profile 12 accepted, moved to the given state.
+    // A PUBLIC service with the proposal of the profile 12 accepted, moved to the given state.
     private static Service ServiceIn(ServiceStatus state)
     {
         var service = Service.Create(NewClient(), Plumbing, ProposalModel.Public, "Reparar torneira",

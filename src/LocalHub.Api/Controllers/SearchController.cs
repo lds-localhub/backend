@@ -10,7 +10,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace LocalHub.Api.Controllers;
 
-// Searches by distance: F005 (E18) and F006 (E19, with the detail of each published job in E38).
+// Searches by distance: F005 (E18) and F006 (E19, with the detail of each PUBLIC service in E38).
 [ApiController]
 [Route("api/search")]
 public class SearchController : ControllerBase
@@ -44,23 +44,23 @@ public class SearchController : ControllerBase
     [HttpGet("services")]
     [Authorize(Roles = "PROVIDER")]
     [ServiceFilter(typeof(RequireProfessionalProfileFilter))]
-    public async Task<ActionResult<PagedResult<PublishedJobSearchResult>>> SearchPublishedJobs(
+    public async Task<ActionResult<PagedResult<OpenServiceSearchResult>>> SearchServices(
         CancellationToken cancellationToken,
         [FromQuery] int? serviceCategoryId = null,
         [FromQuery] bool withinServiceRadius = false,
         [FromQuery] int page = PageRequest.DefaultPage,
         [FromQuery] int pageSize = PageRequest.DefaultPageSize)
     {
-        return Ok(await _searchService.SearchPublishedJobsAsync(
+        return Ok(await _searchService.SearchOpenServicesAsync(
             serviceCategoryId, withinServiceRadius, new PageRequest(page, pageSize), cancellationToken));
     }
 
-    // E38: only providers with a profile, for the published jobs that E19 returns.
+    // E38: only providers with a profile, for the PUBLIC services that E19 returns.
     [HttpGet("services/{serviceId:int}")]
     [Authorize(Roles = "PROVIDER")]
     [ServiceFilter(typeof(RequireProfessionalProfileFilter))]
-    public async Task<ActionResult<PublishedJobResponse>> GetPublishedJob(int serviceId, CancellationToken cancellationToken)
+    public async Task<ActionResult<OpenServiceResponse>> GetService(int serviceId, CancellationToken cancellationToken)
     {
-        return Ok(await _searchService.GetPublishedJobAsync(serviceId, cancellationToken));
+        return Ok(await _searchService.GetOpenServiceAsync(serviceId, cancellationToken));
     }
 }

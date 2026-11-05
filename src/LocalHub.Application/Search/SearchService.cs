@@ -119,11 +119,11 @@ public class SearchService
         return new PagedResult<ProviderSearchResult>(page.Page, page.PageSize, total, items);
     }
 
-    // E19 (RF-F006-01): the published jobs that are OPEN and whose Client is ACTIVE, ordered by the distance to the
+    // E19 (RF-F006-01): the PUBLIC services that are OPEN and whose Client is ACTIVE, ordered by the distance to the
     // registered location of the provider (no other location can be indicated). Without withinServiceRadius the
-    // service radius does not limit the results; with it, only the jobs at a distance equal to or less than the radius
-    // are returned. The data of the Client is never returned.
-    public async Task<PagedResult<PublishedJobSearchResult>> SearchPublishedJobsAsync(
+    // service radius does not limit the results; with it, only the services at a distance equal to or less than the
+    // radius are returned. The data of the Client is never returned.
+    public async Task<PagedResult<OpenServiceSearchResult>> SearchOpenServicesAsync(
         int? serviceCategoryId, bool withinServiceRadius, PageRequest page, CancellationToken cancellationToken)
     {
         var errors = new Dictionary<string, string[]>();
@@ -150,17 +150,17 @@ public class SearchService
         // ThrowIfAny above always throws without a location.
         Coordinates reference = provider.Location!;
 
-        // RF-F006-01: the published jobs (PUBLIC) that are OPEN and whose Client is ACTIVE.
-        var jobs = _db.Services.AsNoTracking()
+        // RF-F006-01: the PUBLIC services that are OPEN and whose Client is ACTIVE.
+        var services = _db.Services.AsNoTracking()
             .Where(s => s.ProposalModel == ProposalModel.Public
                         && s.Status == ServiceStatus.Open
                         && s.Client.Status == ActivationStatus.Active);
         if (serviceCategoryId != null)
         {
-            jobs = jobs.Where(s => s.ServiceCategoryId == serviceCategoryId);
+            services = services.Where(s => s.ServiceCategoryId == serviceCategoryId);
         }
 
-        var candidates = await jobs
+        var candidates = await services
             .Select(s => new
             {
                 s.ServiceId,
@@ -181,7 +181,7 @@ public class SearchService
         var withDistance = candidates
             .Select(s => new
             {
-                Job = s,
+                Service = s,
                 DistanceKm = GeoDistance.HaversineKm(s.Latitude, s.Longitude, reference.Latitude, reference.Longitude),
             })
             .ToList();
@@ -194,35 +194,36 @@ public class SearchService
         int total = withDistance.Count;
         var rows = withDistance
             .OrderBy(r => r.DistanceKm)
-            .ThenBy(r => r.Job.ServiceId) // stable order between pages when two jobs are at the same distance
+            .ThenBy(r => r.Service.ServiceId) // stable order between pages when two services are at the same distance
             .Skip(page.Skip)
             .Take(page.PageSize)
             .ToList();
 
         var items = rows
-            .Select(r => new PublishedJobSearchResult(
-                r.Job.ServiceId,
-                new ServiceCategorySummary(r.Job.ServiceCategoryId, r.Job.CategoryName),
-                r.Job.Title,
-                r.Job.Description,
-                r.Job.Location,
+            .Select(r => new OpenServiceSearchResult(
+                r.Service.ServiceId,
+                new ServiceCategorySummary(r.Service.ServiceCategoryId, r.Service.CategoryName),
+                r.Service.Title,
+                r.Service.Description,
+                r.Service.Location,
                 GeoDistance.RoundKm(r.DistanceKm),
                 r.DistanceKm <= provider.ServiceRadiusKm,
-                r.Job.RequestedStartDate,
-                r.Job.RequestedEndDate,
-                r.Job.CreationDate))
+                r.Service.RequestedStartDate,
+                r.Service.RequestedEndDate,
+                r.Service.CreationDate))
             .ToList();
 
-        return new PagedResult<PublishedJobSearchResult>(page.Page, page.PageSize, total, items);
+        return new PagedResult<OpenServiceSearchResult>(page.Page, page.PageSize, total, items);
     }
 
-    // E38 (RF-F011-01): the detail of a published job, for the provider to decide whether to present a proposal (E25).
-    // A job that does not exist, has direct requests, is no longer OPEN or whose Client is INACTIVE is not found (404).
-    public async Task<PublishedJobResponse> GetPublishedJobAsync(int serviceId, CancellationToken cancellationToken)
+    // E38 (RF-F011-01): the detail of a PUBLIC service, for the provider to decide whether to present a proposal (E25).
+    // A service that does not exist, has direct requests, is no longer OPEN or whose Client is INACTIVE is not found
+    // (404).
+    public async Task<OpenServiceResponse> GetOpenServiceAsync(int serviceId, CancellationToken cancellationToken)
     {
         var provider = await FindProviderAsync(cancellationToken);
 
-        var job = await _db.Services.AsNoTracking()
+        var service = await _db.Services.AsNoTracking()
             .Where(s => s.ServiceId == serviceId
                         && s.ProposalModel == ProposalModel.Public
                         && s.Status == ServiceStatus.Open
@@ -247,28 +248,31 @@ public class SearchService
                     .FirstOrDefault(),
             })
             .SingleOrDefaultAsync(cancellationToken);
-        if (job == null)
+        if (service == null)
         {
             throw new NotFoundException("Trabalho publicado não encontrado.");
         }
 
         bool withinServiceRadius = provider.Location != null
                                    && GeoDistance.HaversineKm(
-                                       provider.Location.Latitude, provider.Location.Longitude, job.Latitude, job.Longitude)
+                                       provider.Location.Latitude,
+                                       provider.Location.Longitude,
+                                       service.Latitude,
+                                       service.Longitude)
                                    <= provider.ServiceRadiusKm;
 
-        return new PublishedJobResponse(
-            job.ServiceId,
-            new ServiceCategorySummary(job.ServiceCategoryId, job.CategoryName),
-            job.Title,
-            job.Description,
-            job.Location,
-            LocationQueries.DistanceKm(provider.Location, job.Latitude, job.Longitude),
+        return new OpenServiceResponse(
+            service.ServiceId,
+            new ServiceCategorySummary(service.ServiceCategoryId, service.CategoryName),
+            service.Title,
+            service.Description,
+            service.Location,
+            LocationQueries.DistanceKm(provider.Location, service.Latitude, service.Longitude),
             withinServiceRadius,
-            job.RequestedStartDate,
-            job.RequestedEndDate,
-            job.CreationDate,
-            job.MyProposalId);
+            service.RequestedStartDate,
+            service.RequestedEndDate,
+            service.CreationDate,
+            service.MyProposalId);
     }
 
     // The profile of the provider that searches, with its service radius and location. The RequireProfessionalProfileFilter
