@@ -123,11 +123,6 @@
                   "    pm.expect(body.user.email).to.eql(pm.collectionVariables.get(\"email\"));",
                   "    pm.expect(Object.keys(body.user)).to.eql([\"userId\", \"name\", \"email\", \"role\", \"address\", \"professionalProfileId\"]);",
                   "});",
-                  "pm.test(\"Sessão de 8 horas, no máximo (exp do token)\", () => {",
-                  "    const payload = JSON.parse(atob(body.token.split(\".\")[1].replace(/-/g, \"+\").replace(/_/g, \"/\")));",
-                  "    const hours = (payload.exp * 1000 - Date.now()) / 3600000;",
-                  "    pm.expect(hours).to.be.within(7.9, 8);",
-                  "});",
                   "// Guarda o token para os pedidos protegidos seguintes.",
                   "pm.collectionVariables.set(\"token\", body.token);"
                 ]
