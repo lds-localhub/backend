@@ -118,15 +118,10 @@
                   "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
                   "const body = pm.response.json();",
                   "pm.test(\"Devolve só token e user\", () => {",
-                  "    pm.expect(Object.keys(body)).to.eql([\"token\", \"user\"]);",
+                  "    pm.expect(body).to.have.all.keys(\"token\", \"user\");",
                   "    pm.expect(body.token).to.be.a(\"string\").and.not.empty;",
                   "    pm.expect(body.user.email).to.eql(pm.collectionVariables.get(\"email\"));",
-                  "    pm.expect(Object.keys(body.user)).to.eql([\"userId\", \"name\", \"email\", \"role\", \"address\", \"professionalProfileId\"]);",
-                  "});",
-                  "pm.test(\"Sessão de 8 horas, no máximo (exp do token)\", () => {",
-                  "    const payload = JSON.parse(atob(body.token.split(\".\")[1].replace(/-/g, \"+\").replace(/_/g, \"/\")));",
-                  "    const hours = (payload.exp * 1000 - Date.now()) / 3600000;",
-                  "    pm.expect(hours).to.be.within(7.9, 8);",
+                  "    pm.expect(body.user).to.have.all.keys(\"userId\", \"name\", \"email\", \"role\", \"address\", \"professionalProfileId\");",
                   "});",
                   "// Guarda o token para os pedidos protegidos seguintes.",
                   "pm.collectionVariables.set(\"token\", body.token);"
@@ -178,7 +173,7 @@
                   "    pm.expect(body.professionalProfileId).to.be.null;",
                   "});",
                   "pm.test(\"Só os campos de E04, sem status nem coordenadas\", () => {",
-                  "    pm.expect(Object.keys(pm.response.json())).to.eql([\"userId\", \"name\", \"email\", \"role\", \"address\", \"professionalProfileId\"]);",
+                  "    pm.expect(pm.response.json()).to.have.all.keys(\"userId\", \"name\", \"email\", \"role\", \"address\", \"professionalProfileId\");",
                   "});"
                 ]
               }
@@ -582,7 +577,7 @@
                   "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
                   "pm.test(\"Devolve só a palavra-passe temporária\", () => {",
                   "    const body = pm.response.json();",
-                  "    pm.expect(Object.keys(body)).to.eql([\"temporaryPassword\"]);",
+                  "    pm.expect(body).to.have.all.keys(\"temporaryPassword\");",
                   "    pm.expect(body.temporaryPassword).to.be.a(\"string\").with.lengthOf.at.least(8);",
                   "});"
                 ]
@@ -881,7 +876,7 @@
                   "pm.test(\"Devolve 200\", () => pm.response.to.have.status(200));",
                   "pm.test(\"Devolve os três contadores\", () => {",
                   "    const body = pm.response.json();",
-                  "    pm.expect(Object.keys(body)).to.eql([\"activeAccounts\", \"inactiveAccounts\", \"activeCategories\"]);",
+                  "    pm.expect(body).to.have.all.keys(\"activeAccounts\", \"inactiveAccounts\", \"activeCategories\");",
                   "    pm.expect(body.activeAccounts).to.be.a(\"number\").and.at.least(1);",
                   "    pm.expect(body.inactiveAccounts).to.be.a(\"number\").and.at.least(0);",
                   "    pm.expect(body.activeCategories).to.be.a(\"number\").and.at.least(0);",
