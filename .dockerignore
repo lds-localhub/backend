@@ -1,0 +1,13 @@
+**/bin/
+**/obj/
+**/.vs/
+**/.idea/
+**/*.user
+**/appsettings.Development.json
+.git/
+.github/
+.claude/
+tests/
+postman/
+database/
+*.stackdump
