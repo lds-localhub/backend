@@ -2,7 +2,7 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
-COPY Directory.Build.props ./
+COPY .editorconfig Directory.Build.props ./
 COPY src/LocalHub.Domain/LocalHub.Domain.csproj src/LocalHub.Domain/
 COPY src/LocalHub.Application/LocalHub.Application.csproj src/LocalHub.Application/
 COPY src/LocalHub.Infrastructure/LocalHub.Infrastructure.csproj src/LocalHub.Infrastructure/
