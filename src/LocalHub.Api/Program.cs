@@ -142,6 +142,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseMiddleware<ErrorHandlingMiddleware>();
+// 404 and 405 from routing have no body: they get the same problem+json format as the other errors.
+app.UseStatusCodePages(context => ProblemResponses.WriteUnmatchedRouteAsync(context.HttpContext));
 // Before authentication: the preflight (OPTIONS) has no token and must not get a 401.
 app.UseCors();
 app.UseAuthentication();
