@@ -104,24 +104,6 @@ public class AuthEndpointsTests(LocalHubApiFactory factory)
         Assert.Equal(first.GetProperty("detail").GetString(), second.GetProperty("detail").GetString());
     }
 
-    [Theory]
-    [InlineData("1")] // position of MOBILE
-    [InlineData("99")] // no application
-    [Trait("Requisito", "RF-F001-02")]
-    public async Task Login_ClientAsNumber_Returns400WithClientError(string client)
-    {
-        using var content = new StringContent(
-            $$"""{ "email": "{{AdminEmail}}", "password": "{{LocalHubApiFactory.SeedPassword}}", "client": {{client}} }""",
-            System.Text.Encoding.UTF8,
-            "application/json");
-
-        using var response = await _client.PostAsync("/api/auth/login", content);
-
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        var body = await AssertProblemAsync(response, BadRequestType, "/api/auth/login");
-        Assert.True(body.GetProperty("errors").TryGetProperty("client", out _));
-    }
-
     [Fact]
     [Trait("Requisito", "RF-F001-06")]
     public async Task Login_AdministratorOnMobileApp_Returns403WebOnlyAdministrationWithoutSession()

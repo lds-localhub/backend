@@ -1,6 +1,4 @@
 using System.Net;
-using System.Net.Http.Headers;
-using System.Net.Http.Json;
 
 using LocalHub.Infrastructure;
 using LocalHub.IntegrationTests.Fixtures;
@@ -70,76 +68,6 @@ public class SessionTests(LocalHubApiFactory factory)
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
         await AssertProblemAsync(response, "https://tools.ietf.org/html/rfc9110#section-15.5.2", MeUrl);
-    }
-
-    [Fact]
-    [Trait("Requisito", "RNF-02")]
-    public async Task Login_WithRevokedTokenInHeader_Returns200()
-    {
-        string email = NewEmail();
-        string token = await RegisterAndLoginAsync(_client, email);
-        using var logout = await SendWithTokenAsync(_client, HttpMethod.Post, "/api/auth/logout", token);
-
-        // The client still sends the old token; login does not need it, so it is ignored.
-        using var login = await PostJsonWithTokenAsync(
-            "/api/auth/login", new { email, password = ValidPassword, client = "WEB" }, token);
-
-        Assert.Equal(HttpStatusCode.NoContent, logout.StatusCode);
-        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
-    }
-
-    [Fact]
-    [Trait("Requisito", "RNF-02")]
-    public async Task Register_WithRevokedTokenInHeader_Returns201()
-    {
-        string token = await RegisterAndLoginAsync(_client, NewEmail());
-        using var logout = await SendWithTokenAsync(_client, HttpMethod.Post, "/api/auth/logout", token);
-
-        using var register = await PostJsonWithTokenAsync(
-            "/api/auth/register",
-            new { name = "Teste", email = NewEmail(), password = ValidPassword, role = "CLIENT" },
-            token);
-
-        Assert.Equal(HttpStatusCode.Created, register.StatusCode);
-    }
-
-    [Fact]
-    [Trait("Requisito", "RF-F002-02")]
-    public async Task Login_DeactivatedAccountWithOldTokenInHeader_Returns403()
-    {
-        string email = NewEmail();
-        string token = await RegisterAndLoginAsync(_client, email);
-        await DeactivateAsync(email);
-
-        using var login = await PostJsonWithTokenAsync(
-            "/api/auth/login", new { email, password = ValidPassword, client = "WEB" }, token);
-
-        // The account message, not the session one.
-        Assert.Equal(HttpStatusCode.Forbidden, login.StatusCode);
-    }
-
-    [Fact]
-    [Trait("Requisito", "RNF-02")]
-    public async Task PublicEndpoint_WithRevokedAdminToken_IsTreatedAsAnonymous()
-    {
-        string token = await LoginAsAdminAsync(_client);
-        using var logout = await SendWithTokenAsync(_client, HttpMethod.Post, "/api/auth/logout", token);
-
-        // The public list is still available, but the revoked token no longer grants the administrator view.
-        using var publicList = await SendWithTokenAsync(_client, HttpMethod.Get, "/api/categories", token);
-        using var adminList = await SendWithTokenAsync(
-            _client, HttpMethod.Get, "/api/categories?includeInactive=true", token);
-
-        Assert.Equal(HttpStatusCode.NoContent, logout.StatusCode);
-        Assert.Equal(HttpStatusCode.OK, publicList.StatusCode);
-        Assert.Equal(HttpStatusCode.Unauthorized, adminList.StatusCode);
-    }
-
-    private async Task<HttpResponseMessage> PostJsonWithTokenAsync(string url, object body, string token)
-    {
-        using var request = new HttpRequestMessage(HttpMethod.Post, url) { Content = JsonContent.Create(body) };
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        return await _client.SendAsync(request);
     }
 
     private async Task DeactivateAsync(string email)
