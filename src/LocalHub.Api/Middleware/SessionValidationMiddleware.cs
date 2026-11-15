@@ -1,3 +1,5 @@
+using System.Security.Claims;
+
 using LocalHub.Application.Accounts;
 using LocalHub.Application.Common;
 
@@ -19,18 +21,18 @@ public class SessionValidationMiddleware : IMiddleware
 
     public async Task InvokeAsync(HttpContext context, RequestDelegate next)
     {
-        // Public endpoints (login, register, health) ignore the token, so an old one does not block them.
-        if (context.GetEndpoint()?.Metadata.GetMetadata<IAllowAnonymous>() != null)
-        {
-            await next(context);
-            return;
-        }
-
         if (_currentUser.IsAuthenticated
             && !await _authService.ValidateSessionAsync(_currentUser.SessionId, context.RequestAborted))
         {
-            await ProblemResponses.WriteSessionInvalidAsync(context);
-            return;
+            // Public endpoints (login, register, health) treat the request as anonymous, so an old token
+            // neither blocks them nor still identifies the user.
+            if (context.GetEndpoint()?.Metadata.GetMetadata<IAllowAnonymous>() == null)
+            {
+                await ProblemResponses.WriteSessionInvalidAsync(context);
+                return;
+            }
+
+            context.User = new ClaimsPrincipal(new ClaimsIdentity());
         }
 
         await next(context);

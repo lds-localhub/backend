@@ -118,6 +118,23 @@ public class SessionTests(LocalHubApiFactory factory)
         Assert.Equal(HttpStatusCode.Forbidden, login.StatusCode);
     }
 
+    [Fact]
+    [Trait("Requisito", "RNF-02")]
+    public async Task PublicEndpoint_WithRevokedAdminToken_IsTreatedAsAnonymous()
+    {
+        string token = await LoginAsAdminAsync(_client);
+        using var logout = await SendWithTokenAsync(_client, HttpMethod.Post, "/api/auth/logout", token);
+
+        // The public list is still available, but the revoked token no longer grants the administrator view.
+        using var publicList = await SendWithTokenAsync(_client, HttpMethod.Get, "/api/categories", token);
+        using var adminList = await SendWithTokenAsync(
+            _client, HttpMethod.Get, "/api/categories?includeInactive=true", token);
+
+        Assert.Equal(HttpStatusCode.NoContent, logout.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, publicList.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, adminList.StatusCode);
+    }
+
     private async Task<HttpResponseMessage> PostJsonWithTokenAsync(string url, object body, string token)
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, url) { Content = JsonContent.Create(body) };
