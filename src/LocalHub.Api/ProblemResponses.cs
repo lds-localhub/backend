@@ -12,6 +12,7 @@ public static class ProblemResponses
         StatusCodes.Status401Unauthorized => "https://tools.ietf.org/html/rfc9110#section-15.5.2",
         StatusCodes.Status403Forbidden => "https://tools.ietf.org/html/rfc9110#section-15.5.4",
         StatusCodes.Status404NotFound => "https://tools.ietf.org/html/rfc9110#section-15.5.5",
+        StatusCodes.Status405MethodNotAllowed => "https://tools.ietf.org/html/rfc9110#section-15.5.6",
         StatusCodes.Status409Conflict => "https://tools.ietf.org/html/rfc9110#section-15.5.10",
         StatusCodes.Status503ServiceUnavailable => "https://tools.ietf.org/html/rfc9110#section-15.6.4",
         _ => "https://tools.ietf.org/html/rfc9110#section-15.6.1",
@@ -48,6 +49,25 @@ public static class ProblemResponses
             StatusCodes.Status401Unauthorized,
             "Sessão inválida",
             "A sua sessão terminou. Inicie sessão novamente.");
+    }
+
+    // Responses without a body from routing (no endpoint matches the path or the method).
+    public static Task WriteUnmatchedRouteAsync(HttpContext context)
+    {
+        return context.Response.StatusCode switch
+        {
+            StatusCodes.Status404NotFound => WriteAsync(
+                context,
+                StatusCodes.Status404NotFound,
+                "Recurso não encontrado",
+                "O endereço pedido não existe."),
+            StatusCodes.Status405MethodNotAllowed => WriteAsync(
+                context,
+                StatusCodes.Status405MethodNotAllowed,
+                "Método não permitido",
+                "Este endereço não aceita o método HTTP utilizado."),
+            _ => Task.CompletedTask,
+        };
     }
 
     public static Task WriteForbiddenAsync(HttpContext context)

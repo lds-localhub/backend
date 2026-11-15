@@ -1,5 +1,9 @@
+using System.Security.Claims;
+
 using LocalHub.Application.Accounts;
 using LocalHub.Application.Common;
+
+using Microsoft.AspNetCore.Authorization;
 
 namespace LocalHub.Api.Middleware;
 
@@ -20,8 +24,15 @@ public class SessionValidationMiddleware : IMiddleware
         if (_currentUser.IsAuthenticated
             && !await _authService.ValidateSessionAsync(_currentUser.SessionId, context.RequestAborted))
         {
-            await ProblemResponses.WriteSessionInvalidAsync(context);
-            return;
+            // Public endpoints (login, register, health) treat the request as anonymous, so an old token
+            // neither blocks them nor still identifies the user.
+            if (context.GetEndpoint()?.Metadata.GetMetadata<IAllowAnonymous>() == null)
+            {
+                await ProblemResponses.WriteSessionInvalidAsync(context);
+                return;
+            }
+
+            context.User = new ClaimsPrincipal(new ClaimsIdentity());
         }
 
         await next(context);

@@ -78,16 +78,35 @@ $env:ConnectionStrings__LocalHub = "Host=localhost;Port=5432;Database=localhub_d
 ```
 
 A localização (`PUT /api/users/me/location`), a criação do perfil profissional (`POST /api/profiles`) e a criação
-de um serviço com outra morada (`POST /api/services`) obtêm as coordenadas a partir da morada, e a morada a partir
-das coordenadas, através do serviço público
+de um serviço com outra morada (`POST /api/services`) obtêm as coordenadas a partir da morada, e a obtenção do
+endereço (`GET /api/geocoding/reverse`) obtém a morada a partir das coordenadas, através do serviço público
 [Nominatim](https://nominatim.org/) (OpenStreetMap). A pesquisa de Prestadores (`GET /api/search/providers`) também
-o usa quando recebe uma morada (`address`); com coordenadas ou com a localização registada do Cliente não o chama.
+o usa quando recebe uma morada (`address`); sem morada, usa a localização registada do Cliente e não o chama.
 A secção `Nominatim` do `appsettings.json` já tem os valores necessários e não tem segredos; a API precisa de acesso
 à Internet para estes pedidos. Os testes não dependem do Nominatim: usam um serviço de geocodificação falso.
 
-As distâncias da pesquisa são calculadas pelo PostgreSQL, com a fórmula de Haversine (Documentação da Arquitetura,
-DEC-06), sem PostGIS nem outras extensões: o método `GeoDistance.HaversineKm` é traduzido para SQL em cada consulta
-(`LocalHub.Infrastructure/Locations/GeoDistanceTranslation.cs`), por isso nada é criado na base de dados.
+As distâncias da pesquisa são calculadas em memória, no backend, com a fórmula de Haversine
+(`LocalHub.Domain/Locations/GeoDistance.cs`; Documentação da Arquitetura, DEC-06), sem PostGIS nem outras extensões
+na base de dados.
+
+### CORS
+
+A lista `Cors:AllowedOrigins` indica as origens dos frontends web que podem chamar a API a partir do browser.
+No `appsettings.json` está vazia (nenhuma origem permitida); cada ambiente define as suas:
+
+- **Development:** o modelo `appsettings.Development.example.json` já tem `http://localhost:5173` (o frontend web
+  em `npm run dev`). Com o proxy do Vite (`VITE_API_BASE_URL=/api`), o browser faz os pedidos à mesma origem e o
+  CORS não é usado; a entrada só é necessária quando o frontend chama a API diretamente
+  (ex.: `VITE_API_BASE_URL=http://localhost:5041/api`).
+- **Deploy (ex.: Render):** definir uma variável de ambiente por origem, com o endereço exato do frontend, sem
+  `/` no fim. As variáveis de ambiente substituem os valores do `appsettings.json` (`__` separa os níveis e o
+  número é a posição na lista):
+
+  ```text
+  Cors__AllowedOrigins__0=https://<frontend>.onrender.com
+  ```
+
+As aplicações móveis nativas, o Postman e o curl não precisam de CORS: é uma regra dos browsers.
 
 ## Compilar, testar e formatar
 
