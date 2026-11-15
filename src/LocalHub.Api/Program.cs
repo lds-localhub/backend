@@ -37,7 +37,9 @@ builder.Services.AddControllers(o =>
     })
     .AddJsonOptions(o =>
     {
-        o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.SnakeCaseUpper));
+        // Enums only as the documented text (e.g. "WEB"): numbers such as 1 or 99 are rejected with 400.
+        o.JsonSerializerOptions.Converters.Add(
+            new JsonStringEnumConverter(JsonNamingPolicy.SnakeCaseUpper, allowIntegerValues: false));
         o.JsonSerializerOptions.Converters.Add(new UtcDateTimeOffsetConverter());
     })
     .ConfigureApiBehaviorOptions(o =>
