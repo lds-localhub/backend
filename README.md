@@ -89,6 +89,25 @@ As distâncias da pesquisa são calculadas pelo PostgreSQL, com a fórmula de Ha
 DEC-06), sem PostGIS nem outras extensões: o método `GeoDistance.HaversineKm` é traduzido para SQL em cada consulta
 (`LocalHub.Infrastructure/Locations/GeoDistanceTranslation.cs`), por isso nada é criado na base de dados.
 
+### CORS
+
+A lista `Cors:AllowedOrigins` indica as origens dos frontends web que podem chamar a API a partir do browser.
+No `appsettings.json` está vazia (nenhuma origem permitida); cada ambiente define as suas:
+
+- **Development:** o modelo `appsettings.Development.example.json` já tem `http://localhost:5173` (o frontend web
+  em `npm run dev`). Com o proxy do Vite (`VITE_API_BASE_URL=/api`), o browser faz os pedidos à mesma origem e o
+  CORS não é usado; a entrada só é necessária quando o frontend chama a API diretamente
+  (ex.: `VITE_API_BASE_URL=http://localhost:5041/api`).
+- **Deploy (ex.: Render):** definir uma variável de ambiente por origem, com o endereço exato do frontend, sem
+  `/` no fim. As variáveis de ambiente substituem os valores do `appsettings.json` (`__` separa os níveis e o
+  número é a posição na lista):
+
+  ```text
+  Cors__AllowedOrigins__0=https://<frontend>.onrender.com
+  ```
+
+As aplicações móveis nativas, o Postman e o curl não precisam de CORS: é uma regra dos browsers.
+
 ## Compilar, testar e formatar
 
 Executar a partir da raiz do repositório:
